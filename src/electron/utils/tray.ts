@@ -2,31 +2,58 @@ import { app, BrowserWindow, Menu, Tray } from 'electron';
 import path from 'path';
 import { getAssetsPath } from './path-resolver';
 
-export function getTray(mainWindow: BrowserWindow) {
-  const tray = new Tray(
-    path.join(
-      getAssetsPath(),
-      process.platform === 'darwin' ? 'living-template.png' : 'living.png',
-    ),
+let tray: Tray | null = null;
+let currentWindow: BrowserWindow | null = null;
+
+export function createTray(window: BrowserWindow) {
+  if (tray) {
+    currentWindow = window;
+    updateTrayMenu();
+    return tray;
+  }
+
+  currentWindow = window;
+  tray = new Tray(
+    path.join(getAssetsPath(), process.platform === 'darwin' ? 'livingTemplate.png' : 'living.png'),
   );
+
+  updateTrayMenu();
+  return tray;
+}
+
+export function updateTrayWindow(window: BrowserWindow) {
+  currentWindow = window;
+  if (tray) {
+    updateTrayMenu();
+  }
+}
+
+function updateTrayMenu() {
+  if (!tray || !currentWindow) return;
 
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: 'Show',
+        label: '显示窗口',
         click: () => {
-          mainWindow.show();
-          if (app.dock) {
-            app.dock.show();
+          if (currentWindow) {
+            currentWindow.show();
+            if (app.dock) {
+              app.dock.show();
+            }
           }
         },
       },
       {
-        label: 'Quit',
+        label: '退出',
         click: () => {
           app.quit();
         },
       },
     ]),
   );
+}
+
+export function getTray() {
+  return tray;
 }

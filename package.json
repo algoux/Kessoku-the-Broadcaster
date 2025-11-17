@@ -23,13 +23,15 @@
     "socket.io-client": "^4.8.1",
     "vue": "^3.2.31",
     "vue-class-component": "^8.0.0-rc.1",
-    "vue-property-decorator": "^10.0.0-rc.3"
+    "vue-property-decorator": "^10.0.0-rc.3",
+    "vue-router": "^4.6.3"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
     "@types/os-utils": "^0.0.4",
     "@types/simple-peer": "^9.11.9",
     "@types/socket.io-client": "^3.0.0",
+    "@types/vue-router": "^2.0.0",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/tsconfig": "^0.8.1",
     "cross-env": "^10.1.0",

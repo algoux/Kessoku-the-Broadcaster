@@ -27,6 +27,7 @@ declare global {
       subscribeStatistics: (callback: (statistics: Statistics) => void) => UnsubscribeFunction;
       getStaticData: () => Promise<StaticData>;
       setWindowTitle: (title: string) => void;
+      loginSuccess: () => void;
     };
   }
 }

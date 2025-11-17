@@ -5,14 +5,10 @@ import LoginView from '../modules/login/login.view.vue';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/home',
-  },
-  {
-    path: '/home',
     name: 'Home',
     component: HomeView,
     meta: {
-      title: '设备总览',
+      title: '设备总揽',
     },
   },
   {

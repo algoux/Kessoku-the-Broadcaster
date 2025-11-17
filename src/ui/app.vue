@@ -25,5 +25,5 @@ export default class App extends Vue {
 
 <template>
   <!-- <Tools /> -->
-  <HomeView />
+  <router-view />
 </template>

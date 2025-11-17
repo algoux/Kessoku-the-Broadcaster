@@ -86,12 +86,8 @@ export default class HomeHeader extends Vue {
 <template>
   <header class="home-header">
     <section class="user-sec">
-      <div class="main-sec">
-        A20 - Wujinhao
-      </div>
-      <div class="org-sec">
-        山东理工大学
-      </div>
+      <div class="main-sec">A20 - Wujinhao</div>
+      <div class="org-sec">山东理工大学</div>
     </section>
 
     <section class="tools-sec">
@@ -102,7 +98,7 @@ export default class HomeHeader extends Vue {
       </el-tooltip> -->
       <el-badge v-if="hasDeviceToAdd" is-dot>
         <el-dropdown :disabled="isReady">
-          <el-button circle :disabled="isReady" :size="'large'" >
+          <el-button circle :disabled="isReady" :size="'large'">
             <circle-plus style="width: 20px" />
           </el-button>
           <template #dropdown>
@@ -156,7 +152,11 @@ export default class HomeHeader extends Vue {
           </el-dropdown-menu>
         </template>
       </el-dropdown>
-      <el-button :type="isReady ? 'danger' : 'primary'" @click="changeReadyState" class="primary-button">
+      <el-button
+        :type="isReady ? 'danger' : 'primary'"
+        @click="changeReadyState"
+        class="primary-button"
+      >
         <play-icon style="width: 25px; margin-right: 5px" />
         {{ isReady ? '解除就绪状态' : '准备就绪' }}
       </el-button>
@@ -221,5 +221,26 @@ export default class HomeHeader extends Vue {
   height: 60px;
   border-radius: 10px;
   font-size: 20px;
-} 
+}
+
+:deep(.el-badge) {
+  outline: none;
+
+  & .el-button {
+    outline: none;
+
+    &:focus,
+    &:focus-visible,
+    &:hover {
+      outline: none !important;
+    }
+  }
+}
+
+:deep(.el-button) {
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+  }
+}
 </style>

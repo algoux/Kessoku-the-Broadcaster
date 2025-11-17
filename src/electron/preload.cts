@@ -10,6 +10,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   getStaticData: () => ipcInvoke('getStaticData'),
   setWindowTitle: (title: string) => {
     electron.ipcRenderer.send('setWindowTitle', title);
+  },
+  loginSuccess: () => {
+    electron.ipcRenderer.send('loginSuccess');
   }
 } satisfies Window['electron']);
 

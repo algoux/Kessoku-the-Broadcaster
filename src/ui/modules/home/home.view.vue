@@ -153,9 +153,12 @@ export default class HomeView extends Vue {
 
       this.updateCanAddState();
 
-      ElMessage.success('设备列表已刷新');
+      ElMessage.primary({
+        message: '设备刷新完成',
+        plain: true,
+      });
     } catch (error) {
-      ElMessage.error('刷新设备失败');
+      ElMessage.error({ message: '刷新设备失败', plain: true });
     } finally {
       loading.close();
     }
@@ -244,7 +247,10 @@ export default class HomeView extends Vue {
         this.updateVideoElement(device);
       }
     } catch (error) {
-      ElMessage.error(`启动 ${device.name} 失败: ${(error as Error).message}`);
+      ElMessage.error({
+        message: `启动 ${device.name} 失败: ${(error as Error).message}`,
+        plain: true,
+      });
     }
   }
 
@@ -283,9 +289,10 @@ export default class HomeView extends Vue {
     );
 
     if (!unusedScreen) {
-      ElMessage.warning(
-        this.availableScreens.length === 0 ? '没有可用的屏幕源' : '所有屏幕源已添加',
-      );
+      ElMessage.info({
+        message: this.availableScreens.length === 0 ? '没有可用的屏幕共享' : '所有屏幕共享已添加',
+        plain: true,
+      });
       return;
     }
 
@@ -301,7 +308,10 @@ export default class HomeView extends Vue {
     this.userDevices.push(device);
     await this.startDeviceStream(device);
     this.updateCanAddState();
-    ElMessage.success(`已添加屏幕: ${unusedScreen.name}`);
+    ElMessage.primary({
+      message: '已添加屏幕共享',
+      plain: true,
+    });
   }
 
   // 添加摄像头设备
@@ -312,9 +322,10 @@ export default class HomeView extends Vue {
     );
 
     if (!unusedCamera) {
-      ElMessage.warning(
-        this.availableCameras.length === 0 ? '没有可用的摄像头' : '所有摄像头已添加',
-      );
+      ElMessage.info({
+        message: this.availableCameras.length === 0 ? '没有可用的摄像头' : '所有摄像头已添加',
+        plain: true,
+      });
       return;
     }
 
@@ -330,7 +341,10 @@ export default class HomeView extends Vue {
     this.userDevices.push(device);
     await this.startDeviceStream(device);
     this.updateCanAddState();
-    ElMessage.success(`已添加摄像头`);
+    ElMessage.primary({
+      message: '已添加摄像头',
+      plain: true,
+    });
   }
 
   // 添加麦克风设备
@@ -341,9 +355,10 @@ export default class HomeView extends Vue {
     );
 
     if (!unusedMic) {
-      ElMessage.warning(
-        this.availableMicrophones.length === 0 ? '没有可用的麦克风' : '所有麦克风已添加',
-      );
+      ElMessage.info({
+        message: this.availableMicrophones.length === 0 ? '没有可用的麦克风' : '所有麦克风已添加',
+        plain: true,
+      });
       return;
     }
 
@@ -357,7 +372,10 @@ export default class HomeView extends Vue {
     });
 
     this.updateCanAddState();
-    ElMessage.success(`已添加麦克风`);
+    ElMessage.primary({
+      message: '已添加麦克风',
+      plain: true,
+    });
   }
 
   // 移除设备
@@ -367,14 +385,20 @@ export default class HomeView extends Vue {
     if (index > -1) {
       this.userDevices.splice(index, 1);
       this.updateCanAddState();
-      ElMessage.success(`已移除: ${device.name}`);
+      ElMessage.primary({
+        message: `已移除设备 ${device.name}`,
+        plain: true,
+      });
     }
   }
 
   // 打开配置对话框
   openConfigDialog(device: Device) {
     if (device.type === 'microphone') {
-      ElMessage.warning('麦克风设备暂不支持配置');
+      ElMessage.info({
+        message: '麦克风设备不支持配置参数',
+        plain: true,
+      });
       return;
     }
 
@@ -403,7 +427,7 @@ export default class HomeView extends Vue {
     if (!this.currentConfigDevice) return;
 
     if (!this.configForm.width || !this.configForm.height || !this.configForm.frameRate) {
-      ElMessage.error('配置参数不完整，请检查分辨率和帧率');
+      ElMessage.error({ message: '请填写完整的配置参数', plain: true });
       return;
     }
 
@@ -457,9 +481,15 @@ export default class HomeView extends Vue {
       }
 
       this.configDialogVisible = false;
-      ElMessage.success('设备配置已更新');
+      ElMessage.primary({
+        message: `设备 ${this.currentConfigDevice.name} 配置已更新`,
+        plain: true,
+      });
     } catch (error) {
-      ElMessage.error(`配置失败: ${(error as Error).message}`);
+      ElMessage.error({
+        message: `更新设备配置失败: ${(error as Error).message}`,
+        plain: true,
+      });
     }
   }
 
@@ -515,7 +545,7 @@ export default class HomeView extends Vue {
         this.configForm.height = preset.height;
       }
     } catch (error) {
-      ElMessage.error('应用预设失败');
+      ElMessage.error({ message: '应用预设失败', plain: true });
     }
   }
 
@@ -798,7 +828,6 @@ export default class HomeView extends Vue {
 
       :deep(.el-card__header) {
         height: 20%;
-        // border-bottom: 1px solid var(--el-border-color);
       }
 
       .device-header {
