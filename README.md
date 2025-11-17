@@ -1,2 +1,2 @@
-# KtO 竞赛导播选手端应用程序
+# Kessoku the Broadcaster
 

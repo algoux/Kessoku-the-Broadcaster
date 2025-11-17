@@ -1,5 +1,5 @@
 {
-  "appId": "living-streaming-assistant",
+  "appId": "Kessoku the Broadcaster",
   "files": ["dist-electron/**", "dist-vue/**", "resources/**"],
   "extraResources": ["dist-electron/preload.cts"],
   "mac": {
