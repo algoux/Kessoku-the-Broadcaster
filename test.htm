@@ -1,0 +1,73 @@
+    <div class="recorder-container">
+      <h1>📹 录制中心</h1>
+
+      <div class="modules">
+        <!-- 屏幕录制模块 -->
+        <section class="module screen-module">
+          <h2>🖥️ 屏幕录制</h2>
+          <div class="module-body">
+            <div class="device-select" v-if="screenSources.length">
+              <label>选择屏幕源：</label>
+              <select v-model="selectedScreenId">
+                <option v-for="s in screenSources" :key="s.id" :value="s.id">
+                  {{ s.name }}
+                </option>
+              </select>
+            </div>
+            <div class="no-device" v-else>⚠️ 未检测到屏幕源</div>
+
+            <div class="controls">
+              <button
+                @click="startRecording('screen')"
+                :disabled="isRecording || !screenSources.length"
+                class="btn-start"
+              >
+                🎥 开始屏幕录制
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- 摄像头录制模块 -->
+        <section class="module camera-module">
+          <h2>📷 摄像头</h2>
+          <div class="module-body">
+            <div class="device-select" v-if="cameraDevices.length">
+              <label>选择摄像头：</label>
+              <select v-model="selectedCameraId">
+                <option v-for="d in cameraDevices" :key="d.deviceId" :value="d.deviceId">
+                  {{ d.label || '摄像头 ' + d.deviceId.substring(0, 8) }}
+                </option>
+              </select>
+            </div>
+            <div class="no-device" v-else>⚠️ 未检测到摄像头设备</div>
+
+            <div class="controls">
+              <button
+                @click="startRecording('camera')"
+                :disabled="isRecording || !cameraDevices.length"
+                class="btn-start"
+              >
+                🎥 开始摄像头录制
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 预览区域 -->
+      <div class="preview-section">
+        <div class="preview-header">
+          <h3>预览</h3>
+          <button @click="stopRecording" :disabled="!isRecording" class="btn-stop">
+            🛑 停止并保存
+          </button>
+        </div>
+        <video ref="videoRef" autoplay muted playsinline></video>
+      </div>
+
+      <!-- 刷新按钮 -->
+      <div class="refresh-row">
+        <button @click="refreshDevices" class="btn-refresh">🔄 刷新设备列表</button>
+      </div>
+    </div>

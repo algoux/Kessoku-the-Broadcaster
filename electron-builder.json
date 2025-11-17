@@ -1,0 +1,15 @@
+{
+  "appId": "living-streaming-assistant",
+  "files": ["dist-electron/**", "dist-vue/**", "resources/**"],
+  "extraResources": ["dist-electron/preload.cts"],
+  "mac": {
+    "target": "dmg"
+  },
+  "linux": {
+    "target": "AppImage",
+    "category": "Utility"
+  },
+  "win": {
+    "target": ["portable", "msi"]
+  }
+}

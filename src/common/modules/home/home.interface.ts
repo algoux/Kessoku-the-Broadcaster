@@ -1,0 +1,54 @@
+export interface DeviceSettings {
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  aspectRatio?: number;
+  facingMode?: string;
+  sampleRate?: number;
+  channelCount?: number;
+}
+
+export type DeviceType = 'screen' | 'camera' | 'microphone';
+
+type ClassIdPattern<T extends DeviceType> = T extends 'screen'
+  ? `screen_${string}`
+  : T extends 'camera'
+    ? `camera_${string}`
+    : T extends 'microphone'
+      ? `microphone_${string}`
+      : never;
+
+export interface DeviceCapabilities {
+  width?: { min?: number; max?: number };
+  height?: { min?: number; max?: number };
+  frameRate?: { min?: number; max?: number };
+  aspectRatio?: { min?: number; max?: number };
+  sampleRate?: { min?: number; max?: number };
+  channelCount?: { min?: number; max?: number };
+}
+
+export interface Device<T extends DeviceType = DeviceType> {
+  id: string;
+  name: string;
+  type: T;
+  classId: ClassIdPattern<T>;
+  enabled: boolean;
+  isDefault?: boolean;
+  stream?: MediaStream;
+  settings?: DeviceSettings;
+  capabilities?: DeviceCapabilities;
+}
+
+export interface ConfigForm {
+  width: number;
+  height: number;
+  frameRate: number;
+  sampleRate?: number;
+  channelCount?: number;
+}
+
+export interface CanAddState {
+  screen: number;
+  camera: number;
+  microphone: number;
+}
