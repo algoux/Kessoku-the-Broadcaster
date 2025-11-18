@@ -1,4 +1,3 @@
-// Global type definitions inside global augmentation
 declare global {
   type Statistics = {
     cpuUsage: number;
@@ -15,6 +14,9 @@ declare global {
   type EventPayloadMapping = {
     statistics: Statistics;
     getStaticData: StaticData;
+    getSources: Electron.DesktopCapturerSource[];
+    saveVideo: string | null;
+    hasReady: void;
   };
 
   type UnsubscribeFunction = () => void;
@@ -28,6 +30,20 @@ declare global {
       getStaticData: () => Promise<StaticData>;
       setWindowTitle: (title: string) => void;
       loginSuccess: () => void;
+      hasReady: () => void;
+      // 新的 WebSocket 相关方法
+      login: (playerName: string) => Promise<{ success: boolean; error?: string }>;
+      getConnectionStatus: () => Promise<{ connected: boolean; socketId: string | null }>;
+      getRouterRtpCapabilities: () => Promise<any>;
+      createProducerTransport: () => Promise<any>;
+      connectProducerTransport: (transportId: string, dtlsParameters: any) => Promise<void>;
+      createProducer: (kind: string, rtpParameters: any) => Promise<{ id: string }>;
+      notifyStreamingStarted: (producerId: string, kind: string, rtpParameters?: any) => void;
+      notifyStreamingStopped: (producerId: string) => void;
+      // IPC 监听器方法
+      onStreamingRequest: (callback: (data: { requestedBy: string }) => void) => void;
+      onStopStreamingRequest: (callback: (data: { requestedBy: string }) => void) => void;
+      removeAllListeners: (channel: string) => void;
     };
   }
 }

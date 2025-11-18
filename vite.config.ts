@@ -17,5 +17,12 @@ export default defineConfig({
   server: {
     port: 5123,
     strictPort: false,
-  }
+  },
+  define: {
+    __dirname: 'import.meta.url',
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    exclude: ['electron'],
+  },
 });

@@ -9,6 +9,7 @@ import {
   DeviceType,
 } from '@/common/modules/home/home.interface';
 import { Provide } from 'vue-property-decorator';
+import { RendererService } from '@/ui/services/renderer-service';
 
 import {
   ElCard,
@@ -84,6 +85,13 @@ export default class HomeView extends Vue {
   @Provide({ reactive: true })
   availableMicrophones: Array<MediaDeviceInfo> = [];
 
+  // 渲染进程服务
+  private rendererService: RendererService | null = null;
+  @Provide({ reactive: true })
+  public isStreaming: boolean = false;
+  @Provide({ reactive: true })
+  public streamStatus: string = '未连接';
+
   private userDevices: Device[] = [];
   private selectedPreset: string = '';
 
@@ -106,8 +114,116 @@ export default class HomeView extends Vue {
   };
 
   @Provide()
-  public changeReadyState() {
+  public async changeReadyState() {
     this.isReady = !this.isReady;
+    if (this.isReady) window.electron.hasReady();
+  }
+
+  // 初始化渲染进程服务
+  private async initializeService() {
+    try {
+      // 创建渲染进程服务
+      this.rendererService = new RendererService();
+
+      // 设置推流请求回调
+      this.rendererService.onStreamingRequest = async () => {
+        await this.startStreaming();
+      };
+
+      // 设置停止推流请求回调
+      this.rendererService.onStopStreamingRequest = async () => {
+        await this.stopStreaming();
+      };
+
+      // 初始化服务
+      await this.rendererService.initialize();
+
+      // 检查连接状态
+      const status = await this.rendererService.getConnectionStatus();
+      this.streamStatus = status.connected ? '已连接，等待推流请求' : '未连接';
+
+      if (status.connected) {
+        ElMessage.primary({
+          message: '已连接到服务器，等待导播端推流请求',
+          plain: true,
+        });
+      }
+    } catch (error) {
+      console.error('连接失败:', error);
+    }
+  }
+
+  // 开始推流
+  private async startStreaming() {
+    try {
+      if (!this.rendererService) {
+        throw new Error('渲染服务未初始化');
+      }
+
+      // 重新获取所有已启用设备的流（确保 track 未 ended）
+      for (const device of this.userDevices) {
+        if (device.enabled && (device.type === 'screen' || device.type === 'camera')) {
+          // 检查流是否有效
+          const isStreamValid = device.stream?.getVideoTracks()[0]?.readyState === 'live';
+          if (!isStreamValid) {
+            await this.startDeviceStream(device);
+          }
+        }
+      }
+
+      // 收集所有已启用的设备流
+      const enabledStreams: MediaStream[] = [];
+      for (const device of this.userDevices) {
+        if (device.enabled && device.stream) {
+          // 只推送视频设备（屏幕和摄像头）
+          if (device.type === 'screen' || device.type === 'camera') {
+            enabledStreams.push(device.stream);
+          }
+        }
+      }
+
+      if (enabledStreams.length === 0) {
+        ElMessage.warning('没有可用的视频流，请先启用摄像头或屏幕分享');
+        return;
+      }
+
+      // 通过RendererService开始推流
+      await this.rendererService.startStreaming(enabledStreams);
+      this.isStreaming = true;
+    } catch (error) {
+      console.error('推流失败:', error);
+      ElMessage.error(`推流失败: ${error.message}`);
+    }
+  }
+
+  // 停止推流
+  private async stopStreaming() {
+    try {
+      if (this.rendererService) {
+        await this.rendererService.stopStreaming();
+      }
+
+      // Device 和 Transport 保持连接，以便下次快速推流
+      this.isStreaming = false;
+
+      // 检查并重新启动受影响的设备流
+      for (const device of this.userDevices) {
+        if (device.stream && device.stream.getVideoTracks().length > 0) {
+          const track = device.stream.getVideoTracks()[0];
+
+          // 如果流被意外关闭，重新启动
+          if (track.readyState === 'ended') {
+            try {
+              await this.startDeviceStream(device);
+            } catch (error) {
+              console.error(`重新启动设备 ${device.name} 流失败:`, error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('停止推流失败:', error);
+    }
   }
 
   // 更新可添加设备数量
@@ -247,6 +363,7 @@ export default class HomeView extends Vue {
         this.updateVideoElement(device);
       }
     } catch (error) {
+      console.error(`❌ 启动设备 ${device.name} 失败:`, error);
       ElMessage.error({
         message: `启动 ${device.name} 失败: ${(error as Error).message}`,
         plain: true,
@@ -551,6 +668,8 @@ export default class HomeView extends Vue {
 
   mounted() {
     this.refreshAllDevices();
+    // 自动初始化渲染服务
+    this.initializeService();
   }
 
   getAvailableScreensNumber() {
@@ -613,11 +732,17 @@ export default class HomeView extends Vue {
 
     // 保存映射关系
     this.deviceIdToClassIdMap.set(deviceId, classId);
-    console.log(`[ClassId] ${deviceId} -> ${classId}`);
     return classId as any;
   }
 
   beforeUnmount() {
+    // 停止推流和清理服务
+    if (this.rendererService) {
+      this.rendererService.cleanup();
+      this.rendererService = null;
+    }
+
+    // 停止所有设备流
     this.userDevices.forEach((device) => {
       this.stopDeviceStream(device);
     });
