@@ -74,10 +74,25 @@ import InvisibleIcon from '@/ui/components/svgs/invisible.vue';
   },
 })
 export default class HomeView extends Vue {
+  // 设备源相关状态
+  private userDevices: Device[] = [];
+  private selectedPreset: string = '';
+  private deviceIdToClassIdMap: Map<string, string> = new Map();
+  private configDialogVisible = false;
+  private currentConfigDevice: Device | null = null;
+  private configForm: ConfigForm = {
+    width: 1920,
+    height: 1080,
+    frameRate: 30,
+  };
   @Provide({ reactive: true })
   public isReady: boolean = false;
-
-  // 可用设备列表
+  @Provide({ reactive: true })
+  canAddState: CanAddState = {
+    screen: 0,
+    camera: 0,
+    microphone: 0,
+  };
   @Provide({ reactive: true })
   availableScreens: Array<{ id: string; name: string }> = [];
   @Provide({ reactive: true })
@@ -87,31 +102,12 @@ export default class HomeView extends Vue {
 
   // 渲染进程服务
   private rendererService: RendererService | null = null;
+
+  // 推流相关
   @Provide({ reactive: true })
   public isStreaming: boolean = false;
   @Provide({ reactive: true })
   public streamStatus: string = '未连接';
-
-  private userDevices: Device[] = [];
-  private selectedPreset: string = '';
-
-  // 设备 ID 和 classId 的持久化映射关系
-  private deviceIdToClassIdMap: Map<string, string> = new Map();
-
-  private configDialogVisible = false;
-  private currentConfigDevice: Device | null = null;
-  private configForm: ConfigForm = {
-    width: 1920,
-    height: 1080,
-    frameRate: 30,
-  };
-
-  @Provide({ reactive: true })
-  canAddState: CanAddState = {
-    screen: 0,
-    camera: 0,
-    microphone: 0,
-  };
 
   @Provide()
   public async changeReadyState() {

@@ -1,9 +1,7 @@
 import osUtils from 'os-utils';
 import fs from 'fs';
 import os from 'os';
-import { BrowserWindow, ipcMain } from 'electron';
-import { spawn, ChildProcess, exec } from 'child_process';
-import path from 'path';
+import { BrowserWindow } from 'electron';
 import { ipcWebContentsSend } from './index';
 const POLLING_INTERVAL = 500;
 

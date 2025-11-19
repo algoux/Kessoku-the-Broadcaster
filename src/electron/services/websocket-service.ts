@@ -18,7 +18,7 @@ export class WebSocketService {
     this.playerName = playerName;
 
     return new Promise((resolve) => {
-      if (this.socket?.connected) {
+      if (this.socket.connected) {
         resolve(true);
         return;
       }
@@ -109,14 +109,13 @@ export class WebSocketService {
 
   // 通知服务器推流已停止
   notifyStreamingStopped(producerId: string) {
-    // 使用 socket.connected 而不是 this.isConnected
     if (this.socket && this.socket.connected) {
       this.socket.emit('producerClosed', { producerId });
     } else if (this.socket && !this.socket.connected) {
       this.reconnect();
       // 重连后再次尝试发送
       setTimeout(() => {
-        if (this.socket?.connected) {
+        if (this.socket.connected) {
           this.socket.emit('producerClosed', { producerId });
         }
       }, 1000);
@@ -139,7 +138,7 @@ export class WebSocketService {
   // 创建推流传输通道
   async createProducerTransport(): Promise<any> {
     return new Promise((resolve, reject) => {
-      if (!this.socket?.connected) {
+      if (!this.socket.connected) {
         reject(new Error('WebSocket 未连接'));
         return;
       }
@@ -157,7 +156,7 @@ export class WebSocketService {
   // 连接传输通道
   async connectProducerTransport(transportId: string, dtlsParameters: any): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (!this.socket?.connected) {
+      if (!this.socket.connected) {
         reject(new Error('WebSocket 未连接'));
         return;
       }
@@ -179,7 +178,7 @@ export class WebSocketService {
   // 创建推流生产者
   async createProducer(kind: string, rtpParameters: any): Promise<{ id: string }> {
     return new Promise((resolve, reject) => {
-      if (!this.socket?.connected) {
+      if (!this.socket.connected) {
         reject(new Error('WebSocket 未连接'));
         return;
       }
