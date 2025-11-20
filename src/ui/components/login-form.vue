@@ -1,6 +1,7 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
-import { ElFormItem, ElForm, ElButton, ElInput } from 'element-plus';
+import { ElFormItem, ElForm, ElButton, ElInput, ElMessage } from 'element-plus';
+import { Inject } from 'vue-property-decorator';
 
 @Options({
   components: {
@@ -12,14 +13,17 @@ import { ElFormItem, ElForm, ElButton, ElInput } from 'element-plus';
 })
 export default class LoginForm extends Vue {
   form = {
-    name: 'A20 - Wujinhao',
+    name: 'A20 - wjh',
   };
 
-  isLoading = false;
+  isLoading: boolean = false;
 
   async onSubmit() {
     if (!this.form.name.trim()) {
-      console.error('选手端名称不能为空');
+      ElMessage.error({
+        message: '选手端名称不能为空',
+        plain: true,
+      });
       return;
     }
 
@@ -32,12 +36,16 @@ export default class LoginForm extends Vue {
       if (result.success) {
         console.log('✅ 登录成功');
       } else {
-        console.error('❌ 登录失败:', result.error);
+        ElMessage.error({
+          message: `${result.error}`,
+          plain: true,
+        });
       }
     } catch (error) {
       console.error('❌ 登录过程中出现错误:', error);
     } finally {
       this.isLoading = false;
+      
     }
   }
 }
@@ -56,7 +64,7 @@ export default class LoginForm extends Vue {
         :disabled="!form.name.trim()"
         style="width: 100%"
       >
-        {{ isLoading ? '连接中...' : '登录' }}
+        登陆
       </el-button>
     </el-form-item>
   </el-form>

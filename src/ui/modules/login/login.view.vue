@@ -1,13 +1,22 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import LoginForm from '@/ui/components/login-form.vue';
+import { Provide } from 'vue-property-decorator';
 
 @Options({
   components: {
     LoginForm,
   },
 })
-export default class LoginView extends Vue {}
+export default class LoginView extends Vue {
+  @Provide({reactive: true})
+  isLoading = false
+
+  @Provide()
+  handleLoadingState(state: boolean) {
+    this.isLoading = state
+  }
+}
 </script>
 
 <template>

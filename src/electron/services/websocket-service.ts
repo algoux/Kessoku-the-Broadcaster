@@ -1,16 +1,20 @@
 // WebSocket 服务 - 处理与服务器的信令通信
 import { io, Socket } from 'socket.io-client';
 import { BrowserWindow } from 'electron';
+import { IWebSocketConnectionStatus } from './../../common/interface/websocket.interface';
+import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 
 export class WebSocketService {
-  private socket: Socket | null = null;
-  private mainWindow: BrowserWindow | null = null;
-  private isConnected: boolean = false;
-  private playerName: string = '';
-  private routerRtpCapabilities: any = null;
+  private serviceURL: string;
+  private socket!: Socket;
+  private mainWindow!: BrowserWindow;
+  private isConnected: boolean;
+  private playerName!: string;
+  private routerRtpCapabilities!: RtpCapabilities;
 
-  constructor(mainWindow: BrowserWindow) {
-    this.mainWindow = mainWindow;
+  constructor(serviceURL: string) {
+    this.isConnected = false;
+    this.serviceURL = serviceURL;
   }
 
   // 连接到服务器
@@ -18,24 +22,22 @@ export class WebSocketService {
     this.playerName = playerName;
 
     return new Promise((resolve) => {
-      if (this.socket.connected) {
+      if (this.socket && this.socket.connected) {
         resolve(true);
         return;
       }
 
-      this.socket = io('http://localhost:3001', {
-        transports: ['websocket', 'polling'],
-      });
+      this.socket = io(this.serviceURL);
 
       this.socket.on('connect', () => {
-        console.log('✅ 主进程连接信令服务器:', this.socket!.id);
+        console.log('主进程连接信令服务器:', this.socket.id);
 
         // 获取路由器 RTP 能力
-        this.socket!.emit('getRouterRtpCapabilities', (rtpCapabilities: any) => {
+        this.socket.emit('getRouterRtpCapabilities', (rtpCapabilities: RtpCapabilities) => {
           this.routerRtpCapabilities = rtpCapabilities;
 
           // 注册为选手端
-          this.socket!.emit(
+          this.socket.emit(
             'register',
             {
               role: 'player',
@@ -55,17 +57,21 @@ export class WebSocketService {
       });
 
       this.socket.on('connect_error', (error: any) => {
-        console.error('❌ 连接服务器失败:', error);
+        console.error('连接服务器失败:', error);
         this.isConnected = false;
         resolve(false);
       });
 
       this.socket.on('disconnect', () => {
-        console.log('🔌 与服务器断开连接');
+        console.log('与服务器断开连接');
         this.isConnected = false;
         this.socket = null;
       });
     });
+  }
+
+  setMainWindow(mainWindow: BrowserWindow) {
+    this.mainWindow = mainWindow;
   }
 
   // 设置事件监听器
@@ -97,7 +103,7 @@ export class WebSocketService {
   }
 
   // 通知服务器推流已开始
-  notifyStreamingStarted(producerId: string, kind: string, rtpParameters: any) {
+  notifyStreamingStarted(producerId: string, kind: string, rtpParameters: RtpCapabilities) {
     if (this.socket && this.isConnected) {
       this.socket.emit('produce', {
         producerId,
@@ -123,22 +129,22 @@ export class WebSocketService {
   }
 
   // 获取连接状态
-  getConnectionStatus() {
+  getConnectionStatus(): IWebSocketConnectionStatus {
     return {
-      connected: this.socket?.connected || false,
-      socketId: this.socket?.id || null,
+      connected: this.socket.connected,
+      socketId: this.socket.id,
     };
   }
 
   // 获取路由器 RTP 能力
-  getRouterRtpCapabilities() {
+  getRouterRtpCapabilities(): RtpCapabilities {
     return this.routerRtpCapabilities;
   }
 
   // 创建推流传输通道
   async createProducerTransport(): Promise<any> {
     return new Promise((resolve, reject) => {
-      if (!this.socket.connected) {
+      if (!this.socket || !this.socket.connected) {
         reject(new Error('WebSocket 未连接'));
         return;
       }
@@ -156,7 +162,7 @@ export class WebSocketService {
   // 连接传输通道
   async connectProducerTransport(transportId: string, dtlsParameters: any): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (!this.socket.connected) {
+      if (!this.socket || !this.socket.connected) {
         reject(new Error('WebSocket 未连接'));
         return;
       }
@@ -178,7 +184,7 @@ export class WebSocketService {
   // 创建推流生产者
   async createProducer(kind: string, rtpParameters: any): Promise<{ id: string }> {
     return new Promise((resolve, reject) => {
-      if (!this.socket.connected) {
+      if (!this.socket || !this.socket.connected) {
         reject(new Error('WebSocket 未连接'));
         return;
       }
@@ -199,7 +205,7 @@ export class WebSocketService {
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
-      console.log('🔌 主动断开 WebSocket 连接');
+      console.log('主动断开 WebSocket 连接');
     }
   }
 
@@ -207,15 +213,6 @@ export class WebSocketService {
   private async reconnect() {
     if (this.playerName) {
       await this.connect(this.playerName);
-    }
-  }
-
-  // 更新连接状态同步
-  private updateConnectionStatus() {
-    if (this.socket) {
-      this.isConnected = this.socket.connected;
-    } else {
-      this.isConnected = false;
     }
   }
 }

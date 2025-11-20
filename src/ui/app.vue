@@ -24,6 +24,5 @@ export default class App extends Vue {
 </script>
 
 <template>
-  <!-- <Tools /> -->
   <router-view />
 </template>

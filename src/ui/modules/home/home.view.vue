@@ -135,10 +135,10 @@ export default class HomeView extends Vue {
       await this.rendererService.initialize();
 
       // 检查连接状态
-      const status = await this.rendererService.getConnectionStatus();
-      this.streamStatus = status.connected ? '已连接，等待推流请求' : '未连接';
+      const loginStatus = await this.rendererService.getConnectionStatus();
+      this.streamStatus = loginStatus.connected ? '已连接，等待推流请求' : '未连接';
 
-      if (status.connected) {
+      if (loginStatus.connected) {
         ElMessage.primary({
           message: '已连接到服务器，等待导播端推流请求',
           plain: true,

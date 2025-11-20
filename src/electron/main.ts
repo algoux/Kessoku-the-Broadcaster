@@ -3,17 +3,18 @@ import { isDevelopment, ipcMainHandle } from './utils/index';
 import ResourcesManager from './utils/resource-manager';
 import { getPreloadPath, getUIPath } from './utils/path-resolver';
 import fs from 'fs';
-import { createTray, updateTrayWindow } from './utils/tray';
+import { TrayManager } from './utils/tray';
 import { WebSocketService } from './services/websocket-service';
 
-let loginWindow: BrowserWindow | null = null;
-let mainWindow: BrowserWindow | null = null;
-let tray: Tray | null = null;
-let webSocketService: WebSocketService | null = null;
+let loginWindow: BrowserWindow;
+let mainWindow: BrowserWindow;
+let trayManager: TrayManager = new TrayManager();
+let webSocketService: WebSocketService;
+const SERVICE_URL: string = 'http://localhost:3001';
 
 function showWindow(window: BrowserWindow) {
-  window.on('ready-to-show', () => {
-    window.show();
+  window.webContents.on('did-finish-load', () => {
+      window.show();
   });
 }
 
@@ -25,7 +26,6 @@ function createLoginWindow() {
     frame: true,
     webPreferences: {
       preload: getPreloadPath(),
-      devTools: isDevelopment(),
     },
     show: false,
   });
@@ -40,36 +40,19 @@ function createLoginWindow() {
     showWindow(loginWindow);
   }
 
-  tray = createTray(loginWindow);
+  trayManager.createTray(loginWindow);
 }
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     webPreferences: {
       preload: getPreloadPath(),
-      devTools: isDevelopment(),
     },
     show: false,
     width: 1280,
     height: 720,
     minWidth: 1000,
     minHeight: 600,
-  });
-
-  if (isDevelopment()) {
-    mainWindow.loadURL('http://localhost:5123/');
-    showWindow(mainWindow);
-  } else {
-    mainWindow.loadFile(getUIPath(), {
-      hash: 'home',
-    });
-    showWindow(mainWindow);
-  }
-
-  const resourcesManager = new ResourcesManager();
-
-  ipcMainHandle('getStaticData', () => {
-    return resourcesManager.getStaticData();
   });
 
   ipcMain.handle('getSources', async () => {
@@ -82,7 +65,7 @@ function createMainWindow() {
     }
   });
 
-  updateTrayWindow(mainWindow);
+  trayManager.updateTrayWindow(mainWindow);
   handleCloseEvents(mainWindow);
 
   // 处理保存视频逻辑
@@ -100,6 +83,14 @@ function createMainWindow() {
     return null;
   });
 
+  if (isDevelopment()) {
+    mainWindow.loadURL('http://localhost:5123/#home');
+  } else {
+    mainWindow.loadFile(getUIPath(), {
+      hash: 'home',
+    });
+  }
+
   return mainWindow;
 }
 
@@ -107,30 +98,24 @@ function createMainWindow() {
 function setupIpcHandlers() {
   // 登录并连接到服务器
   ipcMain.handle('login', async (_, playerName: string) => {
-    // 如果还没有主窗口，先创建它
-    if (!mainWindow) {
-      mainWindow = createMainWindow();
-    }
-
     // 初始化 WebSocket 服务（如果还没有初始化）
-    if (!webSocketService && mainWindow) {
-      webSocketService = new WebSocketService(mainWindow);
+    if (!webSocketService) {
+      webSocketService = new WebSocketService(SERVICE_URL);
     }
 
     if (!webSocketService) {
-      return { success: false, error: 'WebSocket 服务未初始化' };
+      return { success: false, error: '未连接服务器' };
     }
 
     const success = await webSocketService.connect(playerName);
 
     if (success && loginWindow) {
-      // 登录成功，关闭登录窗口，显示主窗口
       loginWindow.close();
       loginWindow = null;
 
-      if (mainWindow) {
-        mainWindow.show();
-      }
+      mainWindow = createMainWindow();
+      webSocketService.setMainWindow(mainWindow);
+      showWindow(mainWindow);
     }
 
     return { success };
@@ -187,17 +172,6 @@ function setupIpcHandlers() {
   });
 }
 
-// 处理登录成功后的逻辑（兼容旧代码）
-ipcMain.on('loginSuccess', () => {
-  if (loginWindow) {
-    loginWindow.close();
-    loginWindow = null;
-  }
-  if (!mainWindow) {
-    mainWindow = createMainWindow();
-  }
-});
-
 const handleCloseEvents = (window: BrowserWindow) => {
   window.on('closed', () => {
     // 清理 WebSocket 连接
@@ -205,8 +179,8 @@ const handleCloseEvents = (window: BrowserWindow) => {
       webSocketService.disconnect();
     }
 
-    if (tray && !tray.isDestroyed()) {
-      tray.destroy();
+    if (trayManager.getTray && !trayManager.getTray.isDestroyed()) {
+      trayManager.getTray.destroy();
     }
     app.quit();
   });
@@ -216,3 +190,5 @@ app.whenReady().then(() => {
   setupIpcHandlers();
   createLoginWindow();
 });
+
+
