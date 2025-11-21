@@ -1,14 +1,12 @@
-import { app, BrowserWindow, ipcMain, dialog, desktopCapturer, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, desktopCapturer } from 'electron';
 import { isDevelopment, ipcMainHandle } from './utils/index';
 import ResourcesManager from './utils/resource-manager';
 import { getPreloadPath, getUIPath } from './utils/path-resolver';
 import fs from 'fs';
-import { TrayManager } from './utils/tray';
 import { WebSocketService } from './services/websocket-service';
 
 let loginWindow: BrowserWindow;
 let mainWindow: BrowserWindow;
-let trayManager: TrayManager = new TrayManager();
 let webSocketService: WebSocketService;
 const SERVICE_URL: string = 'http://localhost:3001';
 
@@ -39,8 +37,6 @@ function createLoginWindow() {
     });
     showWindow(loginWindow);
   }
-
-  trayManager.createTray(loginWindow);
 }
 
 function createMainWindow() {
@@ -65,7 +61,6 @@ function createMainWindow() {
     }
   });
 
-  trayManager.updateTrayWindow(mainWindow);
   handleCloseEvents(mainWindow);
 
   // 处理保存视频逻辑
@@ -84,11 +79,9 @@ function createMainWindow() {
   });
 
   if (isDevelopment()) {
-    mainWindow.loadURL('http://localhost:5123/#home');
+    mainWindow.loadURL('http://localhost:5123/');
   } else {
-    mainWindow.loadFile(getUIPath(), {
-      hash: 'home',
-    });
+    mainWindow.loadFile(getUIPath());
   }
 
   return mainWindow;
@@ -177,10 +170,6 @@ const handleCloseEvents = (window: BrowserWindow) => {
     // 清理 WebSocket 连接
     if (webSocketService) {
       webSocketService.disconnect();
-    }
-
-    if (trayManager.getTray && !trayManager.getTray.isDestroyed()) {
-      trayManager.getTray.destroy();
     }
     app.quit();
   });

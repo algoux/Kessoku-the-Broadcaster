@@ -1,7 +1,6 @@
 // WebSocket 服务 - 处理与服务器的信令通信
 import { io, Socket } from 'socket.io-client';
 import { BrowserWindow } from 'electron';
-import { IWebSocketConnectionStatus } from './../../common/interface/websocket.interface';
 import { RtpCapabilities } from 'mediasoup-client/lib/RtpParameters';
 
 export class WebSocketService {
@@ -129,7 +128,7 @@ export class WebSocketService {
   }
 
   // 获取连接状态
-  getConnectionStatus(): IWebSocketConnectionStatus {
+  getConnectionStatus() {
     return {
       connected: this.socket.connected,
       socketId: this.socket.id,

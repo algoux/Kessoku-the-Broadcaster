@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "npm-run-all --parallel dev:vue dev:electron",
     "dev:vue": "vite",
-    "dev:electron": "npm run transpile:electron; cross-env NODE_ENV=development electron .",
+    "dev:electron": "pnpm transpile:electron; cross-env NODE_ENV=development electron .",
     "build": "rm -rf dist-vue && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "transpile:electron": "tsc -p src/electron/tsconfig.json",
+    "transpile:electron": "rm -rf dist-electron && tsc -p src/electron/tsconfig.json",
     "dist:mac": "npm run transpile:electron && npm run build && electron-builder --mac --arm64",
     "dist:win": "npm run transpile:electron && npm run build && electron-builder --win --x64",
     "dist:linux": "npm run transpile:electron && npm run build && electron-builder --linux --x64"

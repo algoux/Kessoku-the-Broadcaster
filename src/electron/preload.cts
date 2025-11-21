@@ -1,5 +1,5 @@
 const electron = require('electron');
-
+console.log('Preload script loaded');
 electron.contextBridge.exposeInMainWorld('electron', {
   subscribeStatistics: (callback: (statistics: Statistics) => void) =>
     ipcOn('statistics', (stats: Statistics) => {
