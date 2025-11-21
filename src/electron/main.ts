@@ -60,6 +60,9 @@ function createMainWindow() {
   ipcMain.on('hasReady', () => {
     if (mainWindow) {
       mainWindow.hide();
+      if (app.dock) {
+        app.dock.hide();
+      }
     }
   });
 
