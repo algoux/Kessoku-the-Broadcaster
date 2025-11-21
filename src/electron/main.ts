@@ -1,9 +1,11 @@
-import { app, BrowserWindow, ipcMain, dialog, desktopCapturer } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, desktopCapturer, Tray } from 'electron';
 import { isDevelopment, ipcMainHandle } from './utils/index';
 import ResourcesManager from './utils/resource-manager';
-import { getPreloadPath, getUIPath } from './utils/path-resolver';
+import { getPreloadPath, getUIPath, getAssetsPath } from './utils/path-resolver';
 import fs from 'fs';
+import path from 'path';
 import { WebSocketService } from './services/websocket-service';
+import { createTray } from './utils/tray';
 
 let loginWindow: BrowserWindow;
 let mainWindow: BrowserWindow;
@@ -12,7 +14,7 @@ const SERVICE_URL: string = 'http://localhost:3001';
 
 function showWindow(window: BrowserWindow) {
   window.webContents.on('did-finish-load', () => {
-      window.show();
+    window.show();
   });
 }
 
@@ -84,6 +86,9 @@ function createMainWindow() {
     mainWindow.loadFile(getUIPath());
   }
 
+  createTray(mainWindow);
+
+  handleCloseEvents(mainWindow);
   return mainWindow;
 }
 
@@ -165,13 +170,26 @@ function setupIpcHandlers() {
   });
 }
 
-const handleCloseEvents = (window: BrowserWindow) => {
-  window.on('closed', () => {
-    // 清理 WebSocket 连接
-    if (webSocketService) {
-      webSocketService.disconnect();
+const handleCloseEvents = (mainWindow: BrowserWindow) => {
+  let willClose = false;
+
+  mainWindow.on('close', (e) => {
+    if (willClose) {
+      return;
     }
-    app.quit();
+    e.preventDefault();
+    mainWindow.hide();
+    if (app.dock) {
+      app.dock.hide();
+    }
+  });
+
+  app.on('before-quit', () => {
+    willClose = true;
+  });
+
+  mainWindow.on('show', () => {
+    willClose = false;
   });
 };
 
@@ -179,5 +197,3 @@ app.whenReady().then(() => {
   setupIpcHandlers();
   createLoginWindow();
 });
-
-
