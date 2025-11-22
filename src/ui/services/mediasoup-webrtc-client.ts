@@ -2,13 +2,13 @@
 import * as mediasoupClient from 'mediasoup-client';
 
 export class MediasoupClient {
-  private device: mediasoupClient.Device | null = null;
-  private producerTransport: mediasoupClient.types.Transport | null = null;
+  private device!: mediasoupClient.Device;
+  private producerTransport!: mediasoupClient.types.Transport;
 
   // 使用 Map 存储多个 producers
   private producers: Map<string, mediasoupClient.types.Producer> = new Map();
 
-  private serverUrl: string;
+  private serverUrl!: string;
 
   constructor(serverUrl: string = 'http://localhost:3001') {
     this.serverUrl = serverUrl;
@@ -181,35 +181,6 @@ export class MediasoupClient {
 
     this.device = null;
     console.log('🔌 MediaSoup 客户端已断开');
-  }
-
-  // === 私有方法：与服务器通信 ===
-
-  // 获取 RTP Capabilities (这里应该通过 IPC 调用主进程)
-  private async getRtpCapabilities(): Promise<any> {
-    // TODO: 通过 IPC 从主进程获取
-    // 暂时返回模拟数据
-    return {
-      codecs: [
-        {
-          mimeType: 'video/VP8',
-          clockRate: 90000,
-          rtcpFeedback: [
-            { type: 'nack' },
-            { type: 'nack', parameter: 'pli' },
-            { type: 'ccm', parameter: 'fir' },
-            { type: 'goog-remb' },
-            { type: 'transport-cc' },
-          ],
-        },
-        {
-          mimeType: 'audio/opus',
-          clockRate: 48000,
-          channels: 2,
-        },
-      ],
-      headerExtensions: [],
-    };
   }
 
   // 获取 Transport 参数

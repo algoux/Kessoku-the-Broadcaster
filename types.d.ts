@@ -11,19 +11,42 @@ declare global {
     totalMemoryGB: number;
   };
 
+  type FrameWindowAction = 'MINIMIZE' | 'MAXIMIZE' | 'CLOSE';
+
+  type UnsubscribeFunction = () => void;
+
+  // IPC 事件负载映射
   type EventPayloadMapping = {
+    // 基础事件
     statistics: Statistics;
     getStaticData: StaticData;
     getSources: Electron.DesktopCapturerSource[];
     saveVideo: string | null;
     hasReady: void;
-  };
+    sendFrameAction: FrameWindowAction;
+    setWindowTitle: string;
+    loginSuccess: void;
 
-  type UnsubscribeFunction = () => void;
+    // WebSocket 相关事件
+    login: { success: boolean; error?: string };
+    'get-connection-status': { connected: boolean; socketId: string | null };
+    'get-router-rtp-capabilities': any;
+    'create-producer-transport': any;
+    'connect-producer-transport': void;
+    'create-producer': { id: string };
+    'streaming-started': { producerId: string; kind: string; rtpParameters?: any };
+    'streaming-stopped': { producerId: string };
+    'report-device-state': { success: boolean };
+
+    // 监听事件
+    'start-streaming-request': { requestedBy: string; classIds: string[] };
+    'stop-streaming-request': { requestedBy: string };
+  };
 
   // 扩展 Window 接口
   interface Window {
     electron: {
+      sendFrameAction: (action: FrameWindowAction) => void;
       getSources: () => Promise<Electron.DesktopCapturerSource[]>;
       saveVideo: (arrayBuffer: ArrayBuffer) => Promise<string | null>;
       subscribeStatistics: (callback: (statistics: Statistics) => void) => UnsubscribeFunction;
@@ -31,7 +54,7 @@ declare global {
       setWindowTitle: (title: string) => void;
       loginSuccess: () => void;
       hasReady: () => void;
-      // 新的 WebSocket 相关方法
+      // WebSocket 相关方法
       login: (playerName: string) => Promise<{ success: boolean; error?: string }>;
       getConnectionStatus: () => Promise<{ connected: boolean; socketId: string | null }>;
       getRouterRtpCapabilities: () => Promise<any>;
@@ -41,7 +64,7 @@ declare global {
       notifyStreamingStarted: (producerId: string, kind: string, rtpParameters?: any) => void;
       notifyStreamingStopped: (producerId: string) => void;
       // 设备状态上报
-      reportDeviceState: (devices: any[], isReady: boolean) => Promise<void>;
+      reportDeviceState: (devices: any[], isReady: boolean) => Promise<{ success: boolean }>;
       // IPC 监听器方法
       onStreamingRequest: (
         callback: (data: { requestedBy: string; classIds: string[] }) => void,

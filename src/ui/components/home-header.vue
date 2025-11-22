@@ -1,9 +1,9 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import { Inject } from 'vue-property-decorator';
-import { CanAddState } from '@/common/modules/home/home.interface';
+import { CanAddState } from 'common/modules/home/home.interface';
 
-import CircleUser from '@/ui/components/svgs/circle-user.vue';
+import CircleUser from '@/components/svgs/circle-user.vue';
 import {
   ElDescriptions,
   ElDescriptionsItem,
@@ -185,6 +185,7 @@ export default class HomeHeader extends Vue {
   justify-content: space-between;
   align-items: center;
   padding: 0 30px;
+  padding-top: 40px;
 
   & .user-sec {
     display: flex;
@@ -241,6 +242,38 @@ export default class HomeHeader extends Vue {
   &:focus,
   &:focus-visible {
     outline: none !important;
+  }
+}
+
+/* Element Plus 暗色主题适配 */
+:deep(.el-dropdown) {
+  .el-button {
+    background-color: var(--bg-secondary-color);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--font-primary-color);
+
+    &:hover:not(.is-disabled) {
+      background-color: var(--bg-primary-color);
+      border-color: var(--el-color-primary);
+    }
+
+    &.is-disabled {
+      background-color: var(--bg-secondary-color);
+      border-color: rgba(255, 255, 255, 0.1);
+      opacity: 0.5;
+    }
+  }
+}
+
+:deep(.el-badge) {
+  .el-button {
+    background-color: var(--bg-secondary-color);
+    border-color: rgba(255, 255, 255, 0.2);
+
+    &:hover:not(.is-disabled) {
+      background-color: var(--bg-primary-color);
+      border-color: var(--el-color-primary);
+    }
   }
 }
 </style>

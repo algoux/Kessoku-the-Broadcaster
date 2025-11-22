@@ -7,9 +7,9 @@ import {
   ConfigForm,
   CanAddState,
   DeviceType,
-} from '@/common/modules/home/home.interface';
+} from 'common/modules/home/home.interface';
 import { Provide } from 'vue-property-decorator';
-import { RendererService } from '@/ui/services/renderer-service';
+import { RendererService } from '@/services/renderer-service';
 
 import {
   ElCard,
@@ -35,14 +35,14 @@ import {
   Monitor,
   Setting,
 } from '@element-plus/icons-vue';
-import ScreenShare from '@/ui/components/svgs/screen-share.vue';
-import WebCamera from '@/ui/components/svgs/web-camera.vue';
-import HomeHeader from '@/ui/components/home-header.vue';
-import Trash from '@/ui/components/svgs/trash.vue';
-import Mic from '@/ui/components/svgs/mic.vue';
-import SettingsIcon from '@/ui/components/svgs/settings.vue';
-import VisibleIcon from '@/ui/components/svgs/visible.vue';
-import InvisibleIcon from '@/ui/components/svgs/invisible.vue';
+import ScreenShare from '@/components/svgs/screen-share.vue';
+import WebCamera from '@/components/svgs/web-camera.vue';
+import HomeHeader from '@/components/home-header.vue';
+import Trash from '@/components/svgs/trash.vue';
+import Mic from '@/components/svgs/mic.vue';
+import SettingsIcon from '@/components/svgs/settings.vue';
+import VisibleIcon from '@/components/svgs/visible.vue';
+import InvisibleIcon from '@/components/svgs/invisible.vue';
 
 @Options({
   components: {
@@ -113,20 +113,10 @@ export default class HomeView extends Vue {
   public async changeReadyState() {
     this.isReady = !this.isReady;
 
-    console.log('🔄 [Home视图] 准备状态切换:', {
-      isReady: this.isReady,
-      deviceCount: this.userDevices.length,
-    });
-
     if (this.isReady) {
       // 上报设备信息到服务器
       await this.reportDeviceState();
       window.electron.hasReady();
-
-      ElMessage.success({
-        message: '已准备就绪，设备信息已上报',
-        plain: true,
-      });
     } else {
       // 取消准备状态
       await this.reportDeviceState();
@@ -157,18 +147,10 @@ export default class HomeView extends Vue {
           : undefined,
       }));
 
-    console.log('📋 [Home视图] 准备上报设备状态:', {
-      isReady: this.isReady,
-      totalDevices: this.userDevices.length,
-      enabledDevices: deviceInfos.length,
-      devices: deviceInfos.map((d) => `${d.type}:${d.classId}`),
-    });
-
     try {
       await this.rendererService.reportDeviceState(deviceInfos, this.isReady);
-      console.log('✅ [Home视图] 设备状态上报完成');
     } catch (error) {
-      console.error('❌ [Home视图] 上报设备状态失败:', error);
+      console.error('上报设备状态失败:', error);
     }
   }
 
@@ -194,13 +176,6 @@ export default class HomeView extends Vue {
       // 检查连接状态
       const loginStatus = await this.rendererService.getConnectionStatus();
       this.streamStatus = loginStatus.connected ? '已连接，等待推流请求' : '未连接';
-
-      if (loginStatus.connected) {
-        ElMessage.primary({
-          message: '已连接到服务器，等待导播端推流请求',
-          plain: true,
-        });
-      }
     } catch (error) {
       console.error('连接失败:', error);
     }
@@ -218,12 +193,6 @@ export default class HomeView extends Vue {
 
       if (classIds && classIds.length > 0) {
         devicesToStream = devicesToStream.filter((device) => classIds.includes(device.classId));
-        console.log(
-          `📺 根据 classIds 筛选设备:`,
-          classIds,
-          '筛选后:',
-          devicesToStream.map((d) => d.classId),
-        );
       }
 
       // 重新获取所选设备的流（确保 track 未 ended）
@@ -428,9 +397,6 @@ export default class HomeView extends Vue {
           const capabilities = videoTrack.getCapabilities() as DeviceCapabilities;
           const rawSettings = videoTrack.getSettings();
 
-          console.log(`📊 设备能力 (${device.name}):`, capabilities);
-          console.log(`📊 当前设置 (${device.name}):`, rawSettings);
-
           if (!device.capabilities) {
             device.capabilities = capabilities;
           }
@@ -442,11 +408,9 @@ export default class HomeView extends Vue {
             frameRate: rawSettings.frameRate,
             aspectRatio: rawSettings.aspectRatio,
             facingMode: rawSettings.facingMode,
-            // 添加最大帧率信息（从 capabilities 获取）
-            maxFrameRate: capabilities?.frameRate?.max || rawSettings.frameRate,
+            maxFrameRate: capabilities?.frameRate?.max,
           };
 
-          console.log(`✅ 保存的设备参数:`, device.settings);
           this.$forceUpdate();
         }
 
@@ -614,9 +578,9 @@ export default class HomeView extends Vue {
 
     if (device.settings) {
       this.configForm = {
-        width: Math.round(device.settings.width || 1920),
-        height: Math.round(device.settings.height || 1080),
-        frameRate: Math.round(device.settings.frameRate || 30),
+        width: Math.round(device.settings.width),
+        height: Math.round(device.settings.height),
+        frameRate: Math.round(device.settings.frameRate),
       };
     } else {
       this.configForm = {
@@ -937,7 +901,7 @@ export default class HomeView extends Vue {
       width="500px"
       :close-on-click-modal="false"
     >
-      <el-form :model="configForm" label-width="100px">
+      <el-form :model="configForm" label-width="100px" style="margin-top: 15px">
         <el-form-item label="分辨率">
           <div class="resolution-inputs">
             <el-input-number
@@ -961,6 +925,19 @@ export default class HomeView extends Vue {
         <el-form-item label="预设分辨率">
           <el-select v-model="selectedPreset" placeholder="选择预设" @change="applyPreset">
             <el-option label="自定义" value="" />
+            <el-option
+              v-if="
+                currentConfigDevice?.capabilities?.width?.max &&
+                currentConfigDevice?.capabilities?.height?.max
+              "
+              label="设备最大分辨率"
+              :value="
+                JSON.stringify({
+                  width: Math.round(currentConfigDevice.capabilities.width.max),
+                  height: Math.round(currentConfigDevice.capabilities.height.max),
+                })
+              "
+            />
             <el-option
               label="1920 × 1080 (Full HD)"
               :value="JSON.stringify({ width: 1920, height: 1080 })"
@@ -1034,16 +1011,19 @@ export default class HomeView extends Vue {
     .device-card {
       background: var(--bg-secondary-color);
       border-radius: 12px;
+      border: 1px solid var(--border-color);
       transition: all 0.3s ease;
       height: 390px;
 
       &:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        border-color: var(--border-hover-color);
       }
 
       :deep(.el-card__header) {
         height: 20%;
+        border-bottom: 1px solid var(--border-color);
       }
 
       .device-header {
@@ -1126,7 +1106,7 @@ export default class HomeView extends Vue {
 
       :deep(.el-card__footer) {
         height: 20%;
-        border-top: none;
+        border-top: 1px solid var(--border-color);
       }
 
       .device-actions {
@@ -1266,5 +1246,93 @@ export default class HomeView extends Vue {
       border-color: var(--font-secondary-color) !important;
     }
   }
+}
+
+/* Element Plus 暗色主题适配 */
+:deep(.el-dialog) {
+  background-color: var(--bg-secondary-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
+  .el-dialog__header {
+    background-color: var(--bg-secondary-color);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+    .el-dialog__title {
+      color: var(--font-primary-color);
+    }
+
+    .el-dialog__close {
+      color: var(--font-secondary-color);
+
+      &:hover {
+        color: var(--font-primary-color);
+      }
+    }
+  }
+
+  .el-dialog__body {
+    background-color: var(--bg-secondary-color);
+    color: var(--font-primary-color);
+  }
+
+  .el-dialog__footer {
+    background-color: var(--bg-secondary-color);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  :deep(.el-form) {
+    .el-form-item__label {
+      color: var(--font-primary-color);
+    }
+
+    .el-input-number {
+      background-color: var(--bg-primary-color);
+
+      .el-input__inner {
+        background-color: var(--bg-primary-color);
+        color: var(--font-primary-color);
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .el-input-number__decrease,
+      .el-input-number__increase {
+        background-color: var(--bg-primary-color);
+        color: var(--font-secondary-color);
+        border-color: rgba(255, 255, 255, 0.03);
+
+        &:hover {
+          color: var(--el-color-primary);
+        }
+      }
+    }
+
+    .el-select {
+      .el-input__inner {
+        background-color: var(--bg-primary-color);
+        color: var(--font-primary-color);
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .el-input__suffix {
+        color: var(--font-secondary-color);
+      }
+    }
+  }
+}
+
+:deep(.el-button) {
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+  }
+
+  &.is-disabled {
+    opacity: 0.5;
+  }
+}
+
+.capabilities-info {
+  background: var(--bg-primary-color);
+  border: 1px solid var(--border-color);
 }
 </style>

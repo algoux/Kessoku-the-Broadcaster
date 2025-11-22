@@ -4,12 +4,14 @@ import { Vue, Options } from 'vue-class-component';
 import LoginView from './modules/login/login.view.vue';
 import HomeView from './modules/home/home.view.vue';
 import Tools from './components/tools.vue';
+import MacWindowFrame from './components/mac-window-frame.vue';
 
 @Options({
   components: {
     LoginView,
     HomeView,
     Tools,
+    MacWindowFrame,
   },
 })
 export default class App extends Vue {

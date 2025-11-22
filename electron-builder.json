@@ -1,9 +1,11 @@
 {
   "appId": "Kessoku the Broadcaster",
-  "files": ["dist-electron/**", "dist-vue/**", "resources/**"],
-  "extraResources": ["dist-electron/preload.cts"],
+  "files": ["dist/electron/**", "dist/ui/**", "resources/**"],
+  "extraResources": ["dist/electron/preload.cts"],
+  "generateUpdatesFilesForAllChannels": false,
   "mac": {
-    "target": "dmg"
+    "target": "dmg",
+    "icon": "resources/icon/SDUTOJ.icon"
   },
   "linux": {
     "target": "AppImage",

@@ -203,27 +203,13 @@ export class WebSocketService {
 
   // 上报设备状态到服务器
   reportDeviceState(devices: any[], isReady: boolean): void {
-    console.log('🔵 [WebSocket服务] reportDeviceState 被调用:', {
-      devices,
-      isReady,
-      deviceCount: devices?.length,
-      connected: this.socket?.connected,
-      socketId: this.socket?.id,
-    });
-
     if (!this.socket || !this.socket.connected) {
-      console.warn('⚠️ [WebSocket服务] WebSocket 未连接，无法上报设备状态');
+      console.warn('WebSocket 未连接，无法上报设备状态');
       return;
     }
 
     this.socket.emit('reportDeviceState', {
       devices,
-      isReady,
-      playerName: this.playerName,
-    });
-
-    console.log('✅ [WebSocket服务] 设备状态已发送到服务器:', {
-      devices: devices.map((d) => `${d.type}:${d.classId}`),
       isReady,
       playerName: this.playerName,
     });

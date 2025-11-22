@@ -1,6 +1,6 @@
 // 渲染进程服务 - 处理主进程的 IPC 通信和 MediaSoup 推流
 import { MediasoupClient } from './mediasoup-webrtc-client';
-import type { DeviceInfo } from '@/common/modules/home/home.interface';
+import type { DeviceInfo } from 'common/modules/home/home.interface';
 
 export class RendererService {
   private mediasoupClient: MediasoupClient | null = null;

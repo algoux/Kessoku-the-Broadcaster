@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
-import LoginForm from '@/ui/components/login-form.vue';
+import LoginForm from '@/components/login-form.vue';
 import { Provide } from 'vue-property-decorator';
 
 @Options({
