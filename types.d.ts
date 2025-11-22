@@ -40,8 +40,12 @@ declare global {
       createProducer: (kind: string, rtpParameters: any) => Promise<{ id: string }>;
       notifyStreamingStarted: (producerId: string, kind: string, rtpParameters?: any) => void;
       notifyStreamingStopped: (producerId: string) => void;
+      // 设备状态上报
+      reportDeviceState: (devices: any[], isReady: boolean) => Promise<void>;
       // IPC 监听器方法
-      onStreamingRequest: (callback: (data: { requestedBy: string }) => void) => void;
+      onStreamingRequest: (
+        callback: (data: { requestedBy: string; classIds: string[] }) => void,
+      ) => void;
       onStopStreamingRequest: (callback: (data: { requestedBy: string }) => void) => void;
       removeAllListeners: (channel: string) => void;
     };

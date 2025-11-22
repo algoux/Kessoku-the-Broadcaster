@@ -13,7 +13,7 @@ let webSocketService: WebSocketService;
 const SERVICE_URL: string = 'http://localhost:3001';
 
 function showWindow(window: BrowserWindow) {
-  window.webContents.on('did-finish-load', () => {
+  window.on('ready-to-show', () => {
     window.show();
   });
 }
@@ -170,6 +170,21 @@ function setupIpcHandlers() {
       throw new Error('WebSocket 服务未初始化');
     }
     return await webSocketService.createProducer(kind, rtpParameters);
+  });
+
+  // 上报设备状态
+  ipcMain.handle('report-device-state', async (_, { devices, isReady }) => {
+    console.log('📥 [主进程] 收到设备状态上报请求:', {
+      devices,
+      isReady,
+      deviceCount: devices?.length,
+    });
+    if (!webSocketService) {
+      throw new Error('WebSocket 服务未初始化');
+    }
+    webSocketService.reportDeviceState(devices, isReady);
+    console.log('✅ [主进程] 已转发到 WebSocket 服务');
+    return { success: true };
   });
 }
 

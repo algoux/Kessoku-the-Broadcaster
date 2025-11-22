@@ -1,12 +1,13 @@
 // 渲染进程服务 - 处理主进程的 IPC 通信和 MediaSoup 推流
 import { MediasoupClient } from './mediasoup-webrtc-client';
+import type { DeviceInfo } from '@/common/modules/home/home.interface';
 
 export class RendererService {
   private mediasoupClient: MediasoupClient | null = null;
   private isInitialized: boolean = false;
 
-  // 推流请求回调
-  public onStreamingRequest: (() => Promise<void>) | null = null;
+  // 推流请求回调（支持 classIds 参数）
+  public onStreamingRequest: ((classIds: string[]) => Promise<void>) | null = null;
   public onStopStreamingRequest: (() => Promise<void>) | null = null;
 
   constructor() {
@@ -29,19 +30,37 @@ export class RendererService {
 
   // 设置 IPC 监听器
   private setupIpcListeners() {
-    // 监听主进程的推流请求
-    window.electron.onStreamingRequest(async ({ requestedBy }) => {
+    // 监听主进程的推流请求（携带 classIds）
+    window.electron.onStreamingRequest(async ({ requestedBy, classIds }) => {
+      console.log(`📡 收到推流请求，来自: ${requestedBy}, classIds:`, classIds);
       if (this.onStreamingRequest) {
-        await this.onStreamingRequest();
+        await this.onStreamingRequest(classIds || []);
       }
     });
 
     // 监听主进程的停止推流请求
     window.electron.onStopStreamingRequest(async ({ requestedBy }) => {
+      console.log(`📡 收到停止推流请求，来自: ${requestedBy}`);
       if (this.onStopStreamingRequest) {
         await this.onStopStreamingRequest();
       }
     });
+  }
+
+  // 上报设备状态到服务器
+  async reportDeviceState(devices: DeviceInfo[], isReady: boolean) {
+    try {
+      console.log('📤 [渲染服务] 准备上报设备状态:', {
+        devices,
+        isReady,
+        deviceCount: devices.length,
+      });
+      await window.electron.reportDeviceState(devices, isReady);
+      console.log('✅ [渲染服务] 设备状态上报成功');
+    } catch (error) {
+      console.error('❌ [渲染服务] 设备状态上报失败:', error);
+      throw error;
+    }
   }
 
   // 开始推流

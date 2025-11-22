@@ -45,8 +45,12 @@ electron.contextBridge.exposeInMainWorld('electron', {
   notifyStreamingStopped: (producerId: string) => {
     electron.ipcRenderer.send('streaming-stopped', { producerId });
   },
+  // 设备状态上报
+  reportDeviceState: (devices: any[], isReady: boolean) => {
+    return electron.ipcRenderer.invoke('report-device-state', { devices, isReady });
+  },
   // IPC 监听器方法
-  onStreamingRequest: (callback: (data: { requestedBy: string }) => void) => {
+  onStreamingRequest: (callback: (data: { requestedBy: string; classIds: string[] }) => void) => {
     electron.ipcRenderer.on('start-streaming-request', (_, data) => callback(data));
   },
   onStopStreamingRequest: (callback: (data: { requestedBy: string }) => void) => {

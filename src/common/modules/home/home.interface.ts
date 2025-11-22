@@ -2,6 +2,7 @@ export interface DeviceSettings {
   width?: number;
   height?: number;
   frameRate?: number;
+  maxFrameRate?: number; // 设备支持的最大帧率
   aspectRatio?: number;
   facingMode?: string;
   sampleRate?: number;
@@ -45,6 +46,22 @@ export interface ConfigForm {
   frameRate: number;
   sampleRate?: number;
   channelCount?: number;
+}
+
+// 设备信息上报接口（发送给服务器）
+export interface DeviceInfo {
+  classId: string;
+  type: DeviceType;
+  name: string;
+  enabled: boolean;
+  settings?: DeviceSettings;
+}
+
+export interface PlayerDeviceState {
+  playerName: string;
+  socketId: string;
+  devices: DeviceInfo[];
+  isReady: boolean;
 }
 
 export interface CanAddState {

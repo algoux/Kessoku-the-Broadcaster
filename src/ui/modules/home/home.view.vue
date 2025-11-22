@@ -112,7 +112,64 @@ export default class HomeView extends Vue {
   @Provide()
   public async changeReadyState() {
     this.isReady = !this.isReady;
-    if (this.isReady) window.electron.hasReady();
+
+    console.log('🔄 [Home视图] 准备状态切换:', {
+      isReady: this.isReady,
+      deviceCount: this.userDevices.length,
+    });
+
+    if (this.isReady) {
+      // 上报设备信息到服务器
+      await this.reportDeviceState();
+      window.electron.hasReady();
+
+      ElMessage.success({
+        message: '已准备就绪，设备信息已上报',
+        plain: true,
+      });
+    } else {
+      // 取消准备状态
+      await this.reportDeviceState();
+    }
+  }
+
+  // 上报设备状态到服务器
+  private async reportDeviceState() {
+    if (!this.rendererService) return;
+
+    const deviceInfos = this.userDevices
+      .filter((device) => device.enabled)
+      .map((device) => ({
+        classId: device.classId,
+        type: device.type,
+        name: device.name,
+        enabled: device.enabled,
+        settings: device.settings
+          ? {
+              width: device.settings.width,
+              height: device.settings.height,
+              frameRate: device.settings.frameRate,
+              aspectRatio: device.settings.aspectRatio,
+              facingMode: device.settings.facingMode,
+              sampleRate: device.settings.sampleRate,
+              channelCount: device.settings.channelCount,
+            }
+          : undefined,
+      }));
+
+    console.log('📋 [Home视图] 准备上报设备状态:', {
+      isReady: this.isReady,
+      totalDevices: this.userDevices.length,
+      enabledDevices: deviceInfos.length,
+      devices: deviceInfos.map((d) => `${d.type}:${d.classId}`),
+    });
+
+    try {
+      await this.rendererService.reportDeviceState(deviceInfos, this.isReady);
+      console.log('✅ [Home视图] 设备状态上报完成');
+    } catch (error) {
+      console.error('❌ [Home视图] 上报设备状态失败:', error);
+    }
   }
 
   // 初始化渲染进程服务
@@ -121,9 +178,9 @@ export default class HomeView extends Vue {
       // 创建渲染进程服务
       this.rendererService = new RendererService();
 
-      // 设置推流请求回调
-      this.rendererService.onStreamingRequest = async () => {
-        await this.startStreaming();
+      // 设置推流请求回调（支持按 classId 选择设备）
+      this.rendererService.onStreamingRequest = async (classIds: string[]) => {
+        await this.startStreaming(classIds);
       };
 
       // 设置停止推流请求回调
@@ -149,16 +206,29 @@ export default class HomeView extends Vue {
     }
   }
 
-  // 开始推流
-  private async startStreaming() {
+  // 开始推流（支持按 classId 筛选设备）
+  private async startStreaming(classIds: string[] = []) {
     try {
       if (!this.rendererService) {
         throw new Error('渲染服务未初始化');
       }
 
-      // 重新获取所有已启用设备的流（确保 track 未 ended）
-      for (const device of this.userDevices) {
-        if (device.enabled && (device.type === 'screen' || device.type === 'camera')) {
+      // 根据 classIds 筛选要推流的设备
+      let devicesToStream = this.userDevices.filter((device) => device.enabled);
+
+      if (classIds && classIds.length > 0) {
+        devicesToStream = devicesToStream.filter((device) => classIds.includes(device.classId));
+        console.log(
+          `📺 根据 classIds 筛选设备:`,
+          classIds,
+          '筛选后:',
+          devicesToStream.map((d) => d.classId),
+        );
+      }
+
+      // 重新获取所选设备的流（确保 track 未 ended）
+      for (const device of devicesToStream) {
+        if (device.type === 'screen' || device.type === 'camera') {
           // 检查流是否有效
           const isStreamValid = device.stream?.getVideoTracks()[0]?.readyState === 'live';
           if (!isStreamValid) {
@@ -167,10 +237,10 @@ export default class HomeView extends Vue {
         }
       }
 
-      // 收集所有已启用的设备流
+      // 收集要推流的设备流
       const enabledStreams: MediaStream[] = [];
-      for (const device of this.userDevices) {
-        if (device.enabled && device.stream) {
+      for (const device of devicesToStream) {
+        if (device.stream) {
           // 只推送视频设备（屏幕和摄像头）
           if (device.type === 'screen' || device.type === 'camera') {
             enabledStreams.push(device.stream);
@@ -179,9 +249,14 @@ export default class HomeView extends Vue {
       }
 
       if (enabledStreams.length === 0) {
-        ElMessage.warning('没有可用的视频流，请先启用摄像头或屏幕分享');
+        ElMessage.warning('没有可用的视频流，请检查设备选择');
         return;
       }
+
+      ElMessage.info({
+        message: `开始推流 ${enabledStreams.length} 个设备`,
+        plain: true,
+      });
 
       // 通过RendererService开始推流
       await this.rendererService.startStreaming(enabledStreams);
@@ -333,9 +408,15 @@ export default class HomeView extends Vue {
           },
         });
       } else if (device.type === 'camera') {
+        // 请求摄像头，尝试获取最高帧率
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { deviceId: { exact: device.id } },
+          video: {
+            deviceId: { exact: device.id },
+            frameRate: { ideal: 120, max: 120 }, // 尝试请求高帧率
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
         });
       }
 
@@ -345,13 +426,27 @@ export default class HomeView extends Vue {
         const videoTrack = stream.getVideoTracks()[0];
         if (videoTrack) {
           const capabilities = videoTrack.getCapabilities() as DeviceCapabilities;
-          const settings = videoTrack.getSettings() as DeviceSettings;
+          const rawSettings = videoTrack.getSettings();
+
+          console.log(`📊 设备能力 (${device.name}):`, capabilities);
+          console.log(`📊 当前设置 (${device.name}):`, rawSettings);
 
           if (!device.capabilities) {
             device.capabilities = capabilities;
           }
-          device.settings = settings;
 
+          // 只提取可序列化的基本属性
+          device.settings = {
+            width: rawSettings.width,
+            height: rawSettings.height,
+            frameRate: rawSettings.frameRate,
+            aspectRatio: rawSettings.aspectRatio,
+            facingMode: rawSettings.facingMode,
+            // 添加最大帧率信息（从 capabilities 获取）
+            maxFrameRate: capabilities?.frameRate?.max || rawSettings.frameRate,
+          };
+
+          console.log(`✅ 保存的设备参数:`, device.settings);
           this.$forceUpdate();
         }
 
