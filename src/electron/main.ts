@@ -33,6 +33,7 @@ function createLoginWindow() {
     height: 520,
     resizable: false,
     show: false,
+    titleBarStyle: 'hiddenInset',
   });
 
   if (isDevelopment()) {
@@ -56,6 +57,7 @@ function createMainWindow() {
     height: 720,
     minWidth: 1000,
     minHeight: 600,
+    titleBarStyle: 'hiddenInset',
   });
 
   ipcMainHandle('getSources', async () => {

@@ -10,6 +10,7 @@ import {
 } from 'common/modules/home/home.interface';
 import { Provide } from 'vue-property-decorator';
 import { RendererService } from '@/services/renderer-service';
+import RecordRTC from 'recordrtc';
 
 import {
   ElCard,
@@ -80,11 +81,7 @@ export default class HomeView extends Vue {
   private deviceIdToClassIdMap: Map<string, string> = new Map();
   private configDialogVisible = false;
   private currentConfigDevice: Device | null = null;
-  private configForm: ConfigForm = {
-    width: 1920,
-    height: 1080,
-    frameRate: 30,
-  };
+  private configForm: ConfigForm;
   @Provide({ reactive: true })
   public isReady: boolean = false;
   @Provide({ reactive: true })
@@ -99,6 +96,8 @@ export default class HomeView extends Vue {
   availableCameras: Array<MediaDeviceInfo> = [];
   @Provide({ reactive: true })
   availableMicrophones: Array<MediaDeviceInfo> = [];
+
+  rollingRecordsMap: Map<string, any> = new Map();
 
   // 渲染进程服务
   private rendererService: RendererService | null = null;
@@ -382,9 +381,6 @@ export default class HomeView extends Vue {
           audio: false,
           video: {
             deviceId: { exact: device.id },
-            frameRate: { ideal: 120, max: 120 }, // 尝试请求高帧率
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
           },
         });
       }
@@ -416,6 +412,11 @@ export default class HomeView extends Vue {
 
         await this.$nextTick();
         this.updateVideoElement(device);
+
+        // 如果是视频设备，启动滚动录制
+        if (device.type === 'screen' || device.type === 'camera') {
+          this.startRollingRecord(device);
+        }
       }
     } catch (error) {
       console.error(`❌ 启动设备 ${device.name} 失败:`, error);
@@ -426,6 +427,98 @@ export default class HomeView extends Vue {
     }
   }
 
+  // 开始滚动录制 - 使用 RecordRTC 定期重启策略
+  startRollingRecord(device: Device) {
+    if (!device.stream || !device.classId) {
+      console.warn(`设备 ${device.name} 缺少必要的 stream 或 classId`);
+      return;
+    }
+
+    // 如果该 classId 已经有录制实例，先停止
+    if (this.rollingRecordsMap.has(device.classId)) {
+      const existingRecord = this.rollingRecordsMap.get(device.classId);
+      if (existingRecord.recorder) {
+        existingRecord.recorder.stopRecording();
+        existingRecord.recorder.destroy();
+      }
+      if (existingRecord.restartInterval) {
+        clearInterval(existingRecord.restartInterval);
+      }
+    }
+
+    try {
+      const recordedBlobs: Blob[] = [];
+      const segmentDuration = 3000; // 每3秒一个完整片段
+      const maxSegments = 20; // 保留最近20个片段（60秒）
+      let currentRecorder: any = null;
+
+      const startNewRecording = () => {
+        // 创建新的录制器
+        currentRecorder = new RecordRTC(device.stream, {
+          type: 'video',
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 2500000,
+        });
+
+        currentRecorder.startRecording();
+
+        console.log(`开始新的录制片段: ${device.classId}`);
+      };
+
+      const stopAndSaveRecording = () => {
+        if (!currentRecorder) return;
+
+        currentRecorder.stopRecording(() => {
+          // 获取完整的视频 Blob
+          const blob = currentRecorder.getBlob();
+
+          if (blob && blob.size > 0) {
+            recordedBlobs.push(blob);
+
+            // 保留最近的片段
+            if (recordedBlobs.length > maxSegments) {
+              recordedBlobs.shift();
+            }
+
+            console.log(`保存录制片段: ${device.classId}, 当前共 ${recordedBlobs.length} 个片段`);
+          }
+
+          // 销毁旧的录制器
+          currentRecorder.destroy();
+
+          // 立即开始新的录制
+          startNewRecording();
+        });
+      };
+
+      // 启动首次录制
+      startNewRecording();
+
+      // 定期停止并重启录制
+      const restartInterval = setInterval(() => {
+        stopAndSaveRecording();
+      }, segmentDuration);
+
+      // 保存录制实例
+      this.rollingRecordsMap.set(device.classId, {
+        recorder: currentRecorder,
+        blobs: recordedBlobs,
+        mimeType: 'video/webm;codecs=vp9',
+        deviceId: device.id,
+        deviceName: device.name,
+        startTime: Date.now(),
+        restartInterval,
+        getRecorder: () => currentRecorder, // 获取当前录制器的引用
+      });
+
+      console.log(
+        `✅ 已为设备 ${device.name} (${device.classId}) 启动 RecordRTC 滚动录制 (每 ${segmentDuration / 1000} 秒一个片段)`,
+      );
+    } catch (error) {
+      console.error(`启动设备 ${device.name} (${device.classId}) 滚动录制失败:`, error);
+    }
+  }
+
   // 更新视频元素
   updateVideoElement(device: Device) {
     const videoEl = this.$refs[`video-${device.id}`] as HTMLVideoElement | HTMLVideoElement[];
@@ -433,7 +526,7 @@ export default class HomeView extends Vue {
 
     if (video && device.stream) {
       video.srcObject = device.stream;
-      video.play().catch(() => {});
+      video.play();
     }
   }
 
@@ -503,7 +596,7 @@ export default class HomeView extends Vue {
 
     const device: Device = {
       id: unusedCamera.deviceId,
-      name: unusedCamera.label || `摄像头 ${unusedCamera.deviceId.slice(0, 8)}`,
+      name: unusedCamera.label || `摄像头 ${unusedCamera.deviceId}`,
       type: 'camera',
       classId: this.getOrCreateClassId(unusedCamera.deviceId, 'camera'),
       enabled: true,
@@ -722,9 +815,10 @@ export default class HomeView extends Vue {
   }
 
   mounted() {
-    this.refreshAllDevices();
     // 自动初始化渲染服务
     this.initializeService();
+
+    this.refreshAllDevices();
   }
 
   getAvailableScreensNumber() {
@@ -790,6 +884,306 @@ export default class HomeView extends Vue {
     return classId as any;
   }
 
+  // 预览视频
+  previewVideo(device: Device) {
+    if (!device.classId) {
+      ElMessage.warning('设备缺少 classId');
+      return;
+    }
+
+    const recordData = this.rollingRecordsMap.get(device.classId);
+    if (!recordData || !recordData.blobs || recordData.blobs.length === 0) {
+      ElMessage.warning('暂无可预览的视频数据');
+      return;
+    }
+
+    // 创建输入对话框容器
+    const dialogContainer = document.createElement('div');
+    dialogContainer.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    `;
+
+    // 创建对话框
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+      background: #2c2c2c;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      min-width: 400px;
+    `;
+
+    // 标题
+    const title = document.createElement('h3');
+    title.textContent = '选择回看时长';
+    title.style.cssText = `
+      color: white;
+      margin: 0 0 20px 0;
+      font-size: 18px;
+    `;
+
+    // 说明文字
+    const totalSeconds = recordData.blobs.length * 3; // 每个片段3秒
+    const description = document.createElement('p');
+    description.textContent = `当前缓存: ${recordData.blobs.length} 个片段 (约 ${totalSeconds} 秒)`;
+    description.style.cssText = `
+      color: #aaa;
+      margin: 0 0 15px 0;
+      font-size: 14px;
+    `;
+
+    // 输入框容器
+    const inputContainer = document.createElement('div');
+    inputContainer.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    `;
+
+    // 输入框
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = Math.min(10, totalSeconds).toString();
+    input.min = '1';
+    input.max = totalSeconds.toString();
+    input.step = '1';
+    input.placeholder = '输入秒数';
+    input.style.cssText = `
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #1a1a1a;
+      color: white;
+      font-size: 16px;
+    `;
+
+    const label = document.createElement('span');
+    label.textContent = '秒';
+    label.style.cssText = `
+      color: white;
+      font-size: 16px;
+    `;
+
+    inputContainer.appendChild(input);
+    inputContainer.appendChild(label);
+
+    // 按钮容器
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    `;
+
+    // 取消按钮
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = '取消';
+    cancelButton.style.cssText = `
+      padding: 10px 20px;
+      background: #555;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    `;
+    cancelButton.onmouseover = () => (cancelButton.style.background = '#666');
+    cancelButton.onmouseout = () => (cancelButton.style.background = '#555');
+    cancelButton.onclick = () => document.body.removeChild(dialogContainer);
+
+    // 确认按钮
+    const confirmButton = document.createElement('button');
+    confirmButton.textContent = '预览';
+    confirmButton.style.cssText = `
+      padding: 10px 20px;
+      background: #409eff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background 0.3s;
+    `;
+    confirmButton.onmouseover = () => (confirmButton.style.background = '#66b1ff');
+    confirmButton.onmouseout = () => (confirmButton.style.background = '#409eff');
+    confirmButton.onclick = () => {
+      const seconds = parseInt(input.value);
+      if (isNaN(seconds) || seconds < 1 || seconds > totalSeconds) {
+        ElMessage.warning(`请输入 1 到 ${totalSeconds} 之间的数字`);
+        return;
+      }
+      document.body.removeChild(dialogContainer);
+      this.showVideoPreview(device, recordData, seconds);
+    };
+
+    // 按回车也确认
+    input.onkeypress = (e) => {
+      if (e.key === 'Enter') {
+        confirmButton.click();
+      }
+    };
+
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(confirmButton);
+
+    dialog.appendChild(title);
+    dialog.appendChild(description);
+    dialog.appendChild(inputContainer);
+    dialog.appendChild(buttonContainer);
+    dialogContainer.appendChild(dialog);
+    document.body.appendChild(dialogContainer);
+
+    // 自动聚焦输入框
+    setTimeout(() => input.focus(), 0);
+  }
+
+  // 显示视频预览
+  showVideoPreview(device: Device, recordData: any, seconds: number) {
+    try {
+      // 计算需要多少个片段（每个片段3秒）
+      const segmentsNeeded = Math.ceil(seconds / 3);
+      const blobsToUse = recordData.blobs.slice(-segmentsNeeded);
+
+      console.log('准备预览:', {
+        请求秒数: seconds,
+        总片段数: recordData.blobs.length,
+        使用片段数: blobsToUse.length,
+        每片段约: '3秒',
+        预计总时长: blobsToUse.length * 3 + '秒',
+        mimeType: recordData.mimeType,
+      });
+
+      // 合并完整的视频片段
+      const blob = new Blob(blobsToUse, { type: recordData.mimeType });
+      const url = URL.createObjectURL(blob);
+
+      console.log('Blob创建成功:', {
+        大小: blob.size,
+        类型: blob.type,
+        URL: url,
+      });
+
+      // 创建预览容器
+      const previewContainer = document.createElement('div');
+      previewContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+      `;
+
+      // 创建视频元素
+      const video = document.createElement('video');
+      video.src = url;
+      video.controls = true;
+      video.autoplay = true;
+      video.muted = false;
+      video.playsInline = true;
+      video.style.cssText = `
+        max-width: 90%;
+        max-height: 80vh;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        background: black;
+      `;
+
+      // 添加视频加载事件监听
+      video.onloadstart = () => console.log('视频开始加载');
+      video.onloadedmetadata = () => {
+        console.log('视频元数据已加载:', {
+          时长: video.duration,
+          宽度: video.videoWidth,
+          高度: video.videoHeight,
+        });
+      };
+      video.onloadeddata = () => console.log('视频数据已加载');
+      video.oncanplay = () => console.log('视频可以播放');
+      video.onplaying = () => console.log('视频正在播放');
+      video.onerror = (e) => {
+        console.error('视频播放错误:', e, video.error);
+        ElMessage.error({
+          message: `视频加载失败: ${video.error?.message || '未知错误'}`,
+          plain: true,
+        });
+      };
+
+      // 创建关闭按钮
+      const closeButton = document.createElement('button');
+      closeButton.textContent = '✕ 关闭预览';
+      closeButton.style.cssText = `
+        margin-top: 20px;
+        padding: 10px 20px;
+        background: #409eff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background 0.3s;
+      `;
+
+      closeButton.onmouseover = () => (closeButton.style.background = '#66b1ff');
+      closeButton.onmouseout = () => (closeButton.style.background = '#409eff');
+
+      // 关闭预览
+      const closePreview = () => {
+        video.pause();
+        video.src = '';
+        URL.revokeObjectURL(url);
+        document.body.removeChild(previewContainer);
+      };
+
+      closeButton.onclick = closePreview;
+      previewContainer.onclick = (e) => {
+        if (e.target === previewContainer) closePreview();
+      };
+
+      // 创建信息文本
+      const infoText = document.createElement('div');
+      infoText.textContent = `${device.name} - 约 ${blobsToUse.length * 3} 秒 (${blobsToUse.length} 个片段，${(blob.size / 1024 / 1024).toFixed(2)} MB)`;
+      infoText.style.cssText = `
+        color: white;
+        margin-bottom: 10px;
+        font-size: 14px;
+      `;
+
+      previewContainer.appendChild(infoText);
+      previewContainer.appendChild(video);
+      previewContainer.appendChild(closeButton);
+      document.body.appendChild(previewContainer);
+
+      ElMessage.success({
+        message: '视频预览已打开',
+        plain: true,
+      });
+    } catch (error) {
+      console.error('预览视频失败:', error);
+      ElMessage.error({
+        message: `预览视频失败: ${(error as Error).message}`,
+        plain: true,
+      });
+    }
+  }
+
   beforeUnmount() {
     // 停止推流和清理服务
     if (this.rendererService) {
@@ -846,6 +1240,7 @@ export default class HomeView extends Vue {
             v-if="device.type === 'screen' || device.type === 'camera'"
             :ref="`video-${device.id}`"
             class="device-video"
+            :class="device.classId"
             autoplay
             muted
             playsinline
@@ -864,6 +1259,15 @@ export default class HomeView extends Vue {
               <div class="settings-value">{{ formatSettings(device) }}</div>
             </div>
             <div class="device-handler-buttons">
+              <el-button
+                v-if="device.type === 'screen' || device.type === 'camera'"
+                size="small"
+                @click="previewVideo(device)"
+                class="ghost-button"
+                type="success"
+              >
+                <span>🎬 预览视频</span>
+              </el-button>
               <el-button
                 size="small"
                 :disabled="isReady"

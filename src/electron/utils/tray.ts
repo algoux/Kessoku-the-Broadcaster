@@ -10,7 +10,7 @@ export function createTray(mainWindow: BrowserWindow) {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: 'Show',
+        label: '显示',
         click: () => {
           mainWindow.show();
           if (app.dock) {
@@ -19,7 +19,7 @@ export function createTray(mainWindow: BrowserWindow) {
         },
       },
       {
-        label: 'Quit',
+        label: '退出',
         click: () => app.quit(),
       },
     ]),

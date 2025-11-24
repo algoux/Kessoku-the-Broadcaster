@@ -122,7 +122,7 @@ export default class MacWindowFrame extends Vue {
   -webkit-app-region: drag;
   display: flex;
   align-items: center;
-  padding-left: 20px;
+  padding-left: 6px;
   z-index: 10000;
   pointer-events: none;
   border-bottom: 1px solid var(--border-color);

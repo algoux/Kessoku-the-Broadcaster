@@ -26,5 +26,16 @@ export default class App extends Vue {
 </script>
 
 <template>
+  <div class="window-drag"></div>
   <router-view />
 </template>
+
+<style scoped lang="less">
+.window-drag {
+  position: fixed;
+  top: 0;
+  width: 100vw;
+  height: 40px;
+  -webkit-app-region: drag;
+}
+</style>
