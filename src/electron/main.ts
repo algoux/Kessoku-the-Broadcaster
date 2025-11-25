@@ -3,11 +3,14 @@ import { isDevelopment, ipcMainHandle, ipcMainOn } from './utils/index';
 import ResourcesManager from './utils/resource-manager';
 import { getPreloadPath, getUIPath, getAssetsPath } from './utils/path-resolver';
 import { WebSocketService } from './services/websocket-service';
+import { VideoRecordingService } from './services/video-recording-service';
 import { createTray } from './utils/tray';
+import * as fs from 'fs';
 
 let loginWindow: BrowserWindow;
 let mainWindow: BrowserWindow;
 let webSocketService: WebSocketService;
+let videoRecordingService: VideoRecordingService;
 const SERVICE_URL: string = 'http://localhost:3001';
 
 app.setAboutPanelOptions({
@@ -70,6 +73,34 @@ function createMainWindow() {
       if (app.dock) {
         app.dock.hide();
       }
+    }
+  });
+
+  // 处理回看请求
+  ipcMainHandle('handle-replay-request', async ({ classId, seconds }) => {
+    if (!videoRecordingService) {
+      return { success: false, error: '录制服务未初始化' };
+    }
+
+    try {
+      console.log(`处理回看请求: classId=${classId}, seconds=${seconds}`);
+      const result = await videoRecordingService.cutVideo(classId, seconds);
+
+      if (result.success && result.filePath) {
+        // 通知渲染进程视频已准备好
+        if (mainWindow) {
+          mainWindow.webContents.send('replay-video-ready', {
+            classId,
+            filePath: result.filePath,
+            seconds,
+          });
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('处理回看请求失败:', error);
+      return { success: false, error: error.message };
     }
   });
 
@@ -169,6 +200,46 @@ function setupIpcHandlers() {
     }
     webSocketService.reportDeviceState(devices, isReady);
     return { success: true };
+  });
+
+  // 视频录制相关
+  ipcMainHandle('start-continuous-recording', async (classId: string) => {
+    if (!videoRecordingService) {
+      videoRecordingService = new VideoRecordingService();
+    }
+    return videoRecordingService.startRecording(classId);
+  });
+
+  ipcMainHandle('stop-continuous-recording', async (classId: string) => {
+    if (!videoRecordingService) {
+      return { success: false };
+    }
+    return videoRecordingService.stopRecording(classId);
+  });
+
+  ipcMainHandle('get-recording-blob', async ({ classId, arrayBuffer }) => {
+    if (!videoRecordingService) {
+      throw new Error('录制服务未初始化');
+    }
+    await videoRecordingService.saveRecordingChunk(classId, arrayBuffer);
+  });
+
+  ipcMainHandle('cut-video', async ({ classId, seconds }) => {
+    if (!videoRecordingService) {
+      return { success: false, error: '录制服务未初始化' };
+    }
+    return await videoRecordingService.cutVideo(classId, seconds);
+  });
+
+  // 读取视频文件
+  ipcMainHandle('read-video-file', async (filePath: string) => {
+    try {
+      const buffer = fs.readFileSync(filePath);
+      return buffer.buffer;
+    } catch (error) {
+      console.error('读取视频文件失败:', error);
+      throw error;
+    }
   });
 }
 

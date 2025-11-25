@@ -94,6 +94,26 @@ export class WebSocketService {
       }
     });
 
+    // 监听回看请求
+    this.socket.on('replayRequest', ({ requestedBy, classId, seconds }: any) => {
+      console.log(`收到导播端回看请求: classId=${classId}, seconds=${seconds}`);
+      if (this.mainWindow) {
+        this.mainWindow.webContents.send('replay-request', {
+          requestedBy,
+          classId,
+          seconds,
+        });
+      }
+    });
+
+    // 监听停止回看请求
+    this.socket.on('stopReplayRequest', ({ classId }: any) => {
+      console.log(`收到导播端停止回看请求: classId=${classId}`);
+      if (this.mainWindow) {
+        this.mainWindow.webContents.send('stop-replay-request', { classId });
+      }
+    });
+
     // 监听连接状态变化
     this.socket.on('disconnect', (reason: string) => {
       this.isConnected = false;

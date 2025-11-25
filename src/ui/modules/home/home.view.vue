@@ -98,6 +98,12 @@ export default class HomeView extends Vue {
   availableMicrophones: Array<MediaDeviceInfo> = [];
 
   rollingRecordsMap: Map<string, any> = new Map();
+  previewDialogVisible: boolean = false;
+  previewVideoUrl: string = '';
+  previewSeconds: number = 0;
+
+  // 回看推流相关
+  private replayVideos: Map<string, HTMLVideoElement> = new Map();
 
   // 渲染进程服务
   private rendererService: RendererService | null = null;
@@ -265,6 +271,95 @@ export default class HomeView extends Vue {
     }
   }
 
+  // 回看推流 - 从裁剪的视频文件创建流并推送
+  private async startReplayStreaming(classId: string, filePath: string, seconds: number) {
+    try {
+      if (!this.rendererService) {
+        throw new Error('渲染服务未初始化');
+      }
+
+      console.log(`开始回看推流: classId=${classId}, seconds=${seconds}`);
+
+      // 读取视频文件
+      const arrayBuffer = await window.electron.readVideoFile(filePath);
+      const blob = new Blob([arrayBuffer], { type: 'video/webm' });
+      const videoUrl = URL.createObjectURL(blob);
+
+      // 创建隐藏的 video 元素
+      const video = document.createElement('video');
+      video.style.display = 'none';
+      video.muted = true; // 必须静音才能自动播放
+      video.autoplay = true;
+      video.playsInline = true; // iOS 需要
+      video.setAttribute('playsinline', 'true'); // 兼容性
+      video.src = videoUrl;
+      document.body.appendChild(video);
+
+      // 等待视频加载元数据
+      await new Promise((resolve, reject) => {
+        video.onloadedmetadata = resolve;
+        video.onerror = () => reject(new Error('视频加载失败'));
+        // 添加超时处理
+        setTimeout(() => reject(new Error('视频加载超时')), 10000);
+      });
+
+      // 先捕获流再播放(避免播放被中断)
+      const stream = (video as any).captureStream() as MediaStream;
+
+      // 播放视频
+      try {
+        await video.play();
+      } catch (playError) {
+        console.warn('直接播放失败,尝试用户交互后播放:', playError);
+        // 如果自动播放失败,仍然继续推流(某些浏览器可能仍然能捕获流)
+      }
+
+      // 通过 RendererService 推流
+      await this.rendererService.startStreaming([stream]);
+
+      // 保存 video 元素以便后续清理
+      this.replayVideos.set(classId, video);
+
+      // 不再自动 onended 销毁，由导播端控制
+      ElMessage.success({ message: '回看推流已开始', plain: true });
+    } catch (error) {
+      console.error('回看推流失败:', error);
+      ElMessage.error({ message: `回看推流失败: ${error.message}`, plain: true });
+    }
+  }
+
+  // 停止回看推流
+  private async stopReplayStreaming(classId: string) {
+    try {
+      const video = this.replayVideos.get(classId);
+      if (video) {
+        // 停止视频播放
+        video.pause();
+        video.src = '';
+
+        // 从 DOM 中移除
+        if (video.parentNode) {
+          video.parentNode.removeChild(video);
+        }
+
+        // 释放 blob URL
+        URL.revokeObjectURL(video.src);
+
+        // 从 Map 中移除
+        this.replayVideos.delete(classId);
+
+        console.log(`回看推流已清理: classId=${classId}`);
+      }
+
+      // 停止推流
+      if (this.rendererService) {
+        await this.rendererService.stopStreaming();
+      }
+    } catch (error) {
+      console.error('停止回看推流失败:', error);
+    }
+  }
+
   // 更新可添加设备数量
   private updateCanAddState() {
     const countByType = (type: DeviceType) =>
@@ -427,8 +522,8 @@ export default class HomeView extends Vue {
     }
   }
 
-  // 开始滚动录制 - 使用 RecordRTC 定期重启策略
-  startRollingRecord(device: Device) {
+  // 开始滚动录制 - 单个连续录制,定期保存到文件
+  async startRollingRecord(device: Device) {
     if (!device.stream || !device.classId) {
       console.warn(`设备 ${device.name} 缺少必要的 stream 或 classId`);
       return;
@@ -438,84 +533,44 @@ export default class HomeView extends Vue {
     if (this.rollingRecordsMap.has(device.classId)) {
       const existingRecord = this.rollingRecordsMap.get(device.classId);
       if (existingRecord.recorder) {
-        existingRecord.recorder.stopRecording();
-        existingRecord.recorder.destroy();
-      }
-      if (existingRecord.restartInterval) {
-        clearInterval(existingRecord.restartInterval);
+        existingRecord.recorder.stopRecording(() => {
+          existingRecord.recorder.destroy();
+        });
       }
     }
 
     try {
-      const recordedBlobs: Blob[] = [];
-      const segmentDuration = 3000; // 每3秒一个完整片段
-      const maxSegments = 20; // 保留最近20个片段（60秒）
-      let currentRecorder: any = null;
+      // 通知主进程开始录制
+      await window.electron.startContinuousRecording(device.classId);
 
-      const startNewRecording = () => {
-        // 创建新的录制器
-        currentRecorder = new RecordRTC(device.stream, {
-          type: 'video',
-          mimeType: 'video/webm;codecs=vp9',
-          videoBitsPerSecond: 2500000,
-        });
-
-        currentRecorder.startRecording();
-
-        console.log(`开始新的录制片段: ${device.classId}`);
-      };
-
-      const stopAndSaveRecording = () => {
-        if (!currentRecorder) return;
-
-        currentRecorder.stopRecording(() => {
-          // 获取完整的视频 Blob
-          const blob = currentRecorder.getBlob();
-
-          if (blob && blob.size > 0) {
-            recordedBlobs.push(blob);
-
-            // 保留最近的片段
-            if (recordedBlobs.length > maxSegments) {
-              recordedBlobs.shift();
-            }
-
-            console.log(`保存录制片段: ${device.classId}, 当前共 ${recordedBlobs.length} 个片段`);
+      // 创建单个连续录制器,使用 timeSlice 实时发送数据
+      const recorder = new RecordRTC(device.stream, {
+        type: 'video',
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 2500000,
+        timeSlice: 1000, // 每 1 秒发送一次数据
+        ondataavailable: async (blob: Blob) => {
+          // 实时发送到主进程
+          try {
+            await window.electron.sendRecordingBlob(device.classId, blob);
+          } catch (error) {
+            console.error('发送录制数据失败:', error);
           }
+        },
+      });
 
-          // 销毁旧的录制器
-          currentRecorder.destroy();
-
-          // 立即开始新的录制
-          startNewRecording();
-        });
-      };
-
-      // 启动首次录制
-      startNewRecording();
-
-      // 定期停止并重启录制
-      const restartInterval = setInterval(() => {
-        stopAndSaveRecording();
-      }, segmentDuration);
+      recorder.startRecording();
 
       // 保存录制实例
       this.rollingRecordsMap.set(device.classId, {
-        recorder: currentRecorder,
-        blobs: recordedBlobs,
+        recorder,
         mimeType: 'video/webm;codecs=vp9',
         deviceId: device.id,
         deviceName: device.name,
         startTime: Date.now(),
-        restartInterval,
-        getRecorder: () => currentRecorder, // 获取当前录制器的引用
       });
-
-      console.log(
-        `✅ 已为设备 ${device.name} (${device.classId}) 启动 RecordRTC 滚动录制 (每 ${segmentDuration / 1000} 秒一个片段)`,
-      );
     } catch (error) {
-      console.error(`启动设备 ${device.name} (${device.classId}) 滚动录制失败:`, error);
+      console.error(`启动设备 ${device.name} (${device.classId}) 录制失败:`, error);
     }
   }
 
@@ -819,6 +874,33 @@ export default class HomeView extends Vue {
     this.initializeService();
 
     this.refreshAllDevices();
+
+    // 监听回看请求
+    window.electron.onReplayRequest(async ({ requestedBy, classId, seconds }) => {
+      console.log(`收到回看请求: classId=${classId}, seconds=${seconds}`);
+      try {
+        // 调用主进程处理回看
+        const result = await window.electron.handleReplayRequest(classId, seconds);
+        if (!result.success) {
+          ElMessage.error({ message: `回看失败: ${result.error}`, plain: true });
+        }
+      } catch (error) {
+        console.error('处理回看请求失败:', error);
+        ElMessage.error({ message: `回看失败: ${error.message}`, plain: true });
+      }
+    });
+
+    // 监听回看视频准备就绪
+    window.electron.onReplayVideoReady(async ({ classId, filePath, seconds }) => {
+      console.log(`回看视频已准备好: classId=${classId}, filePath=${filePath}`);
+      await this.startReplayStreaming(classId, filePath, seconds);
+    });
+
+    // 监听停止回看请求
+    window.electron.onStopReplayRequest?.(({ classId }) => {
+      console.log('收到 stopReplayRequest，销毁回看流', classId);
+      this.stopReplayStreaming(classId);
+    });
   }
 
   getAvailableScreensNumber() {
@@ -892,8 +974,15 @@ export default class HomeView extends Vue {
     }
 
     const recordData = this.rollingRecordsMap.get(device.classId);
-    if (!recordData || !recordData.blobs || recordData.blobs.length === 0) {
+    if (!recordData || !recordData.recorder) {
       ElMessage.warning('暂无可预览的视频数据');
+      return;
+    }
+
+    // 计算已录制时长(秒)
+    const recordingDuration = Math.floor((Date.now() - recordData.startTime) / 1000);
+    if (recordingDuration < 1) {
+      ElMessage.warning('录制时长不足,请至少录制 1 秒');
       return;
     }
 
@@ -932,9 +1021,8 @@ export default class HomeView extends Vue {
     `;
 
     // 说明文字
-    const totalSeconds = recordData.blobs.length * 3; // 每个片段3秒
     const description = document.createElement('p');
-    description.textContent = `当前缓存: ${recordData.blobs.length} 个片段 (约 ${totalSeconds} 秒)`;
+    description.textContent = `当前已录制: ${recordingDuration} 秒`;
     description.style.cssText = `
       color: #aaa;
       margin: 0 0 15px 0;
@@ -953,9 +1041,9 @@ export default class HomeView extends Vue {
     // 输入框
     const input = document.createElement('input');
     input.type = 'number';
-    input.value = Math.min(10, totalSeconds).toString();
+    input.value = Math.min(10, recordingDuration).toString();
     input.min = '1';
-    input.max = totalSeconds.toString();
+    input.max = recordingDuration.toString();
     input.step = '1';
     input.placeholder = '输入秒数';
     input.style.cssText = `
@@ -1020,8 +1108,8 @@ export default class HomeView extends Vue {
     confirmButton.onmouseout = () => (confirmButton.style.background = '#409eff');
     confirmButton.onclick = () => {
       const seconds = parseInt(input.value);
-      if (isNaN(seconds) || seconds < 1 || seconds > totalSeconds) {
-        ElMessage.warning(`请输入 1 到 ${totalSeconds} 之间的数字`);
+      if (isNaN(seconds) || seconds < 1 || seconds > recordingDuration) {
+        ElMessage.warning(`请输入 1 到 ${recordingDuration} 之间的数字`);
         return;
       }
       document.body.removeChild(dialogContainer);
@@ -1050,131 +1138,140 @@ export default class HomeView extends Vue {
   }
 
   // 显示视频预览
-  showVideoPreview(device: Device, recordData: any, seconds: number) {
+  async showVideoPreview(device: Device, recordData: any, seconds: number) {
     try {
-      // 计算需要多少个片段（每个片段3秒）
-      const segmentsNeeded = Math.ceil(seconds / 3);
-      const blobsToUse = recordData.blobs.slice(-segmentsNeeded);
+      // 检查录制实例是否存在
+      if (!device.classId || !this.rollingRecordsMap.has(device.classId)) {
+        ElMessage.warning('录制实例不存在');
+        return;
+      }
 
-      console.log('准备预览:', {
-        请求秒数: seconds,
-        总片段数: recordData.blobs.length,
-        使用片段数: blobsToUse.length,
-        每片段约: '3秒',
-        预计总时长: blobsToUse.length * 3 + '秒',
-        mimeType: recordData.mimeType,
+      // 显示加载提示
+      const loading = ElLoading.service({
+        lock: true,
+        text: `正在截取最后 ${seconds} 秒的视频,请稍候...`,
+        background: 'rgba(0, 0, 0, 0.7)',
       });
 
-      // 合并完整的视频片段
-      const blob = new Blob(blobsToUse, { type: recordData.mimeType });
-      const url = URL.createObjectURL(blob);
+      try {
+        // 调用主进程截取视频
+        const result = await window.electron.cutVideo(device.classId, seconds);
 
-      console.log('Blob创建成功:', {
-        大小: blob.size,
-        类型: blob.type,
-        URL: url,
-      });
+        loading.close();
 
-      // 创建预览容器
-      const previewContainer = document.createElement('div');
-      previewContainer.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.9);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-      `;
+        if (!result.success || !result.filePath) {
+          ElMessage.error({
+            message: `视频截取失败: ${result.error || '未知错误'}`,
+            plain: true,
+          });
+          return;
+        }
 
-      // 创建视频元素
-      const video = document.createElement('video');
-      video.src = url;
-      video.controls = true;
-      video.autoplay = true;
-      video.muted = false;
-      video.playsInline = true;
-      video.style.cssText = `
-        max-width: 90%;
-        max-height: 80vh;
-        border-radius: 8px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-        background: black;
-      `;
+        // 读取视频文件为 ArrayBuffer
+        const arrayBuffer = await window.electron.readVideoFile(result.filePath);
+        const blob = new Blob([arrayBuffer], { type: 'video/webm' });
+        const videoUrl = URL.createObjectURL(blob);
 
-      // 添加视频加载事件监听
-      video.onloadstart = () => console.log('视频开始加载');
-      video.onloadedmetadata = () => {
-        console.log('视频元数据已加载:', {
-          时长: video.duration,
-          宽度: video.videoWidth,
-          高度: video.videoHeight,
-        });
-      };
-      video.onloadeddata = () => console.log('视频数据已加载');
-      video.oncanplay = () => console.log('视频可以播放');
-      video.onplaying = () => console.log('视频正在播放');
-      video.onerror = (e) => {
-        console.error('视频播放错误:', e, video.error);
+        // 创建预览容器
+        const previewContainer = document.createElement('div');
+        previewContainer.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.9);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 10000;
+        `;
+
+        // 创建视频元素
+        const video = document.createElement('video');
+        video.src = videoUrl; // 使用 Blob URL
+        video.controls = true;
+        video.autoplay = true;
+        video.muted = false;
+        video.playsInline = true;
+        video.style.cssText = `
+          max-width: 90%;
+          max-height: 80vh;
+          border-radius: 8px;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+          background: black;
+        `;
+
+        // 添加视频加载事件监听
+        video.onloadedmetadata = () => {
+          console.log(
+            `视频已加载: ${video.duration.toFixed(1)}s, ${video.videoWidth}x${video.videoHeight}`,
+          );
+        };
+        video.onerror = (e) => {
+          console.error('视频加载失败:', video.error);
+          ElMessage.error({
+            message: `视频加载失败: ${video.error?.message || '未知错误'}`,
+            plain: true,
+          });
+        };
+
+        // 创建关闭按钮
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '✕ 关闭预览';
+        closeButton.style.cssText = `
+          margin-top: 20px;
+          padding: 10px 20px;
+          background: #409eff;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 16px;
+          transition: background 0.3s;
+        `;
+
+        closeButton.onmouseover = () => (closeButton.style.background = '#66b1ff');
+        closeButton.onmouseout = () => (closeButton.style.background = '#409eff');
+
+        // 关闭预览
+        const closePreview = () => {
+          video.onloadedmetadata = null;
+          video.onerror = null;
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+          URL.revokeObjectURL(videoUrl);
+          document.body.removeChild(previewContainer);
+        };
+
+        closeButton.onclick = closePreview;
+        previewContainer.onclick = (e) => {
+          if (e.target === previewContainer) closePreview();
+        };
+
+        // 创建信息文本
+        const infoText = document.createElement('div');
+        infoText.textContent = `${device.name} - ${seconds} 秒回溯`;
+        infoText.style.cssText = `
+          color: white;
+          margin-bottom: 10px;
+          font-size: 14px;
+        `;
+
+        previewContainer.appendChild(infoText);
+        previewContainer.appendChild(video);
+        previewContainer.appendChild(closeButton);
+        document.body.appendChild(previewContainer);
+      } catch (error) {
+        loading.close();
+        console.error('视频截取失败:', error);
         ElMessage.error({
-          message: `视频加载失败: ${video.error?.message || '未知错误'}`,
+          message: `视频截取失败: ${(error as Error).message}`,
           plain: true,
         });
-      };
-
-      // 创建关闭按钮
-      const closeButton = document.createElement('button');
-      closeButton.textContent = '✕ 关闭预览';
-      closeButton.style.cssText = `
-        margin-top: 20px;
-        padding: 10px 20px;
-        background: #409eff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 16px;
-        transition: background 0.3s;
-      `;
-
-      closeButton.onmouseover = () => (closeButton.style.background = '#66b1ff');
-      closeButton.onmouseout = () => (closeButton.style.background = '#409eff');
-
-      // 关闭预览
-      const closePreview = () => {
-        video.pause();
-        video.src = '';
-        URL.revokeObjectURL(url);
-        document.body.removeChild(previewContainer);
-      };
-
-      closeButton.onclick = closePreview;
-      previewContainer.onclick = (e) => {
-        if (e.target === previewContainer) closePreview();
-      };
-
-      // 创建信息文本
-      const infoText = document.createElement('div');
-      infoText.textContent = `${device.name} - 约 ${blobsToUse.length * 3} 秒 (${blobsToUse.length} 个片段，${(blob.size / 1024 / 1024).toFixed(2)} MB)`;
-      infoText.style.cssText = `
-        color: white;
-        margin-bottom: 10px;
-        font-size: 14px;
-      `;
-
-      previewContainer.appendChild(infoText);
-      previewContainer.appendChild(video);
-      previewContainer.appendChild(closeButton);
-      document.body.appendChild(previewContainer);
-
-      ElMessage.success({
-        message: '视频预览已打开',
-        plain: true,
-      });
+      }
     } catch (error) {
       console.error('预览视频失败:', error);
       ElMessage.error({
@@ -1185,6 +1282,22 @@ export default class HomeView extends Vue {
   }
 
   beforeUnmount() {
+    // 清理所有回看视频
+    for (const [classId, video] of this.replayVideos.entries()) {
+      if (video) {
+        video.pause();
+        if (video.parentNode) {
+          video.parentNode.removeChild(video);
+        }
+        URL.revokeObjectURL(video.src);
+      }
+    }
+    this.replayVideos.clear();
+
+    // 移除回看相关的监听器
+    window.electron.removeAllListeners('replay-request');
+    window.electron.removeAllListeners('replay-video-ready');
+
     // 停止推流和清理服务
     if (this.rendererService) {
       this.rendererService.cleanup();
@@ -1259,15 +1372,6 @@ export default class HomeView extends Vue {
               <div class="settings-value">{{ formatSettings(device) }}</div>
             </div>
             <div class="device-handler-buttons">
-              <el-button
-                v-if="device.type === 'screen' || device.type === 'camera'"
-                size="small"
-                @click="previewVideo(device)"
-                class="ghost-button"
-                type="success"
-              >
-                <span>🎬 预览视频</span>
-              </el-button>
               <el-button
                 size="small"
                 :disabled="isReady"

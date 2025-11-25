@@ -1,9 +1,6 @@
 const electron = require('electron');
 
 electron.contextBridge.exposeInMainWorld('electron', {
-  sendFrameAction: (payload) => {
-    ipcSend('sendFrameAction', payload);
-  },
   subscribeStatistics: (callback: (statistics: Statistics) => void) =>
     ipcOn('statistics', (stats: Statistics) => {
       callback(stats);
@@ -56,8 +53,41 @@ electron.contextBridge.exposeInMainWorld('electron', {
   onStopStreamingRequest: (callback: (data: { requestedBy: string }) => void) => {
     return ipcOn('stop-streaming-request', callback);
   },
+  onReplayRequest: (
+    callback: (data: { requestedBy: string; classId: string; seconds: number }) => void,
+  ) => {
+    return ipcOn('replay-request', callback);
+  },
+  onReplayVideoReady: (
+    callback: (data: { classId: string; filePath: string; seconds: number }) => void,
+  ) => {
+    return ipcOn('replay-video-ready', callback);
+  },
+  onStopReplayRequest: (callback: (data: { classId: string }) => void) => {
+    return ipcOn('stop-replay-request', callback);
+  },
   removeAllListeners: (channel: string) => {
     electron.ipcRenderer.removeAllListeners(channel);
+  },
+  // 视频录制相关
+  startContinuousRecording: (classId: string) => {
+    return ipcInvoke('start-continuous-recording', classId);
+  },
+  stopContinuousRecording: (classId: string) => {
+    return ipcInvoke('stop-continuous-recording', classId);
+  },
+  sendRecordingBlob: async (classId: string, blob: Blob) => {
+    const arrayBuffer = await blob.arrayBuffer();
+    return ipcInvoke('get-recording-blob', { classId, arrayBuffer });
+  },
+  cutVideo: (classId: string, seconds: number) => {
+    return ipcInvoke('cut-video', { classId, seconds });
+  },
+  readVideoFile: (filePath: string) => {
+    return ipcInvoke('read-video-file', filePath);
+  },
+  handleReplayRequest: (classId: string, seconds: number) => {
+    return ipcInvoke('handle-replay-request', { classId, seconds });
   },
 } satisfies Window['electron']);
 
