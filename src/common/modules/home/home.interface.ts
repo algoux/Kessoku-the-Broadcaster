@@ -7,6 +7,7 @@ export interface DeviceSettings {
   facingMode?: string;
   sampleRate?: number;
   channelCount?: number;
+  formatSetting?: string;
 }
 
 export type DeviceType = 'screen' | 'camera' | 'microphone';
@@ -38,6 +39,7 @@ export interface Device<T extends DeviceType = DeviceType> {
   stream?: MediaStream;
   settings?: DeviceSettings;
   capabilities?: DeviceCapabilities;
+  formatSetting?: string;
 }
 
 export interface ConfigForm {
