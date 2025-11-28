@@ -26,6 +26,7 @@ declare global {
 
     // WebSocket 相关事件
     login: { success: boolean; error?: string };
+    openSettingsWindow: void
     'get-connection-status': { connected: boolean; socketId: string | null };
     'get-router-rtp-capabilities': any;
     'create-producer-transport': any;
@@ -100,6 +101,7 @@ declare global {
         classId: string,
         seconds: number,
       ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+      openSettingsWindow: () => void;
     };
   }
 }

@@ -42,14 +42,12 @@ export class DeviceManager {
   /**
    * 渲染进程更新视频元素
    */
-  updateVideoElement: Function;
 
   startRollingRecord: Function;
 
   rendererService: RendererService;
 
-  constructor(_updateVideoElement: Function, _startRollingRecord: Function) {
-    this.updateVideoElement = _updateVideoElement;
+  constructor(_startRollingRecord: Function) {
     this.startRollingRecord = _startRollingRecord;
     this.rendererService = new RendererService();
   }
@@ -207,12 +205,13 @@ export class DeviceManager {
 
   async startDeviceStream(device: Device): Promise<Device> {
     try {
-      let stream: MediaStream | null = null;
+      let stream: MediaStream;
 
       if (device.type === 'screen') {
-        stream = await (navigator.mediaDevices.getUserMedia as any)({
+        stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
+            // @ts-ignore
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: device.id,
@@ -220,7 +219,6 @@ export class DeviceManager {
           },
         });
       } else if (device.type === 'camera') {
-        // 请求摄像头，尝试获取最高帧率
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
@@ -251,7 +249,7 @@ export class DeviceManager {
             maxFrameRate: capabilities?.frameRate?.max,
           };
           device.formatSetting = this.getFormatSettings(device);
-          console.log(device.formatSetting);
+          console.log(`${device.id} settings:`, device.settings);
         }
 
         // 如果是视频设备，启动滚动录制
@@ -268,10 +266,6 @@ export class DeviceManager {
 
   async stopStreaming() {
     try {
-      if (this.rendererService) {
-        await this.rendererService.stopStreaming();
-      }
-
       // Device 和 Transport 保持连接，以便下次快速推流
       this.isStreaming = false;
 
@@ -297,10 +291,6 @@ export class DeviceManager {
 
   async startStreaming(classIds: string[] = []) {
     try {
-      if (!this.rendererService) {
-        throw new Error('渲染服务未初始化');
-      }
-
       // 根据 classIds 筛选要推流的设备
       let devicesToStream = this.userDevices.filter((device) => device.enabled);
 
@@ -331,8 +321,9 @@ export class DeviceManager {
       }
 
       // 通过RendererService开始推流
-      await this.rendererService.startStreaming(enabledStreams);
       this.isStreaming = true;
+      return enabledStreams;
+      // await this.rendererService.startStreaming(enabledStreams);
     } catch (error) {
       console.error('推流失败:', error);
       throw new Error('推流失败');
@@ -476,10 +467,14 @@ export class DeviceManager {
     }
 
     this.selectedPreset = '';
+    return {
+      success: true,
+      message: '配置对话框已打开',
+    };
   }
 
-  async saveDeviceConfig(): Promise<ConfigSaveRes> {
-    if (!this.currentConfigDevice) return;
+  async saveDeviceConfig(): Promise<Device> {
+    if (!this.currentConfigDevice) throw new Error('当前无配置设备');
 
     if (!this.configForm.width || !this.configForm.height || !this.configForm.frameRate) {
       throw new Error('请填写完整的配置参数');
@@ -489,7 +484,7 @@ export class DeviceManager {
       const originalCapabilities = this.currentConfigDevice.capabilities;
       this.stopDeviceStream(this.currentConfigDevice);
 
-      let stream: MediaStream | null = null;
+      let stream: MediaStream;
 
       if (this.currentConfigDevice.type === 'screen') {
         stream = await (navigator.mediaDevices.getUserMedia as any)({
@@ -529,21 +524,15 @@ export class DeviceManager {
             this.currentConfigDevice.capabilities = originalCapabilities;
           }
         }
-
-        this.updateVideoElement(this.currentConfigDevice);
       }
 
-      return {
-        success: true,
-        message: `设备 ${this.currentConfigDevice.name} 配置已更新`,
-      };
+      return this.currentConfigDevice;
     } catch (error) {
       throw new Error(`更新设备配置失败: ${(error as Error).message}`);
     }
   }
 
-  private getFormatSettings(device: Device): string {
-    console.log(device);
+  getFormatSettings(device: Device): string {
     if (!device.settings) return '未获取';
 
     const s = device.settings;

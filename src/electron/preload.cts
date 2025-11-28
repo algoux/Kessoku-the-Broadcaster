@@ -12,10 +12,10 @@ electron.contextBridge.exposeInMainWorld('electron', {
     ipcSend('setWindowTitle', title);
   },
   loginSuccess: () => {
-    ipcSend('loginSuccess', undefined);
+    ipcSend('loginSuccess');
   },
   hasReady: () => {
-    ipcSend('hasReady', undefined);
+    ipcSend('hasReady');
   },
   // WebSocket 相关方法
   login: (playerName: string) => {
@@ -89,6 +89,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   handleReplayRequest: (classId: string, seconds: number) => {
     return ipcInvoke('handle-replay-request', { classId, seconds });
   },
+  openSettingsWindow: () => {
+    ipcSend('openSettingsWindow');
+  }
 } satisfies Window['electron']);
 
 function ipcInvoke<Key extends keyof EventPayloadMapping>(
@@ -111,7 +114,7 @@ function ipcOn<Key extends keyof EventPayloadMapping>(
 
 function ipcSend<Key extends keyof EventPayloadMapping>(
   key: Key,
-  payload: EventPayloadMapping[Key],
+  payload?: EventPayloadMapping[Key],
 ) {
   electron.ipcRenderer.send(key, payload);
 }

@@ -1,5 +1,6 @@
 {
   "appId": "Kessoku the Broadcaster",
+  "productName": "Kessoku the Broadcaster",
   "files": ["dist/electron/**", "dist/ui/**", "resources/**"],
   "extraResources": ["dist/electron/preload.cts"],
   "generateUpdatesFilesForAllChannels": false,

@@ -5,7 +5,9 @@ import { getPreloadPath, getUIPath, getAssetsPath } from './utils/path-resolver'
 import { WebSocketService } from './services/websocket-service';
 import { VideoRecordingService } from './services/video-recording-service';
 import { createTray } from './utils/tray';
-import * as fs from 'fs';
+import fs from 'fs';
+
+app.setName('Kessoku the Broadcaster');
 
 let loginWindow: BrowserWindow;
 let mainWindow: BrowserWindow;
@@ -14,11 +16,11 @@ let videoRecordingService: VideoRecordingService;
 const SERVICE_URL: string = 'http://localhost:3001';
 
 app.setAboutPanelOptions({
-  applicationName: 'Kessoku the Broadcaster',
+  applicationName: app.getName(),
   applicationVersion: app.getVersion(),
-  copyright: '© 2024 algoUX all rights reserved.',
+  copyright: '© 2019-present algoUX. All Rights Reserved.',
   authors: ['algoUX'],
-  website: 'https://kessoku-broadcaster.example.com',
+  website: 'https://algoux.org',
 });
 
 function showWindow(window: BrowserWindow) {
@@ -118,6 +120,28 @@ function createMainWindow() {
   return mainWindow;
 }
 
+function createSettingsWindow() {
+  const settingsWindow = new BrowserWindow({
+    webPreferences: {
+      preload: getPreloadPath(),
+    },
+    width: 400,
+    height: 600,
+    resizable: false,
+    show: false
+  })
+
+  if (isDevelopment()) {
+    settingsWindow.loadURL('http://localhost:5123/#settings');
+    showWindow(settingsWindow);
+  } else {
+    settingsWindow.loadFile(getUIPath(), {
+      hash: 'settings',
+    });
+    showWindow(settingsWindow);
+  }
+}
+
 // 设置 IPC 处理器
 function setupIpcHandlers() {
   // 登录并连接到服务器
@@ -156,6 +180,10 @@ function setupIpcHandlers() {
       webSocketService.notifyStreamingStopped(producerId);
     }
   });
+
+  ipcMainOn("openSettingsWindow", () => {
+    createSettingsWindow();
+  })
 
   // 获取连接状态
   ipcMainHandle('get-connection-status', () => {

@@ -9,19 +9,19 @@ import { Provide } from 'vue-property-decorator';
   },
 })
 export default class LoginView extends Vue {
-  @Provide({reactive: true})
-  isLoading = false
+  @Provide({ reactive: true })
+  isLoading = false;
 
   @Provide()
   handleLoadingState(state: boolean) {
-    this.isLoading = state
+    this.isLoading = state;
   }
 }
 </script>
 
 <template>
   <div class="login-view">
-    <h1>Login</h1>
+    <h1>登陆</h1>
     <div class="login-form-container">
       <LoginForm />
     </div>

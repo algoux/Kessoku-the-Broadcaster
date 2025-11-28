@@ -76,10 +76,7 @@ import InvisibleIcon from '@/components/svgs/invisible.vue';
   },
 })
 export default class HomeView extends Vue {
-  deviceManager: DeviceManager = new DeviceManager(
-    this.updateVideoElement,
-    this.startRollingRecord,
-  );
+  deviceManager: DeviceManager = new DeviceManager(this.startRollingRecord);
   // 设备源相关状态
   // private userDevices: Device[] = [];
   // private selectedPreset: string = '';
@@ -97,11 +94,10 @@ export default class HomeView extends Vue {
   // @Provide({ reactive: true })
   // availableMicrophones: Array<MediaDeviceInfo> = [];
 
-  testDemo: string;
-
-  async getDemo() {
-    this.testDemo = "hello"
-  }
+  homeState!: {
+    userDevices: Device[];
+    selectedPreset: string;
+  };
 
   rollingRecordsMap: Map<string, any> = new Map();
 
@@ -121,7 +117,7 @@ export default class HomeView extends Vue {
       window.electron.hasReady();
     } else {
       // 取消准备状态
-      await this.reportDeviceState();
+      // await this.reportDeviceState();
     }
   }
 
@@ -164,12 +160,17 @@ export default class HomeView extends Vue {
 
       // 设置推流请求回调（支持按 classId 选择设备）
       this.rendererService.onStreamingRequest = async (classIds: string[]) => {
-        await this.deviceManager.startStreaming(classIds);
+        const mediastreamings = await this.deviceManager.startStreaming(classIds);
+        this.rendererService.startStreaming(mediastreamings);
       };
 
       // 设置停止推流请求回调
       this.rendererService.onStopStreamingRequest = async () => {
+        await this.rendererService.stopStreaming();
         await this.deviceManager.stopStreaming();
+        for(const device of this.deviceManager.userDevices) {
+          this.updateVideoElement(device);
+        }
       };
 
       // 初始化服务
@@ -301,7 +302,6 @@ export default class HomeView extends Vue {
       await new Promise((resolve, reject) => {
         video.onloadedmetadata = resolve;
         video.onerror = () => reject(new Error('视频加载失败'));
-        setTimeout(() => reject(new Error('视频加载超时')), 10000);
       });
 
       // 先捕获流再播放(避免播放被中断)
@@ -510,6 +510,7 @@ export default class HomeView extends Vue {
     const videoEl = this.$refs[`video-${device.id}`] as HTMLVideoElement | HTMLVideoElement[];
     console.log('videoEl', videoEl);
     const video = Array.isArray(videoEl) ? videoEl[0] : videoEl;
+    console.log('video', device.settings);
 
     if (video && device.stream) {
       video.srcObject = device.stream;
@@ -616,19 +617,25 @@ export default class HomeView extends Vue {
   openConfigDialog(device: Device) {
     const data = this.deviceManager.openConfigDialog(device);
     if (data.success) {
-      ElMessage.error({
+      ElMessage.primary({
+        message: data.message,
+        plain: true,
+      });
+      this.configDialogVisible = true;
+    } else {
+      ElMessage.info({
         message: data.message,
         plain: true,
       });
     }
-    this.configDialogVisible = true;
   }
 
   // 保存设备配置
   async saveDeviceConfig() {
     try {
-      await this.deviceManager.saveDeviceConfig();
+      const device = await this.deviceManager.saveDeviceConfig();
       this.configDialogVisible = false;
+      this.updateVideoElement(device);
       ElMessage.primary({
         message: '设备配置已更新',
         plain: true,
@@ -700,11 +707,9 @@ export default class HomeView extends Vue {
 
   async mounted() {
     // 自动初始化渲染服务
-    this.initializeService();
+    await this.initializeService();
 
     await this.refreshAllDevices();
-
-    await this.getDemo()
 
     // 监听回看请求
     window.electron.onReplayRequest(async ({ requestedBy, classId, seconds }) => {
@@ -782,6 +787,10 @@ export default class HomeView extends Vue {
       this.stopDeviceStream(device);
     });
   }
+
+  openSettingsWindow() {
+    window.electron.openSettingsWindow();
+  }
 }
 </script>
 
@@ -789,6 +798,9 @@ export default class HomeView extends Vue {
   <div class="home-view">
     <home-header />
     <main class="home-main">
+      <div class="open-settings-button" @click="openSettingsWindow">
+        <settings-icon style="width: 70%; height: 70%;" />
+      </div>
       <el-card
         v-for="device in deviceManager.userDevices"
         :key="device.id"
@@ -838,7 +850,7 @@ export default class HomeView extends Vue {
         <template #footer>
           <div class="device-actions">
             <div class="device-settings-info">
-              <div class="settings-value">{{ device.formatSetting }}</div>
+              <div class="settings-value">{{ deviceManager.getFormatSettings(device) }}</div>
             </div>
 
             <div class="device-handler-buttons">
@@ -974,7 +986,6 @@ export default class HomeView extends Vue {
         </div>
       </template>
     </el-dialog>
-
   </div>
 </template>
 
@@ -1322,5 +1333,28 @@ export default class HomeView extends Vue {
 .capabilities-info {
   background: var(--bg-primary-color);
   border: 1px solid var(--border-color);
+}
+
+.open-settings-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  width: 35px;
+  aspect-ratio: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  background-color: var(--bg-pure-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 3px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  transform: scale(1);
+  &:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+  }
 }
 </style>

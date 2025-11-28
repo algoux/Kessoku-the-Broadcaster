@@ -1,7 +1,7 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
 import HomeView from '@/modules/home/home.view.vue';
 import LoginView from '@/modules/login/login.view.vue';
-
+import SettingsView from '@/modules/settings/settings.view.vue';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -19,6 +19,14 @@ const routes: RouteRecordRaw[] = [
       title: '用户登录',
     },
   },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: SettingsView,
+    meta: {
+      title: '设置',
+    },
+  }
 ];
 
 const router = createRouter({
