@@ -11,6 +11,7 @@ import { RendererService } from './renderer-service';
 interface DeviceAddingRes {
   success: boolean;
   code: number;
+  device?: Device;
 }
 
 interface ConfigSaveRes {
@@ -39,17 +40,7 @@ export class DeviceManager {
 
   public streamStatus: string = '未连接';
 
-  /**
-   * 渲染进程更新视频元素
-   */
-
-  startRollingRecord: Function;
-
-  rendererService: RendererService;
-
-  constructor(_startRollingRecord: Function) {
-    this.startRollingRecord = _startRollingRecord;
-    this.rendererService = new RendererService();
+  constructor() {
   }
 
   /**
@@ -72,9 +63,10 @@ export class DeviceManager {
       this.availableCameras = devices.filter((d) => d.kind === 'videoinput');
       this.availableMicrophones = devices.filter((d) => d.kind === 'audioinput');
 
-      // 如果用户设备列表为空，添加默认设备
+      // 如果用户设备列表为空，添加默认设 备
       if (this.userDevices.length === 0) {
         const defautDevices = await this.addDefaultDevices();
+        this.updateCanAddState();
         return defautDevices;
       }
 
@@ -103,9 +95,9 @@ export class DeviceManager {
         isDefault: true,
       };
       console.log('Adding default screen device:', device);
-      this.userDevices.push(device);
       let newDevice = await this.startDeviceStream(device);
       defautDevicesList.push(newDevice);
+      this.userDevices.push(device);
     }
 
     if (this.availableCameras.length > 0) {
@@ -118,9 +110,9 @@ export class DeviceManager {
         enabled: true,
         isDefault: true,
       };
-      this.userDevices.push(device);
       let newDevice = await this.startDeviceStream(device);
       defautDevicesList.push(newDevice);
+      this.userDevices.push(device);
     }
 
     if (this.availableMicrophones.length > 0) {
@@ -249,12 +241,7 @@ export class DeviceManager {
             maxFrameRate: capabilities?.frameRate?.max,
           };
           device.formatSetting = this.getFormatSettings(device);
-          console.log(`${device.id} settings:`, device.settings);
-        }
-
-        // 如果是视频设备，启动滚动录制
-        if (device.type === 'screen' || device.type === 'camera') {
-          //   this.startRollingRecord(device);
+          console.log(`${device.id} formatSettings:`, device.formatSetting);
         }
       }
       return device;
@@ -357,6 +344,7 @@ export class DeviceManager {
     return {
       success: true,
       code: 1,
+      device: device,
     };
   }
 
@@ -387,10 +375,11 @@ export class DeviceManager {
     return {
       success: true,
       code: 1,
+      device: device,
     };
   }
 
-  addMicrophoneDevice(): DeviceAddingRes {
+  async addMicrophoneDevice(): Promise<DeviceAddingRes> {
     const unusedMic = this.availableMicrophones.find(
       (mic) => !this.userDevices.some((d) => d.id === mic.deviceId && d.type === 'microphone'),
     );
@@ -402,19 +391,22 @@ export class DeviceManager {
       };
     }
 
-    this.userDevices.push({
+    const device: Device = {
       id: unusedMic.deviceId,
       name: unusedMic.label || `麦克风 ${unusedMic.deviceId.slice(0, 8)}`,
       type: 'microphone',
       classId: this.getOrCreateClassId(unusedMic.deviceId, 'microphone'),
       enabled: true,
       isDefault: false,
-    });
+    };
+
+    this.userDevices.push(device);
 
     this.updateCanAddState();
     return {
       success: true,
       code: 1,
+      device: device,
     };
   }
 
@@ -426,7 +418,7 @@ export class DeviceManager {
     }
   }
 
-  stopDeviceStream(device: Device, videoEl?: HTMLVideoElement | HTMLVideoElement[]) {
+  stopDeviceStream(device: Device, videoEl?: HTMLVideoElement) {
     if (device.stream) {
       device.stream.getTracks().forEach((track) => track.stop());
       device.stream = undefined;
@@ -434,10 +426,7 @@ export class DeviceManager {
       device.capabilities = undefined;
 
       if (videoEl) {
-        const video = Array.isArray(videoEl) ? videoEl[0] : videoEl;
-        if (video) {
-          video.srcObject = null;
-        }
+        videoEl.srcObject = null;
       }
     }
   }
@@ -449,6 +438,8 @@ export class DeviceManager {
         message: '麦克风设备无需配置参数',
       };
     }
+
+    console.log('Opening config dialog for device:', device);
 
     this.currentConfigDevice = device;
 
@@ -466,11 +457,29 @@ export class DeviceManager {
       };
     }
 
+    console.log('Config form initialized:', this.configForm);
+
     this.selectedPreset = '';
     return {
       success: true,
       message: '配置对话框已打开',
     };
+  }
+
+  applyPreset = (presetStr: string) => {
+    console.log('Applying preset:', presetStr);
+    if (!presetStr) return;
+
+    try {
+      const preset = JSON.parse(presetStr);
+      if (preset && preset.width && preset.height) {
+        this.configForm.width = preset.width;
+        this.configForm.height = preset.height;
+      }
+    } catch (error) {
+      console.log(error);
+      throw new Error('应用预设失败');
+    }
   }
 
   async saveDeviceConfig(): Promise<Device> {
@@ -532,7 +541,7 @@ export class DeviceManager {
     }
   }
 
-  getFormatSettings(device: Device): string {
+  getFormatSettings = (device: Device): string => {
     if (!device.settings) return '未获取';
 
     const s = device.settings;

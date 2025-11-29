@@ -34,14 +34,4 @@ const router = createRouter({
   routes,
 });
 
-// router.afterEach((to) => {
-//   const title = (to.meta.title as string) || '录屏助手';
-
-//   document.title = title;
-
-//   if (window.electron?.setWindowTitle) {
-//     window.electron.setWindowTitle(title);
-//   }
-// });
-
 export default router;

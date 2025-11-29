@@ -23,6 +23,7 @@ import WebCamera from './svgs/web-camera.vue';
 import ScreenShare from './svgs/screen-share.vue';
 import Mic from './svgs/mic.vue';
 import WebState from './svgs/web-state.vue';
+import { DeviceManager } from '@/services/device-manager';
 
 @Options({
   components: {
@@ -48,6 +49,8 @@ import WebState from './svgs/web-state.vue';
 })
 export default class HomeHeader extends Vue {
   @Inject()
+  deviceManager!: DeviceManager;
+  @Inject()
   isReady!: boolean;
 
   @Inject()
@@ -56,9 +59,6 @@ export default class HomeHeader extends Vue {
   availableCameras!: Array<MediaDeviceInfo>;
   @Inject()
   availableMicrophones!: Array<MediaDeviceInfo>;
-
-  @Inject()
-  canAddState!: CanAddState;
 
   @Inject()
   changeReadyState!: () => void;
@@ -77,7 +77,7 @@ export default class HomeHeader extends Vue {
 
   get hasDeviceToAdd(): boolean {
     return (
-      this.canAddState.screen > 0 || this.canAddState.camera > 0 || this.canAddState.microphone > 0
+      this.deviceManager.canAddState.screen > 0 || this.deviceManager.canAddState.camera > 0 || this.deviceManager.canAddState.microphone > 0
     );
   }
 }
@@ -91,11 +91,6 @@ export default class HomeHeader extends Vue {
     </section>
 
     <section class="tools-sec">
-      <!-- <el-tooltip effect="dark" content="重新检测可用设备源" placement="bottom">
-        <el-button circle @click="refreshAllDevices" :disabled="isReady">
-          <refresh style="width: 20px" />
-        </el-button>
-      </el-tooltip> -->
       <el-badge v-if="hasDeviceToAdd" is-dot>
         <el-dropdown :disabled="isReady">
           <el-button circle :disabled="isReady" :size="'large'">
@@ -105,20 +100,20 @@ export default class HomeHeader extends Vue {
             <el-dropdown-menu>
               <el-dropdown-item @click="addScreenDevice">
                 添加屏幕共享设备
-                <span v-if="canAddState.screen > 0" class="count-badge"
-                  >({{ canAddState.screen }})</span
+                <span v-if="deviceManager.canAddState.screen > 0" class="count-badge"
+                  >({{ deviceManager.canAddState.screen }})</span
                 >
               </el-dropdown-item>
               <el-dropdown-item @click="addCameraDevice">
                 添加摄像头设备
-                <span v-if="canAddState.camera > 0" class="count-badge"
-                  >({{ canAddState.camera }})</span
+                <span v-if="deviceManager.canAddState.camera > 0" class="count-badge"
+                  >({{ deviceManager.canAddState.camera }})</span
                 >
               </el-dropdown-item>
               <el-dropdown-item @click="addMicrophoneDevice">
                 添加麦克风设备
-                <span v-if="canAddState.microphone > 0" class="count-badge"
-                  >({{ canAddState.microphone }})</span
+                <span v-if="deviceManager.canAddState.microphone > 0" class="count-badge"
+                  >({{ deviceManager.canAddState.microphone }})</span
                 >
               </el-dropdown-item>
             </el-dropdown-menu>
@@ -133,20 +128,20 @@ export default class HomeHeader extends Vue {
           <el-dropdown-menu>
             <el-dropdown-item @click="addScreenDevice">
               添加屏幕共享设备
-              <span v-if="canAddState.screen > 0" class="count-badge"
-                >({{ canAddState.screen }})</span
+              <span v-if="deviceManager.canAddState.screen > 0" class="count-badge"
+                >({{ deviceManager.canAddState.screen }})</span
               >
             </el-dropdown-item>
             <el-dropdown-item @click="addCameraDevice">
               添加摄像头设备
-              <span v-if="canAddState.camera > 0" class="count-badge"
-                >({{ canAddState.camera }})</span
+              <span v-if="deviceManager.canAddState.camera > 0" class="count-badge"
+                >({{ deviceManager.canAddState.camera }})</span
               >
             </el-dropdown-item>
             <el-dropdown-item @click="addMicrophoneDevice">
               添加麦克风设备
-              <span v-if="canAddState.microphone > 0" class="count-badge"
-                >({{ canAddState.microphone }})</span
+              <span v-if="deviceManager.canAddState.microphone > 0" class="count-badge"
+                >({{ deviceManager.canAddState.microphone }})</span
               >
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -222,6 +217,13 @@ export default class HomeHeader extends Vue {
   height: 60px;
   border-radius: 10px;
   font-size: 20px;
+
+  transition: all 0.3s ease;
+  transform: scale(1);
+
+  &:hover {
+    transform: scale(1.05);
+  }
 }
 
 :deep(.el-badge) {
@@ -245,16 +247,14 @@ export default class HomeHeader extends Vue {
   }
 }
 
-/* Element Plus 暗色主题适配 */
 :deep(.el-dropdown) {
   .el-button {
     background-color: var(--bg-secondary-color);
-    border-color: rgba(255, 255, 255, 0.2);
+    border:1px solid var(--border-color);
     color: var(--font-primary-color);
 
     &:hover:not(.is-disabled) {
       background-color: var(--bg-primary-color);
-      border-color: var(--el-color-primary);
     }
 
     &.is-disabled {
@@ -268,7 +268,7 @@ export default class HomeHeader extends Vue {
 :deep(.el-badge) {
   .el-button {
     background-color: var(--bg-secondary-color);
-    border-color: rgba(255, 255, 255, 0.2);
+    border:1px solid var(--border-color);
 
     &:hover:not(.is-disabled) {
       background-color: var(--bg-primary-color);
