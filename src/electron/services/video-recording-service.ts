@@ -2,22 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
-
-// 设置 FFmpeg 路径
-// macOS: 通过 Homebrew 安装 - brew install ffmpeg
-// 也可以配置为使用打包的 ffmpeg 二进制文件
-if (process.platform === 'darwin') {
-  // macOS: 尝试使用 Homebrew 安装的 ffmpeg
-  const homebrewFFmpegPath = '/opt/homebrew/bin/ffmpeg';
-  const homebrewFFprobePath = '/opt/homebrew/bin/ffprobe';
-
-  if (fs.existsSync(homebrewFFmpegPath)) {
-    ffmpeg.setFfmpegPath(homebrewFFmpegPath);
-  }
-  if (fs.existsSync(homebrewFFprobePath)) {
-    ffmpeg.setFfprobePath(homebrewFFprobePath);
-  }
-}
+import { getFFmpegpath } from '../utils/path-resolver';
 
 /**
  * 视频录制服务
@@ -26,20 +11,23 @@ if (process.platform === 'darwin') {
 export class VideoRecordingService {
   private recordingFiles: Map<string, RecordingData> = new Map();
   private cacheDir: string;
+  private ffmpeg = ffmpeg;
 
   constructor() {
-    // 创建用户目录下的缓存目录
-    // macOS/Linux: ~/.Kessoku-the-Broadcaster/cache/
-    // Windows: C:\Users\<用户名>\.Kessoku-the-Broadcaster\cache\
     const homeDir = os.homedir();
     const appDir = path.join(homeDir, '.Kessoku-the-Broadcaster');
     this.cacheDir = path.join(appDir, 'cache');
-
-    // 确保目录存在
     if (!fs.existsSync(this.cacheDir)) {
       fs.mkdirSync(this.cacheDir, { recursive: true });
       console.log(`创建缓存目录: ${this.cacheDir}`);
     }
+
+    const { ffmpegPath, ffprobePath } = getFFmpegpath();
+    if (!fs.existsSync(ffmpegPath) && !fs.existsSync(ffprobePath)) {
+      throw new Error('未检测到 ffmpeg');
+    }
+    this.ffmpeg.setFfmpegPath(ffmpegPath);
+    this.ffmpeg.setFfprobePath(ffprobePath);
   }
 
   /**
@@ -165,7 +153,7 @@ export class VideoRecordingService {
     return new Promise((resolve) => {
       let detectedDuration = 0;
 
-      ffmpeg(inputPath)
+      this.ffmpeg(inputPath)
         .outputOptions(['-f', 'null'])
         .output('-')
         .on('codecData', (data) => {
@@ -244,7 +232,7 @@ export class VideoRecordingService {
     const startTime = Math.max(0, totalDuration - seconds);
     const actualDuration = Math.min(seconds, totalDuration);
 
-    ffmpeg(inputPath)
+    this.ffmpeg(inputPath)
       .setStartTime(startTime)
       .setDuration(actualDuration)
       .output(outputPath)

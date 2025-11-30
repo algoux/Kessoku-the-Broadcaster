@@ -13,3 +13,30 @@ export function getUIPath() {
 export function getAssetsPath() {
   return path.join(app.getAppPath(), isDevelopment() ? '.' : '', 'resources');
 }
+
+export function getFFmpegpath() {
+  let ffmpegPath: string;
+  let ffprobePath: string;
+
+  if (isDevelopment()) {
+    ffmpegPath = '/opt/homebrew/bin/ffmpeg';
+    ffprobePath = '/opt/homebrew/bin/ffprobe';
+  } else {
+    ffmpegPath = path.join(
+      process.resourcesPath,
+      'ffmpeg',
+      process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg',
+    );
+
+    ffprobePath = path.join(
+      process.resourcesPath,
+      'ffmpeg',
+      process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe',
+    );
+  }
+
+  return {
+    ffmpegPath,
+    ffprobePath,
+  };
+}
