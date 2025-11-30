@@ -10,9 +10,9 @@ import {
 } from 'common/modules/home/home.interface';
 import { Provide, Ref } from 'vue-property-decorator';
 import { RendererService } from '@/services/renderer-service';
-import RecordRTC from 'recordrtc';
 import { DeviceManager } from '@/services/device-manager';
 import { RecorderService } from '@/services/media-recorder';
+import { getScreenActualRefreshRate, getCameraActualFPS } from '@/utils/getFrameRate';
 
 import {
   ElCard,
@@ -47,6 +47,7 @@ import SettingsIcon from '@/components/svgs/settings.vue';
 import VisibleIcon from '@/components/svgs/visible.vue';
 import InvisibleIcon from '@/components/svgs/invisible.vue';
 import DeviceCard from '@/components/device-card.vue';
+import ConfigDialog from '@/components/config-dialog.vue';
 
 @Options({
   components: {
@@ -76,12 +77,14 @@ import DeviceCard from '@/components/device-card.vue';
     VisibleIcon,
     InvisibleIcon,
     DeviceCard,
+    ConfigDialog,
   },
 })
 export default class HomeView extends Vue {
   @Ref('deviceCard') deviceCards!: DeviceCard[];
 
-  private configDialogVisible = false;
+  @Provide({ reactive: true })
+  configDialogVisible = false;
   @Provide({ reactive: true })
   deviceManager: DeviceManager = new DeviceManager();
   @Provide({ reactive: true })
@@ -180,7 +183,6 @@ export default class HomeView extends Vue {
 
     try {
       const deviceRes = await this.deviceManager.refreshAllDevices();
-      console.log('刷新设备结果:', deviceRes);
       if (deviceRes) {
         console.log(deviceRes);
         for (const device of deviceRes) {
@@ -207,16 +209,23 @@ export default class HomeView extends Vue {
   @Provide()
   updateVideoElement(device: Device) {
     try {
+      if (!device.stream) return;
       const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
       const card = this.deviceCards[idx];
       const videoEl = card.getVideoEl();
+
+      if (device.type === 'camera') {
+        getCameraActualFPS(videoEl, 120).then((fps) => {
+          console.log('camera fps', fps);
+        });
+      }
 
       if (videoEl && device.stream) {
         videoEl.srcObject = device.stream;
         videoEl.play();
       }
     } catch (err) {
-      console.warn(device.type)
+      console.warn(device.type);
       console.error('更新视频元素失败:', err);
     }
   }
@@ -228,7 +237,9 @@ export default class HomeView extends Vue {
 
   // 停止设备流
   stopDeviceStream(device: Device) {
-    const videoEl = this.$refs[`video-${device.id}`] as HTMLVideoElement;
+    const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
+    const card = this.deviceCards[idx];
+    const videoEl = card.getVideoEl();
     this.deviceManager.stopDeviceStream(device, videoEl);
   }
 
@@ -356,8 +367,14 @@ export default class HomeView extends Vue {
       });
     }
   }
+  
+  @Provide()
+  closeConfigDialog() {
+    this.configDialogVisible = false;
+  }
 
   // 保存设备配置
+  @Provide()
   async saveDeviceConfig() {
     try {
       const loading = ElLoading.service({
@@ -530,107 +547,146 @@ export default class HomeView extends Vue {
         <p>点击上方按钮添加设备</p>
       </div>
     </main>
-
-    <el-dialog
-      v-model="configDialogVisible"
-      :title="`配置 - ${deviceManager.currentConfigDevice?.name}`"
-      width="500px"
-      :close-on-click-modal="false"
+  <el-dialog
+    :model-value="configDialogVisible"
+    @close="closeConfigDialog"
+    :title="`配置 - ${deviceManager.currentConfigDevice?.name}`"
+    width="500px"
+    :close-on-click-modal="false"
+    align-center
+  >
+    <el-form
+      v-if="deviceManager.currentConfigDevice.type === 'microphone'"
+      :model="deviceManager.configForm"
+      label-width="100px"
+      style="margin-top: 15px"
     >
-      <el-form :model="deviceManager.configForm" label-width="100px" style="margin-top: 15px">
-        <el-form-item label="分辨率">
-          <div class="resolution-inputs">
-            <el-input-number
-              v-model="deviceManager.configForm.width"
-              :min="deviceManager.currentConfigDevice?.capabilities?.width?.min"
-              :max="deviceManager.currentConfigDevice?.capabilities?.width?.max"
-              :step="1"
-              controls-position="right"
-            />
-            <span class="resolution-separator">×</span>
-            <el-input-number
-              v-model="deviceManager.configForm.height"
-              :min="deviceManager.currentConfigDevice?.capabilities?.height?.min"
-              :max="deviceManager.currentConfigDevice?.capabilities?.height?.max"
-              :step="1"
-              controls-position="right"
-            />
-          </div>
-        </el-form-item>
+      <el-form-item label="采样率">
+        <el-input-number
+          v-model="deviceManager.configForm.sampleRate"
+          :min="deviceManager.currentConfigDevice.capabilities.sampleRate.min"
+          :max="deviceManager.currentConfigDevice.capabilities.sampleRate.max"
+          :step="1"
+          controls-position="right"
+        />
+      </el-form-item>
 
-        <el-form-item label="预设分辨率">
-          <el-select
-            v-model="deviceManager.selectedPreset"
-            placeholder="选择预设"
-            @change="deviceManager.applyPreset"
-          >
-            <el-option label="自定义" value="" />
-            <el-option
-              v-if="
-                deviceManager.currentConfigDevice?.capabilities?.width?.max &&
-                deviceManager.currentConfigDevice?.capabilities?.height?.max
-              "
-              label="设备最大分辨率"
-              :value="
-                JSON.stringify({
-                  width: Math.round(deviceManager.currentConfigDevice.capabilities.width.max),
-                  height: Math.round(deviceManager.currentConfigDevice.capabilities.height.max),
-                })
-              "
-            />
-            <el-option
-              label="1920 × 1080 (Full HD)"
-              :value="JSON.stringify({ width: 1920, height: 1080 })"
-            />
-            <el-option
-              label="1280 × 720 (HD)"
-              :value="JSON.stringify({ width: 1280, height: 720 })"
-            />
-            <el-option
-              label="854 × 480 (SD)"
-              :value="JSON.stringify({ width: 854, height: 480 })"
-            />
-            <el-option label="640 × 360" :value="JSON.stringify({ width: 640, height: 360 })" />
-          </el-select>
-        </el-form-item>
+      <el-form-item label="声道数">
+        <el-input-number
+          v-model="deviceManager.configForm.channelCount"
+          :min="deviceManager.currentConfigDevice.capabilities.channelCount.min"
+          :max="deviceManager.currentConfigDevice.capabilities.channelCount.max"
+          :step="1"
+          controls-position="right"
+        />
+      </el-form-item>
 
-        <el-form-item label="帧率">
+      <el-form-item label="支持范围">
+        <div class="capabilities-info">
+          <p v-if="deviceManager.currentConfigDevice?.capabilities">
+            采样率:
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.sampleRate.min) }} -
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.sampleRate.max) }}
+            Hz<br />
+            声道数:
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.channelCount.min) }} -
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.channelCount.max) }}<br />
+          </p>
+          <p v-else>待获取设备参数信息</p>
+        </div>
+      </el-form-item>
+    </el-form>
+    <el-form v-else :model="deviceManager.configForm" label-width="100px" style="margin-top: 15px">
+      <el-form-item label="分辨率">
+        <div class="resolution-inputs">
           <el-input-number
-            v-model="deviceManager.configForm.frameRate"
-            :min="deviceManager.currentConfigDevice?.capabilities?.frameRate?.min"
-            :max="60"
+            v-model="deviceManager.configForm.width"
+            :min="deviceManager.currentConfigDevice?.capabilities?.width?.min"
+            :max="deviceManager.currentConfigDevice?.capabilities?.width?.max"
             :step="1"
             controls-position="right"
           />
-          <span style="margin-left: 10px">fps</span>
-        </el-form-item>
-
-        <el-form-item label="支持范围">
-          <div class="capabilities-info">
-            <p v-if="deviceManager.currentConfigDevice?.capabilities">
-              宽度:
-              {{ Math.round(deviceManager.currentConfigDevice.capabilities.width?.min) }} -
-              {{ Math.round(deviceManager.currentConfigDevice.capabilities.width?.max) }}<br />
-              高度:
-              {{ Math.round(deviceManager.currentConfigDevice.capabilities.height?.min) }} -
-              {{ Math.round(deviceManager.currentConfigDevice.capabilities.height?.max) }}<br />
-              帧率:
-              {{ Math.round(deviceManager.currentConfigDevice.capabilities.frameRate?.min) }} -
-              {{ 60 }}
-              fps
-            </p>
-            <p v-else>待获取设备参数信息</p>
-          </div>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="configDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveDeviceConfig">保存</el-button>
+          <span class="resolution-separator">×</span>
+          <el-input-number
+            v-model="deviceManager.configForm.height"
+            :min="deviceManager.currentConfigDevice?.capabilities?.height?.min"
+            :max="deviceManager.currentConfigDevice?.capabilities?.height?.max"
+            :step="1"
+            controls-position="right"
+          />
         </div>
-      </template>
-    </el-dialog>
+      </el-form-item>
+
+      <el-form-item label="预设分辨率">
+        <el-select
+          v-model="deviceManager.selectedPreset"
+          placeholder="选择预设"
+          @change="deviceManager.applyPreset"
+        >
+          <el-option label="自定义" value="" />
+          <el-option
+            v-if="
+              deviceManager.currentConfigDevice?.capabilities?.width?.max &&
+              deviceManager.currentConfigDevice?.capabilities?.height?.max
+            "
+            label="设备最大分辨率"
+            :value="
+              JSON.stringify({
+                width: Math.round(deviceManager.currentConfigDevice.capabilities.width.max),
+                height: Math.round(deviceManager.currentConfigDevice.capabilities.height.max),
+              })
+            "
+          />
+          <el-option
+            label="1920 × 1080 (Full HD)"
+            :value="JSON.stringify({ width: 1920, height: 1080 })"
+          />
+          <el-option
+            label="1280 × 720 (HD)"
+            :value="JSON.stringify({ width: 1280, height: 720 })"
+          />
+          <el-option label="854 × 480 (SD)" :value="JSON.stringify({ width: 854, height: 480 })" />
+          <el-option label="640 × 360" :value="JSON.stringify({ width: 640, height: 360 })" />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="帧率">
+        <el-input-number
+          v-model="deviceManager.configForm.frameRate"
+          :min="deviceManager.currentConfigDevice?.capabilities?.frameRate?.min"
+          :max="60"
+          :step="1"
+          controls-position="right"
+        />
+        <span style="margin-left: 10px">fps</span>
+      </el-form-item>
+
+      <el-form-item label="支持范围">
+        <div class="capabilities-info">
+          <p v-if="deviceManager.currentConfigDevice?.capabilities">
+            宽度:
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.width?.min) }} -
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.width?.max) }}<br />
+            高度:
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.height?.min) }} -
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.height?.max) }}<br />
+            帧率:
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.frameRate?.min) }} -
+            {{ 60 }}
+            fps
+          </p>
+          <p v-else>待获取设备参数信息</p>
+        </div>
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="closeConfigDialog">取消</el-button>
+        <el-button type="primary" @click="saveDeviceConfig">保存</el-button>
+      </div>
+    </template>
+  </el-dialog>
   </div>
 </template>
 
@@ -680,6 +736,29 @@ export default class HomeView extends Vue {
   }
 }
 
+.open-settings-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  width: 30px;
+  aspect-ratio: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  background-color: var(--bg-secondary-color);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  transform: scale(1);
+  &:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+    transform: scale(1.05);
+  }
+}
+
 .resolution-inputs {
   display: flex;
   align-items: center;
@@ -708,29 +787,6 @@ export default class HomeView extends Vue {
   p {
     margin: 0;
     line-height: 1.8;
-  }
-}
-
-.open-settings-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
-  width: 30px;
-  aspect-ratio: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 50%;
-  background-color: var(--bg-secondary-color);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  transform: scale(1);
-  &:hover {
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-    transform: scale(1.05);
   }
 }
 </style>

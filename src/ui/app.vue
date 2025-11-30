@@ -13,10 +13,15 @@ import Tools from './components/tools.vue';
   },
 })
 export default class App extends Vue {
-  mounted() {
+  async mounted() {
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && ['=', '-', '0'].includes(e.key)) {
         e.preventDefault();
+      }
+
+      if (e.metaKey && e.key == ',') {
+        e.preventDefault();
+        window.electron.openSettingsWindow()
       }
     });
   }

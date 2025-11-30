@@ -172,11 +172,7 @@ export default class HomeHeader extends Vue {
   left: 0;
   width: 100%;
   height: calc(720px * 0.25);
-  background-color: transparent;
-  // background: rgba(20, 20, 20, 0);
-  // background-color: rgba(255, 255, 255, .011);
-  // background-color: var(--bg-glass-color);
-  // backdrop-filter: blur(15px);
+  background-color: var(--bg-secondary-color);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   z-index: 999;
   display: flex;
@@ -262,7 +258,7 @@ export default class HomeHeader extends Vue {
 
     &.is-disabled {
       background-color: var(--bg-secondary-color);
-      border-color: rgba(255, 255, 255, 0.1);
+      border-color: var(--border-color);
       opacity: 0.5;
     }
   }

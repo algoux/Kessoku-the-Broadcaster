@@ -16,7 +16,6 @@ export default class Mic extends Vue {}
     stroke-width="2"
     stroke-linecap="round"
     stroke-linejoin="round"
-    style="color: var(--font-primary-color);"
   >
     <path d="M12 19v3" />
     <path d="M19 10v2a7 7 0 0 1-14 0v-2" />

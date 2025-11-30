@@ -65,8 +65,8 @@ export default class DeviceCard extends Vue {
     <template #header>
       <div class="device-header">
         <div class="device-info">
-          <el-icon :size="24" class="device-icon">
-            <component :is="getDeviceIcon(device.type)" />
+          <el-icon :size="26" class="device-icon">
+            <component :is="getDeviceIcon(device.type)" style="color: var(--font-primary-color)" />
           </el-icon>
           <div class="device-title">
             <h3>{{ device.classId }}</h3>
@@ -111,7 +111,7 @@ export default class DeviceCard extends Vue {
             @click="openConfigDialog(device)"
             class="ghost-button"
           >
-            <SettingsIcon style="width: 16px;"/>
+            <SettingsIcon style="width: 16px; margin-right: 6px" />
             <span>修改设备参数</span>
           </el-button>
           <el-button
@@ -121,7 +121,7 @@ export default class DeviceCard extends Vue {
             @click="removeDevice(device)"
             class="ghost-button danger-ghost-button"
           >
-            <Trash style="color: var(--bg-pure-color); width: 14px;" />
+            <Trash style="color: var(--bg-pure-color); width: 14px" />
           </el-button>
         </div>
       </div>
@@ -136,6 +136,9 @@ export default class DeviceCard extends Vue {
   border: 1px solid var(--border-color);
   transition: all 0.3s ease;
   height: 390px;
+  position: relative;
+  display: flex;
+  align-items: center;
 
   &:hover {
     transform: translateY(-4px);
@@ -144,8 +147,14 @@ export default class DeviceCard extends Vue {
   }
 
   :deep(.el-card__header) {
+    width: 100%;
     height: 20%;
     border-bottom: 1px solid var(--border-color);
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    position: absolute;
+    top: 0;
+    z-index: 40;
   }
 
   .device-header {
@@ -172,7 +181,7 @@ export default class DeviceCard extends Vue {
 
         h3 {
           margin: 0;
-          font-size: 16px;
+          font-size: 18px;
           font-weight: 600;
           color: var(--font-primary-color);
           white-space: nowrap;
@@ -196,13 +205,14 @@ export default class DeviceCard extends Vue {
 
   :deep(.el-card__body) {
     padding: 0;
-    height: 60%;
+    width: 100%;
+    height: 62%;
   }
 
   .device-body {
     width: 100%;
     height: 100%;
-    background: #000;
+    background: var(--bg-pure-color);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -222,13 +232,19 @@ export default class DeviceCard extends Vue {
       justify-content: center;
       width: 100%;
       height: 100%;
-      color: #909399;
+      color: var(--font-primary-color);
     }
   }
 
   :deep(.el-card__footer) {
+    width: 100%;
     height: 20%;
     border-top: 1px solid var(--border-color);
+    position: absolute;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    z-index: 40;
   }
 
   .device-actions {
@@ -241,7 +257,7 @@ export default class DeviceCard extends Vue {
 
     .device-settings-info {
       width: 100%;
-      height: 50%;
+      height: 40%;
       display: flex;
       align-items: center;
       justify-content: flex-start;
@@ -261,8 +277,9 @@ export default class DeviceCard extends Vue {
 
     & .device-handler-buttons {
       width: 100%;
-      height: 50%;
+      height: 60%;
       display: flex;
+      // background-color: red;
       gap: 10px;
       flex: 1;
       justify-content: space-between;
@@ -281,6 +298,7 @@ export default class DeviceCard extends Vue {
   justify-content: center;
   align-items: center;
   gap: 6px;
+  font-size: 14px;
 
   &:hover:not(:disabled) {
     opacity: 0.8;

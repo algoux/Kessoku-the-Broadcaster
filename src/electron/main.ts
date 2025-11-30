@@ -125,10 +125,11 @@ function createSettingsWindow() {
     webPreferences: {
       preload: getPreloadPath(),
     },
-    width: 400,
+    width: 500,
     height: 600,
     resizable: false,
-    show: false
+    show: false,
+    titleBarStyle: 'hiddenInset',
   })
 
   if (isDevelopment()) {
