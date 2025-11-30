@@ -84,7 +84,7 @@ export default class HomeHeader extends Vue {
 </script>
 
 <template>
-  <header class="home-header">
+  <div class="home-header">
     <section class="user-sec">
       <div class="main-sec">A20 - Wujinhao</div>
       <div class="org-sec">山东理工大学</div>
@@ -156,7 +156,7 @@ export default class HomeHeader extends Vue {
         {{ isReady ? '解除就绪状态' : '准备就绪' }}
       </el-button>
     </section>
-  </header>
+  </div>
 </template>
 
 <style lang="less" scoped>
@@ -172,8 +172,11 @@ export default class HomeHeader extends Vue {
   left: 0;
   width: 100%;
   height: calc(720px * 0.25);
-  background-color: var(--bg-glass-color);
-  backdrop-filter: blur(15px);
+  background-color: transparent;
+  // background: rgba(20, 20, 20, 0);
+  // background-color: rgba(255, 255, 255, .011);
+  // background-color: var(--bg-glass-color);
+  // backdrop-filter: blur(15px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   z-index: 999;
   display: flex;
@@ -272,7 +275,6 @@ export default class HomeHeader extends Vue {
 
     &:hover:not(.is-disabled) {
       background-color: var(--bg-primary-color);
-      border-color: var(--el-color-primary);
     }
   }
 }

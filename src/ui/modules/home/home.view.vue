@@ -184,6 +184,9 @@ export default class HomeView extends Vue {
       if (deviceRes) {
         console.log(deviceRes);
         for (const device of deviceRes) {
+          if (device.type === 'microphone') {
+            continue;
+          }
           this.updateVideoElement(device);
           this.recorderService.startRollingRecord(device);
         }
@@ -203,17 +206,18 @@ export default class HomeView extends Vue {
   // 更新视频元素
   @Provide()
   updateVideoElement(device: Device) {
-    console.log(`更新视频元素: ${device.id}`);
+    try {
+      const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
+      const card = this.deviceCards[idx];
+      const videoEl = card.getVideoEl();
 
-    const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
-    const card = this.deviceCards[idx];
-    const videoEl = card.getVideoEl();
-
-    console.log('videoEl:', videoEl);
-
-    if (videoEl && device.stream) {
-      videoEl.srcObject = device.stream;
-      videoEl.play();
+      if (videoEl && device.stream) {
+        videoEl.srcObject = device.stream;
+        videoEl.play();
+      }
+    } catch (err) {
+      console.warn(device.type)
+      console.error('更新视频元素失败:', err);
     }
   }
 
