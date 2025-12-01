@@ -14,8 +14,8 @@ interface DeviceAddingRes {
 }
 
 interface ConfigSaveRes {
-  success: boolean;
-  message: string;
+  updateIndex: number;
+  updateDevice: Device;
 }
 
 export class DeviceManager {
@@ -82,7 +82,7 @@ export class DeviceManager {
         id: screen.id,
         name: screen.name,
         classId: this.getOrCreateClassId(screen.id, 'screen', true),
-        type: 'screen', 
+        type: 'screen',
         enabled: true,
         isDefault: true,
       };
@@ -258,7 +258,7 @@ export class DeviceManager {
       }
       return device;
     } catch (error) {
-      console.error(`❌ 启动设备 ${device.name} 失败:`, error);
+      console.error(`启动设备 ${device.name} 失败:`, error);
       throw new Error(`启动设备 ${device.name} 失败`);
     }
   }
@@ -326,97 +326,51 @@ export class DeviceManager {
     }
   }
 
-  async addScreenDevice(): Promise<DeviceAddingRes> {
-    const unusedScreen = this.availableScreens.find(
-      (screen) => !this.userDevices.some((d) => d.id === screen.id && d.type === 'screen'),
-    );
+  async addDevice(type: DeviceType): Promise<DeviceAddingRes> {
+    try {
+      let unUsedDevice;
+      if (type === 'screen') {
+        unUsedDevice = this.availableScreens.find(
+          (screen) => !this.userDevices.some((d) => d.id === screen.id && d.type === 'screen'),
+        );
+      } else if (type === 'camera') {
+        unUsedDevice = this.availableCameras.find(
+          (camera) =>
+            !this.userDevices.some((d) => d.id === camera.deviceId && d.type === 'camera'),
+        );
+      } else if (type === 'microphone') {
+        unUsedDevice = this.availableMicrophones.find(
+          (mic) => !this.userDevices.some((d) => d.id === mic.deviceId && d.type === 'microphone'),
+        );
+      }
 
-    if (!unusedScreen) {
-      return {
-        success: false,
-        code: 0,
+      if (!unUsedDevice) {
+        return {
+          success: true,
+          code: 0,
+        };
+      }
+
+      const device: Device = {
+        id: unUsedDevice.deviceId,
+        name: unUsedDevice.label,
+        type: type,
+        classId: this.getOrCreateClassId(unUsedDevice.deviceId, type),
+        enabled: true,
+        isDefault: false,
       };
-    }
 
-    const device: Device = {
-      id: unusedScreen.id,
-      name: unusedScreen.name,
-      type: 'screen',
-      classId: this.getOrCreateClassId(unusedScreen.id, 'screen'),
-      enabled: true,
-      isDefault: false,
-    };
-
-    await this.startDeviceStream(device);
-    this.updateCanAddState();
-    this.userDevices.push(device);
-    return {
-      success: true,
-      code: 1,
-      device: device,
-    };
-  }
-
-  async addCameraDevice(): Promise<DeviceAddingRes> {
-    const unusedCamera = this.availableCameras.find(
-      (camera) => !this.userDevices.some((d) => d.id === camera.deviceId && d.type === 'camera'),
-    );
-
-    if (!unusedCamera) {
+      await this.startDeviceStream(device);
+      this.userDevices.push(device);
+      this.updateCanAddState();
       return {
-        success: false,
-        code: 0,
+        success: true,
+        code: 1,
+        device: device,
       };
+    } catch (error) {
+      throw new Error('添加设备失败');
     }
-
-    const device: Device = {
-      id: unusedCamera.deviceId,
-      name: unusedCamera.label || `摄像头 ${unusedCamera.deviceId}`,
-      type: 'camera',
-      classId: this.getOrCreateClassId(unusedCamera.deviceId, 'camera'),
-      enabled: true,
-      isDefault: false,
-    };
-
-    await this.startDeviceStream(device);
-    this.updateCanAddState();
-    this.userDevices.push(device);
-    return {
-      success: true,
-      code: 1,
-      device: device,
-    };
-  }
-
-  async addMicrophoneDevice(): Promise<DeviceAddingRes> {
-    const unusedMic = this.availableMicrophones.find(
-      (mic) => !this.userDevices.some((d) => d.id === mic.deviceId && d.type === 'microphone'),
-    );
-
-    if (!unusedMic) {
-      return {
-        success: false,
-        code: 0,
-      };
-    }
-
-    const device: Device = {
-      id: unusedMic.deviceId,
-      name: unusedMic.label || `麦克风 ${unusedMic.deviceId.slice(0, 8)}`,
-      type: 'microphone',
-      classId: this.getOrCreateClassId(unusedMic.deviceId, 'microphone'),
-      enabled: true,
-      isDefault: false,
-    };
-
-    await this.startDeviceStream(device);
-    this.userDevices.push(device);
-    this.updateCanAddState();
-    return {
-      success: true,
-      code: 1,
-      device: device,
-    };
   }
 
   removeDevice(device: Device) {
@@ -477,8 +431,7 @@ export class DeviceManager {
     }
   };
 
-  saveDeviceConfig = async (): Promise<Device> => {
-    console.log('configForm', this.configForm);
+  saveDeviceConfig = async (): Promise<ConfigSaveRes> => {
     if (this.currentConfigDevice.type === 'microphone') {
       if (!this.configForm.sampleRate || !this.configForm.channelCount) {
         throw new Error('请填写完整的配置参数');
@@ -528,7 +481,7 @@ export class DeviceManager {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             deviceId: { exact: this.currentConfigDevice.id },
-            sampleRate: this.configForm.frameRate,
+            sampleRate: this.configForm.sampleRate,
             channelCount: this.configForm.channelCount,
           },
         });
@@ -542,7 +495,6 @@ export class DeviceManager {
           if (audioTrack) {
             this.currentConfigDevice.settings = audioTrack.getSettings() as DeviceSettings;
           } else {
-            // 若未能获取到新的 settings，回退为原始 settings
             this.currentConfigDevice.settings = originalSettings;
           }
         } else {
@@ -557,26 +509,30 @@ export class DeviceManager {
             this.currentConfigDevice.capabilities = originalCapabilities;
           }
         }
-
-        // 更新格式化显示字段，确保子组件能直接读取到可显示的值
-        try {
-          (this.currentConfigDevice as any).formatSetting = this.getFormatSettings(
-            this.currentConfigDevice,
-          );
-        } catch (err) {
-          // ignore
-        }
+        this.currentConfigDevice.formatSetting = this.getFormatSettings(this.currentConfigDevice);
       } else {
         // 如果未获取到新流，回退 settings
         this.currentConfigDevice.settings = originalSettings;
+        throw new Error('获取设备流失败，配置未保存');
       }
 
-      // 确保 userDevices 数组中的对象被替换，触发响应式
+      // 更新 userDevices 数组中对应设备，使用 splice 确保 Vue 检测到变化
       const idx = this.userDevices.findIndex((d) => d.id === this.currentConfigDevice.id);
       if (idx !== -1) {
-        Object.assign(this.userDevices[idx], this.currentConfigDevice);
+        // 获取当前设备的引用
+        const targetDevice = this.userDevices[idx];
+
+        // 更新所有属性
+        targetDevice.stream = this.currentConfigDevice.stream;
+        targetDevice.settings = this.currentConfigDevice.settings;
+        targetDevice.capabilities = this.currentConfigDevice.capabilities;
+        targetDevice.formatSetting = this.getFormatSettings(this.currentConfigDevice);
+
+        // 使用 splice 触发数组的响应式更新
+        this.userDevices.splice(idx, 1, targetDevice);
+
+        return { updateIndex: idx, updateDevice: targetDevice };
       }
-      return this.currentConfigDevice;
     } catch (error) {
       throw new Error(`更新设备配置失败: ${(error as Error).message}`);
     }

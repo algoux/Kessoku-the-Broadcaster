@@ -1,81 +1,33 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
-import {
-  DeviceSettings,
-  DeviceCapabilities,
-  Device,
-  ConfigForm,
-  CanAddState,
-  DeviceType,
-} from 'common/modules/home/home.interface';
+import { provide, reactive } from 'vue';
+import { Device, DeviceType } from 'common/modules/home/home.interface';
 import { Provide, Ref } from 'vue-property-decorator';
 import { RendererService } from '@/services/renderer-service';
 import { DeviceManager } from '@/services/device-manager';
 import { RecorderService } from '@/services/media-recorder';
 import { getScreenActualRefreshRate, getCameraActualFPS } from '@/utils/getFrameRate';
 
-import {
-  ElCard,
-  ElButton,
-  ElTag,
-  ElIcon,
-  ElMessage,
-  ElDialog,
-  ElForm,
-  ElFormItem,
-  ElSelect,
-  ElOption,
-  ElInputNumber,
-  ElLoading,
-} from 'element-plus';
+import { ElIcon, ElMessage, ElLoading } from 'element-plus';
 
-import {
-  Plus,
-  Refresh,
-  Delete,
-  VideoCamera,
-  Microphone,
-  Monitor,
-  Setting,
-} from '@element-plus/icons-vue';
+import { Monitor } from '@element-plus/icons-vue';
 import ScreenShare from '@/components/svgs/screen-share.vue';
 import WebCamera from '@/components/svgs/web-camera.vue';
-import HomeHeader from '@/components/home-header.vue';
-import Trash from '@/components/svgs/trash.vue';
 import Mic from '@/components/svgs/mic.vue';
+import HomeHeader from '@/components/home-header.vue';
 import SettingsIcon from '@/components/svgs/settings.vue';
-import VisibleIcon from '@/components/svgs/visible.vue';
-import InvisibleIcon from '@/components/svgs/invisible.vue';
 import DeviceCard from '@/components/device-card.vue';
 import ConfigDialog from '@/components/config-dialog.vue';
 
 @Options({
   components: {
-    ElCard,
-    ElButton,
-    ElTag,
-    ElIcon,
-    ElDialog,
-    ElForm,
-    ElFormItem,
-    ElSelect,
-    ElOption,
-    ElInputNumber,
     ScreenShare,
     WebCamera,
-    Plus,
-    Refresh,
-    Delete,
-    VideoCamera,
-    Microphone,
-    Monitor,
-    Setting,
-    HomeHeader,
-    Trash,
     Mic,
+    ElIcon,
+    Monitor,
+    HomeHeader,
     SettingsIcon,
-    VisibleIcon,
-    InvisibleIcon,
     DeviceCard,
     ConfigDialog,
   },
@@ -85,8 +37,10 @@ export default class HomeView extends Vue {
 
   @Provide({ reactive: true })
   configDialogVisible = false;
+
   @Provide({ reactive: true })
-  deviceManager: DeviceManager = new DeviceManager();
+  deviceManager: DeviceManager = reactive(new DeviceManager()) as DeviceManager;
+
   @Provide({ reactive: true })
   recorderService: RecorderService = new RecorderService();
 
@@ -193,12 +147,9 @@ export default class HomeView extends Vue {
           this.recorderService.startRollingRecord(device);
         }
       }
-      ElMessage.primary({
-        message: '设备刷新完成',
-        plain: true,
-      });
+      this.showMessage('设备列表已更新', 'success');
     } catch (error) {
-      ElMessage.error({ message: '刷新设备失败', plain: true });
+      this.showMessage('刷新设备失败', 'error');
       console.error('刷新设备失败:', error);
     } finally {
       loading.close();
@@ -214,12 +165,6 @@ export default class HomeView extends Vue {
       const card = this.deviceCards[idx];
       const videoEl = card.getVideoEl();
 
-      if (device.type === 'camera') {
-        getCameraActualFPS(videoEl, 120).then((fps) => {
-          console.log('camera fps', fps);
-        });
-      }
-
       if (videoEl && device.stream) {
         videoEl.srcObject = device.stream;
         videoEl.play();
@@ -230,11 +175,6 @@ export default class HomeView extends Vue {
     }
   }
 
-  @Provide()
-  getFormatSettings(device: Device) {
-    return this.deviceManager.getFormatSettings(device);
-  }
-
   // 停止设备流
   stopDeviceStream(device: Device) {
     const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
@@ -243,92 +183,27 @@ export default class HomeView extends Vue {
     this.deviceManager.stopDeviceStream(device, videoEl);
   }
 
-  // 添加屏幕共享设备
   @Provide()
-  async addScreenDevice() {
+  async addDevice(type: DeviceType) {
     try {
       const loading = ElLoading.service({
         lock: true,
-        text: '正在添加屏幕共享...',
+        text: `正在添加${this.deviceTypeName(type)}..`,
         background: 'rgba(0, 0, 0, 0.7)',
       });
-      const data = await this.deviceManager.addScreenDevice();
+      let data = await this.deviceManager.addDevice(type);
       loading.close();
-      this.recorderService.startRollingRecord(data.device);
-      if (data.success) {
-        ElMessage.primary({
-          message: '已添加屏幕共享',
-          plain: true,
-        });
+      if (data.device.type == 'camera' || data.device.type == 'screen') {
+        this.recorderService.startRollingRecord(data.device);
         this.updateVideoElement(data.device);
+      }
+      if (data.code) {
+        this.showMessage(`已添加${this.deviceTypeName(type)}`, 'success');
       } else {
-        ElMessage.warning({
-          message: '没有可用的屏幕共享',
-          plain: true,
-        });
+        this.showMessage(`所有${this.deviceTypeName(type)}已添加`, 'warning');
       }
     } catch (error) {
-      ElMessage.error({
-        message: `添加屏幕共享失败: ${(error as Error).message}`,
-        plain: true,
-      });
-    }
-  }
-
-  // 添加摄像头设备
-  @Provide()
-  async addCameraDevice() {
-    try {
-      const loading = ElLoading.service({
-        lock: true,
-        text: '正在添加摄像头...',
-        background: 'rgba(0, 0, 0, 0.7)',
-      });
-      const data = await this.deviceManager.addCameraDevice();
-      loading.close();
-      this.recorderService.startRollingRecord(data.device);
-      if (data.code) {
-        ElMessage.primary({
-          message: '已添加摄像头',
-          plain: true,
-        });
-        this.updateVideoElement(data.device);
-      } else {
-        ElMessage.warning({
-          message: '所有摄像头已添加',
-          plain: true,
-        });
-      }
-    } catch (err) {
-      ElMessage.error({
-        message: `添加摄像头失败: ${(err as Error).message}`,
-        plain: true,
-      });
-    }
-  }
-
-  // 添加麦克风设备
-  @Provide()
-  async addMicrophoneDevice() {
-    try {
-      const data = await this.deviceManager.addMicrophoneDevice();
-      if (data.code) {
-        ElMessage.primary({
-          message: '已添加麦克风',
-          plain: true,
-        });
-        this.updateVideoElement(data.device);
-      } else {
-        ElMessage.info({
-          message: '所有麦克风已添加',
-          plain: true,
-        });
-      }
-    } catch (error) {
-      ElMessage.error({
-        message: `添加麦克风失败: ${(error as Error).message}`,
-        plain: true,
-      });
+      this.showMessage(`添加${this.deviceTypeName(type)}失败: ${(error as Error).message}`, 'error');
     }
   }
 
@@ -338,15 +213,9 @@ export default class HomeView extends Vue {
     try {
       this.stopDeviceStream(device);
       this.deviceManager.removeDevice(device);
-      ElMessage.primary({
-        message: `已移除设备 ${device.name}`,
-        plain: true,
-      });
+      this.showMessage(`已移除设备 ${device.name}`, 'success');
     } catch (error) {
-      ElMessage.error({
-        message: `移除设备失败: ${(error as Error).message}`,
-        plain: true,
-      });
+      this.showMessage(`移除设备失败: ${(error as Error).message}`, 'error');
     }
   }
 
@@ -355,19 +224,13 @@ export default class HomeView extends Vue {
   openConfigDialog(device: Device) {
     const data = this.deviceManager.openConfigDialog(device);
     if (data.success) {
-      ElMessage.primary({
-        message: data.message,
-        plain: true,
-      });
+      this.showMessage(data.message, 'success');
       this.configDialogVisible = true;
     } else {
-      ElMessage.info({
-        message: data.message,
-        plain: true,
-      });
+      this.showMessage(data.message, 'info');
     }
   }
-  
+
   @Provide()
   closeConfigDialog() {
     this.configDialogVisible = false;
@@ -382,19 +245,15 @@ export default class HomeView extends Vue {
         text: '保存设备配置中...',
         background: 'rgba(0, 0, 0, 0.7)',
       });
-      const device = await this.deviceManager.saveDeviceConfig();
+      const { updateDevice, updateIndex } = await this.deviceManager.saveDeviceConfig();
       this.configDialogVisible = false;
-      this.updateVideoElement(device);
+      this.deviceCards[updateIndex].updateFormatSetting();
+      this.updateVideoElement(updateDevice);
       loading.close();
-      ElMessage.primary({
-        message: '设备配置已更新',
-        plain: true,
-      });
+
+      this.showMessage('设备配置已更新', 'success');
     } catch (error) {
-      ElMessage.error({
-        message: error.message,
-        plain: true,
-      });
+      this.showMessage(`保存设备配置失败: ${(error as Error).message}`, 'error');
     }
   }
 
@@ -413,16 +272,25 @@ export default class HomeView extends Vue {
     }
   }
 
+  deviceTypeName(type: DeviceType): string {
+    switch (type) {
+      case 'screen':
+        return '屏幕共享';
+      case 'camera':
+        return '摄像头';
+      case 'microphone':
+        return '麦克风';
+      default:
+        return '未知设备';
+    }
+  }
+
   async startDeviceStream(device: Device) {
     try {
       this.deviceManager.startDeviceStream(device);
       this.updateVideoElement(device);
     } catch (error) {
-      console.error(`❌ 启动设备 ${device.name} 失败:`, error);
-      ElMessage.error({
-        message: `启动 ${device.name} 失败: ${(error as Error).message}`,
-        plain: true,
-      });
+      this.showMessage(`启动 ${device.name} 失败: ${(error as Error).message}`, 'error');
     }
   }
 
@@ -451,6 +319,18 @@ export default class HomeView extends Vue {
     } catch (error) {
       console.error('停止回看推流失败:', error);
     }
+  }
+
+  openSettingsWindow() {
+    window.electron.openSettingsWindow();
+  }
+
+  showMessage(message: string, type: 'success' | 'warning' | 'info' | 'error' = 'info') {
+    ElMessage({
+      message,
+      type,
+      plain: true,
+    });
   }
 
   async mounted() {
@@ -519,10 +399,6 @@ export default class HomeView extends Vue {
       this.stopDeviceStream(device);
     });
   }
-
-  openSettingsWindow() {
-    window.electron.openSettingsWindow();
-  }
 }
 </script>
 
@@ -534,7 +410,7 @@ export default class HomeView extends Vue {
         <settings-icon style="width: 70%; height: 70%" />
       </div>
       <device-card
-        v-for="device in deviceManager.userDevices"
+        v-for="(device, index) in deviceManager.userDevices"
         :device="device"
         ref="deviceCard"
         :key="device.id"
@@ -547,146 +423,7 @@ export default class HomeView extends Vue {
         <p>点击上方按钮添加设备</p>
       </div>
     </main>
-  <el-dialog
-    :model-value="configDialogVisible"
-    @close="closeConfigDialog"
-    :title="`配置 - ${deviceManager.currentConfigDevice?.name}`"
-    width="500px"
-    :close-on-click-modal="false"
-    align-center
-  >
-    <el-form
-      v-if="deviceManager.currentConfigDevice.type === 'microphone'"
-      :model="deviceManager.configForm"
-      label-width="100px"
-      style="margin-top: 15px"
-    >
-      <el-form-item label="采样率">
-        <el-input-number
-          v-model="deviceManager.configForm.sampleRate"
-          :min="deviceManager.currentConfigDevice.capabilities.sampleRate.min"
-          :max="deviceManager.currentConfigDevice.capabilities.sampleRate.max"
-          :step="1"
-          controls-position="right"
-        />
-      </el-form-item>
-
-      <el-form-item label="声道数">
-        <el-input-number
-          v-model="deviceManager.configForm.channelCount"
-          :min="deviceManager.currentConfigDevice.capabilities.channelCount.min"
-          :max="deviceManager.currentConfigDevice.capabilities.channelCount.max"
-          :step="1"
-          controls-position="right"
-        />
-      </el-form-item>
-
-      <el-form-item label="支持范围">
-        <div class="capabilities-info">
-          <p v-if="deviceManager.currentConfigDevice?.capabilities">
-            采样率:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.sampleRate.min) }} -
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.sampleRate.max) }}
-            Hz<br />
-            声道数:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.channelCount.min) }} -
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.channelCount.max) }}<br />
-          </p>
-          <p v-else>待获取设备参数信息</p>
-        </div>
-      </el-form-item>
-    </el-form>
-    <el-form v-else :model="deviceManager.configForm" label-width="100px" style="margin-top: 15px">
-      <el-form-item label="分辨率">
-        <div class="resolution-inputs">
-          <el-input-number
-            v-model="deviceManager.configForm.width"
-            :min="deviceManager.currentConfigDevice?.capabilities?.width?.min"
-            :max="deviceManager.currentConfigDevice?.capabilities?.width?.max"
-            :step="1"
-            controls-position="right"
-          />
-          <span class="resolution-separator">×</span>
-          <el-input-number
-            v-model="deviceManager.configForm.height"
-            :min="deviceManager.currentConfigDevice?.capabilities?.height?.min"
-            :max="deviceManager.currentConfigDevice?.capabilities?.height?.max"
-            :step="1"
-            controls-position="right"
-          />
-        </div>
-      </el-form-item>
-
-      <el-form-item label="预设分辨率">
-        <el-select
-          v-model="deviceManager.selectedPreset"
-          placeholder="选择预设"
-          @change="deviceManager.applyPreset"
-        >
-          <el-option label="自定义" value="" />
-          <el-option
-            v-if="
-              deviceManager.currentConfigDevice?.capabilities?.width?.max &&
-              deviceManager.currentConfigDevice?.capabilities?.height?.max
-            "
-            label="设备最大分辨率"
-            :value="
-              JSON.stringify({
-                width: Math.round(deviceManager.currentConfigDevice.capabilities.width.max),
-                height: Math.round(deviceManager.currentConfigDevice.capabilities.height.max),
-              })
-            "
-          />
-          <el-option
-            label="1920 × 1080 (Full HD)"
-            :value="JSON.stringify({ width: 1920, height: 1080 })"
-          />
-          <el-option
-            label="1280 × 720 (HD)"
-            :value="JSON.stringify({ width: 1280, height: 720 })"
-          />
-          <el-option label="854 × 480 (SD)" :value="JSON.stringify({ width: 854, height: 480 })" />
-          <el-option label="640 × 360" :value="JSON.stringify({ width: 640, height: 360 })" />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="帧率">
-        <el-input-number
-          v-model="deviceManager.configForm.frameRate"
-          :min="deviceManager.currentConfigDevice?.capabilities?.frameRate?.min"
-          :max="60"
-          :step="1"
-          controls-position="right"
-        />
-        <span style="margin-left: 10px">fps</span>
-      </el-form-item>
-
-      <el-form-item label="支持范围">
-        <div class="capabilities-info">
-          <p v-if="deviceManager.currentConfigDevice?.capabilities">
-            宽度:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.width?.min) }} -
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.width?.max) }}<br />
-            高度:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.height?.min) }} -
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.height?.max) }}<br />
-            帧率:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.frameRate?.min) }} -
-            {{ 60 }}
-            fps
-          </p>
-          <p v-else>待获取设备参数信息</p>
-        </div>
-      </el-form-item>
-    </el-form>
-
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="closeConfigDialog">取消</el-button>
-        <el-button type="primary" @click="saveDeviceConfig">保存</el-button>
-      </div>
-    </template>
-  </el-dialog>
+    <config-dialog :device-manager="deviceManager" @save="saveDeviceConfig" />
   </div>
 </template>
 

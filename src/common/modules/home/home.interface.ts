@@ -40,6 +40,7 @@ export interface Device<T extends DeviceType = DeviceType> {
   settings?: DeviceSettings;
   capabilities?: DeviceCapabilities;
   formatSetting?: string;
+  _updateTimestamp?: number; // 内部使用的时间戳，用于触发 Vue 响应式更新
 }
 
 export interface ConfigForm {
