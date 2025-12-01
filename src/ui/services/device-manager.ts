@@ -350,11 +350,19 @@ export class DeviceManager {
         );
       }
 
+      if (!unUsedDevice) {
+        return {
+          success: true,
+          code: 0,
+        };
+      }
+
+      const deviceId = type === 'screen' ? unUsedDevice.id : unUsedDevice.deviceId;
       const device: Device = {
-        id: unUsedDevice.deviceId,
+        id: deviceId,
         name: unUsedDevice.label,
         type: type,
-        classId: this.getOrCreateClassId(unUsedDevice.deviceId, type),
+        classId: this.getOrCreateClassId(deviceId, type),
         enabled: true,
         isDefault: false,
       };
@@ -375,6 +383,7 @@ export class DeviceManager {
   removeDevice(device: Device) {
     const index = this.userDevices.indexOf(device);
     if (index > -1) {
+      this.stopDeviceStream(device);
       this.userDevices.splice(index, 1);
       this.updateCanAddState();
     }
