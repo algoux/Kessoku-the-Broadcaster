@@ -143,11 +143,11 @@ export default class HomeView extends Vue {
           if (device.type === 'microphone') {
             continue;
           }
-          this.updateVideoElement(device);
-          this.recorderService.startRollingRecord(device);
+          await this.updateVideoElement(device);
+          await this.recorderService.startRollingRecord(device);
         }
       }
-      this.showMessage('设备列表已更新', 'success');
+      this.showMessage('设备列表已更新', 'primary');
     } catch (error) {
       this.showMessage('刷新设备失败', 'error');
       console.error('刷新设备失败:', error);
@@ -158,7 +158,7 @@ export default class HomeView extends Vue {
 
   // 更新视频元素
   @Provide()
-  updateVideoElement(device: Device) {
+  async updateVideoElement(device: Device) {
     try {
       if (!device.stream) return;
       const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
@@ -167,7 +167,7 @@ export default class HomeView extends Vue {
 
       if (videoEl && device.stream) {
         videoEl.srcObject = device.stream;
-        videoEl.play();
+        await videoEl.play();
       }
     } catch (err) {
       console.warn(device.type);
@@ -193,17 +193,21 @@ export default class HomeView extends Vue {
       });
       let data = await this.deviceManager.addDevice(type);
       loading.close();
-      if (data.device.type == 'camera' || data.device.type == 'screen') {
-        this.recorderService.startRollingRecord(data.device);
-        this.updateVideoElement(data.device);
-      }
+
       if (data.code) {
-        this.showMessage(`已添加${this.deviceTypeName(type)}`, 'success');
+        this.showMessage(`已添加${this.deviceTypeName(type)}`, 'primary');
+        if (data.device.type == 'camera' || data.device.type == 'screen') {
+          await this.updateVideoElement(data.device);
+          await this.recorderService.startRollingRecord(data.device);
+        }
       } else {
-        this.showMessage(`所有${this.deviceTypeName(type)}已添加`, 'warning');
+        this.showMessage(`所有${this.deviceTypeName(type)}已添加`, 'info');
       }
     } catch (error) {
-      this.showMessage(`添加${this.deviceTypeName(type)}失败: ${(error as Error).message}`, 'error');
+      this.showMessage(
+        `添加${this.deviceTypeName(type)}失败: ${(error as Error).message}`,
+        'error',
+      );
     }
   }
 
@@ -213,7 +217,7 @@ export default class HomeView extends Vue {
     try {
       this.stopDeviceStream(device);
       this.deviceManager.removeDevice(device);
-      this.showMessage(`已移除设备 ${device.name}`, 'success');
+      this.showMessage(`已移除设备 ${device.name}`, 'primary');
     } catch (error) {
       this.showMessage(`移除设备失败: ${(error as Error).message}`, 'error');
     }
@@ -224,7 +228,6 @@ export default class HomeView extends Vue {
   openConfigDialog(device: Device) {
     const data = this.deviceManager.openConfigDialog(device);
     if (data.success) {
-      this.showMessage(data.message, 'success');
       this.configDialogVisible = true;
     } else {
       this.showMessage(data.message, 'info');
@@ -251,7 +254,7 @@ export default class HomeView extends Vue {
       this.updateVideoElement(updateDevice);
       loading.close();
 
-      this.showMessage('设备配置已更新', 'success');
+      this.showMessage('设备配置已更新', 'primary');
     } catch (error) {
       this.showMessage(`保存设备配置失败: ${(error as Error).message}`, 'error');
     }
@@ -325,11 +328,11 @@ export default class HomeView extends Vue {
     window.electron.openSettingsWindow();
   }
 
-  showMessage(message: string, type: 'success' | 'warning' | 'info' | 'error' = 'info') {
+  showMessage(message: string, type: 'primary' | 'info' | 'error') {
     ElMessage({
       message,
       type,
-      plain: true,
+      customClass: 'my-message',
     });
   }
 

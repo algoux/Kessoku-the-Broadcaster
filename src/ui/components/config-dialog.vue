@@ -198,7 +198,7 @@ export default class ConfigDialog extends Vue {
 .capabilities-info {
   padding: 10px;
   // background: rgba(0, 0, 0, 0.03);
-  background: var(--bg-primary-color);
+  background: var(--bg-secondary-color);
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 12px;

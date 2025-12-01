@@ -328,6 +328,12 @@ export class DeviceManager {
 
   async addDevice(type: DeviceType): Promise<DeviceAddingRes> {
     try {
+      if (!this.canAddState[type]) {
+        return {
+          success: true,
+          code: 0,
+        };
+      }
       let unUsedDevice;
       if (type === 'screen') {
         unUsedDevice = this.availableScreens.find(
@@ -342,13 +348,6 @@ export class DeviceManager {
         unUsedDevice = this.availableMicrophones.find(
           (mic) => !this.userDevices.some((d) => d.id === mic.deviceId && d.type === 'microphone'),
         );
-      }
-
-      if (!unUsedDevice) {
-        return {
-          success: true,
-          code: 0,
-        };
       }
 
       const device: Device = {
