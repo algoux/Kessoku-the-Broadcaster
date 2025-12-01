@@ -1,7 +1,7 @@
 {
   "name": "Kessoku-the-Broadcaster",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.3",
   "main": "dist/electron/main.js",
   "author": {
     "name": "algoUX"
@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "transpile:electron": "rm -rf dist/electron && tsc -p tsconfig.json",
-    "dist:mac": "npm run transpile:electron && npm run build && electron-builder --mac --arm64 && npm run sign:mac",
+    "dist:mac:arm64": "npm run transpile:electron && npm run build && electron-builder --mac --arm64 && npm run sign:mac",
+    "dist:mac:x64": "npm run transpile:electron && npm run build && electron-builder --mac --x64 && npm run sign:mac",
     "dist:win:x64": "npm run transpile:electron && npm run build && electron-builder --win --x64",
     "dist:win:arm64": "npm run transpile:electron && npm run build && electron-builder --win --arm64",
     "dist:linux:x64": "npm run transpile:electron && npm run build && electron-builder --linux --x64",
