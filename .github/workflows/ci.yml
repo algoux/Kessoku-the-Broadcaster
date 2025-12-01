@@ -45,4 +45,4 @@ jobs:
         with:
           files: ${{ matrix.artifact_pattern }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
