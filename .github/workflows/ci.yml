@@ -1,0 +1,48 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - "v*"     # 推送 v1.0.0 即可自动构建 release
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            build_script: pnpm dist:mac:arm64
+            artifact_pattern: "dist/*.dmg"
+          - os: windows-latest
+            build_script: pnpm dist:win:x64
+            artifact_pattern: "dist/*.exe"
+          - os: ubuntu-latest
+            build_script: pnpm dist:linux:x64
+            artifact_pattern: "dist/*"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm i -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Electron App
+        run: ${{ matrix.build_script }}
+
+      # 上传构建产物到 Release
+      - name: Upload Release Artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact_pattern }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
