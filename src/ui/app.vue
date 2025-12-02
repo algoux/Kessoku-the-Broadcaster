@@ -5,6 +5,7 @@ import { Provide } from 'vue-property-decorator';
 import LoginView from './modules/login/login.view.vue';
 import HomeView from './modules/home/home.view.vue';
 import Tools from './components/tools.vue';
+import WindowControls from './components/window-controls.vue';
 import { AppConfigInterface } from 'common/interface/config.interface';
 
 @Options({
@@ -12,6 +13,7 @@ import { AppConfigInterface } from 'common/interface/config.interface';
     LoginView,
     HomeView,
     Tools,
+    WindowControls,
   },
 })
 export default class App extends Vue {
@@ -32,6 +34,7 @@ export default class App extends Vue {
 
 <template>
   <div class="window-drag"></div>
+  <WindowControls />
   <router-view />
 </template>
 

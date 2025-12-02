@@ -110,6 +110,16 @@ electron.contextBridge.exposeInMainWorld('electron', {
   updateAppConfig: (data: UpdateAppConfigDTO) => {
     return ipcInvoke('updateAppConfig', data);
   },
+  // 窗口控制
+  minimizeWindow: () => {
+    ipcSend('window-minimize');
+  },
+  maximizeWindow: () => {
+    ipcSend('window-maximize');
+  },
+  closeWindow: () => {
+    ipcSend('window-close');
+  },
 } satisfies Window['electron']);
 
 function ipcInvoke<Key extends keyof EventPayloadMapping>(

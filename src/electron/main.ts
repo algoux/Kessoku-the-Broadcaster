@@ -40,7 +40,8 @@ function createLoginWindow() {
     height: 520,
     resizable: false,
     show: false,
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    ...(process.platform === 'win32' && { frame: false }),
   });
 
   if (isDevelopment()) {
@@ -64,7 +65,8 @@ function createMainWindow() {
     height: 720,
     minWidth: 1000,
     minHeight: 600,
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    ...(process.platform === 'win32' && { frame: false }),
   });
 
   ipcMainHandle('getSources', async () => {
@@ -131,7 +133,8 @@ function createSettingsWindow() {
     height: 600,
     resizable: false,
     show: false,
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    ...(process.platform === 'win32' && { frame: false }),
   });
 
   if (isDevelopment()) {
@@ -299,6 +302,28 @@ function setupIpcHandlers() {
       configManager.updateVideoConfig(data, type);
     },
   );
+
+  // 窗口控制
+  ipcMainOn('window-minimize', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.minimize();
+  });
+
+  ipcMainOn('window-maximize', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+    }
+  });
+
+  ipcMainOn('window-close', () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) win.close();
+  });
 }
 
 const handleCloseEvents = (mainWindow: BrowserWindow) => {

@@ -89,6 +89,11 @@ declare global {
     updateVideoConfig: void;
     updateAudioConfig: void;
     updateAppConfig: void;
+
+    // 窗口控制
+    'window-minimize': void;
+    'window-maximize': void;
+    'window-close': void;
   };
 
   // 扩展 Window 接口
@@ -164,6 +169,10 @@ declare global {
       updateVideoConfig: (data: UpdateVideoConfigDTO[], type: 'camera' | 'screen') => Promise<void>;
       updateAudioConfig: (data: UpdateAudioConfigDTO[]) => Promise<void>;
       updateAppConfig: (data: UpdateAppConfigDTO) => Promise<void>;
+      // 窗口控制
+      minimizeWindow: () => void;
+      maximizeWindow: () => void;
+      closeWindow: () => void;
     };
   }
 }
