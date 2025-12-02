@@ -32,9 +32,14 @@ export class DeviceManager {
     microphone: 0,
   };
   configForm: ConfigForm;
+  screenAvailableMaxFrameRate: number;
   public isStreaming: boolean = false;
   public streamStatus: string = '未连接';
+  private hasLoadedFromConfig: boolean = false;
 
+  set setScreenAvailableMaxFrameRate(fps: number) {
+    this.screenAvailableMaxFrameRate = fps;
+  }
   /**
    * 获取所有可用设备
    * @async
@@ -55,7 +60,19 @@ export class DeviceManager {
       this.availableCameras = devices.filter((d) => d.kind === 'videoinput');
       this.availableMicrophones = devices.filter((d) => d.kind === 'audioinput');
 
-      // 如果用户设备列表为空，添加默认设 备
+      // 检查是否已有配置
+      const hasConfig = await window.electron.hasDevicesConfig();
+
+      if (hasConfig && !this.hasLoadedFromConfig) {
+        // 从配置文件加载设备
+        const devicesConfig = await window.electron.getDevicesConfig();
+        const loadedDevices = await this.loadDevicesFromConfig(devicesConfig);
+        this.hasLoadedFromConfig = true;
+        this.updateCanAddState();
+        return loadedDevices;
+      }
+
+      // 如果用户设备列表为空，添加默认设备
       if (this.userDevices.length === 0) {
         const defautDevices = await this.addDefaultDevices();
         this.updateCanAddState();
@@ -64,7 +81,7 @@ export class DeviceManager {
 
       this.updateCanAddState();
     } catch (error) {
-      console.log(error);
+      console.error(error);
       throw new Error('刷新设备失败');
     }
   }
@@ -76,34 +93,34 @@ export class DeviceManager {
    */
   async addDefaultDevices(): Promise<Device[]> {
     let defautDevicesList = [];
-    if (this.availableScreens.length > 0) {
-      const screen = this.availableScreens[0];
+    const hanbleDevice = async (
+      d: { id: string; name: string } | MediaDeviceInfo,
+      type: DeviceType,
+    ): Promise<void> => {
+      const _id =
+        type == 'screen' ? (d as { id: string; name: string }).id : (d as MediaDeviceInfo).deviceId;
+      const _name =
+        type === 'screen' ? (d as { id: string; name: string }).name : (d as MediaDeviceInfo).label;
       const device: Device = {
-        id: screen.id,
-        name: screen.name,
-        classId: this.getOrCreateClassId(screen.id, 'screen', true),
-        type: 'screen',
+        id: _id,
+        name: _name,
+        classId: this.getOrCreateClassId(_id, type, true),
+        type: type,
         enabled: true,
         isDefault: true,
       };
       let newDevice = await this.startDeviceStream(device);
       defautDevicesList.push(newDevice);
       this.userDevices.push(device);
+    };
+    if (this.availableScreens.length > 0) {
+      const screen = this.availableScreens[0];
+      await hanbleDevice(screen, 'screen');
     }
 
     if (this.availableCameras.length > 0) {
       const camera = this.availableCameras[0];
-      const device: Device = {
-        id: camera.deviceId,
-        name: camera.label || '默认摄像头',
-        classId: this.getOrCreateClassId(camera.deviceId, 'camera', true),
-        type: 'camera',
-        enabled: true,
-        isDefault: true,
-      };
-      let newDevice = await this.startDeviceStream(device);
-      defautDevicesList.push(newDevice);
-      this.userDevices.push(device);
+      await hanbleDevice(camera, 'camera');
     }
 
     if (this.availableMicrophones.length > 0) {
@@ -121,6 +138,60 @@ export class DeviceManager {
       this.userDevices.push(newDevice);
     }
     return defautDevicesList;
+  }
+
+  async addDevice(type: DeviceType): Promise<DeviceAddingRes> {
+    try {
+      if (!this.canAddState[type]) {
+        return {
+          success: true,
+          code: 0,
+        };
+      }
+      let unUsedDevice: any;
+      if (type === 'screen') {
+        unUsedDevice = this.availableScreens.find(
+          (screen) => !this.userDevices.some((d) => d.id === screen.id && d.type === 'screen'),
+        );
+      } else if (type === 'camera') {
+        unUsedDevice = this.availableCameras.find(
+          (camera) =>
+            !this.userDevices.some((d) => d.id === camera.deviceId && d.type === 'camera'),
+        );
+      } else if (type === 'microphone') {
+        unUsedDevice = this.availableMicrophones.find(
+          (mic) => !this.userDevices.some((d) => d.id === mic.deviceId && d.type === 'microphone'),
+        );
+      }
+
+      if (!unUsedDevice) {
+        return {
+          success: true,
+          code: 0,
+        };
+      }
+
+      const deviceId = type === 'screen' ? unUsedDevice.id : unUsedDevice.deviceId;
+      const device: Device = {
+        id: deviceId,
+        name: unUsedDevice.label,
+        type: type,
+        classId: this.getOrCreateClassId(deviceId, type),
+        enabled: true,
+        isDefault: false,
+      };
+
+      await this.startDeviceStream(device);
+      this.userDevices.push(device);
+      this.updateCanAddState();
+      return {
+        success: true,
+        code: 1,
+        device: device,
+      };
+    } catch (error) {
+      throw new Error('添加设备失败');
+    }
   }
 
   private updateCanAddState() {
@@ -188,6 +259,10 @@ export class DeviceManager {
     return classId as any;
   }
 
+  get idealScreenFrameRate(): number {
+    return this.screenAvailableMaxFrameRate >= 60 ? 60 : 30;
+  }
+
   async startDeviceStream(device: Device): Promise<Device> {
     try {
       let stream: MediaStream;
@@ -234,7 +309,6 @@ export class DeviceManager {
             channelCount: rawSettings.channelCount,
           };
           device.formatSetting = this.getFormatSettings(device);
-          console.log('microphone settings', device.settings);
         } else {
           const videoTrack = stream.getVideoTracks()[0];
           const capabilities = videoTrack.getCapabilities() as DeviceCapabilities;
@@ -242,18 +316,24 @@ export class DeviceManager {
 
           if (!device.capabilities) {
             device.capabilities = capabilities;
+            if (device.type == 'screen') {
+              device.capabilities.frameRate.max = this.screenAvailableMaxFrameRate;
+            }
           }
 
           device.settings = {
             width: rawSettings.width,
             height: rawSettings.height,
-            frameRate: rawSettings.frameRate,
+            frameRate: device.type == 'screen' ? this.idealScreenFrameRate : rawSettings.frameRate,
             aspectRatio: rawSettings.aspectRatio,
             facingMode: rawSettings.facingMode,
-            maxFrameRate: capabilities?.frameRate?.max,
+            maxFrameRate:
+              device.type == 'screen'
+                ? this.screenAvailableMaxFrameRate
+                : capabilities.frameRate.max,
           };
+          console.log('Device settings:', device.name, device.settings);
           device.formatSetting = this.getFormatSettings(device);
-          console.log(`${device.id} formatSettings:`, device.formatSetting);
         }
       }
       return device;
@@ -326,60 +406,6 @@ export class DeviceManager {
     }
   }
 
-  async addDevice(type: DeviceType): Promise<DeviceAddingRes> {
-    try {
-      if (!this.canAddState[type]) {
-        return {
-          success: true,
-          code: 0,
-        };
-      }
-      let unUsedDevice;
-      if (type === 'screen') {
-        unUsedDevice = this.availableScreens.find(
-          (screen) => !this.userDevices.some((d) => d.id === screen.id && d.type === 'screen'),
-        );
-      } else if (type === 'camera') {
-        unUsedDevice = this.availableCameras.find(
-          (camera) =>
-            !this.userDevices.some((d) => d.id === camera.deviceId && d.type === 'camera'),
-        );
-      } else if (type === 'microphone') {
-        unUsedDevice = this.availableMicrophones.find(
-          (mic) => !this.userDevices.some((d) => d.id === mic.deviceId && d.type === 'microphone'),
-        );
-      }
-
-      if (!unUsedDevice) {
-        return {
-          success: true,
-          code: 0,
-        };
-      }
-
-      const deviceId = type === 'screen' ? unUsedDevice.id : unUsedDevice.deviceId;
-      const device: Device = {
-        id: deviceId,
-        name: unUsedDevice.label,
-        type: type,
-        classId: this.getOrCreateClassId(deviceId, type),
-        enabled: true,
-        isDefault: false,
-      };
-
-      await this.startDeviceStream(device);
-      this.userDevices.push(device);
-      this.updateCanAddState();
-      return {
-        success: true,
-        code: 1,
-        device: device,
-      };
-    } catch (error) {
-      throw new Error('添加设备失败');
-    }
-  }
-
   removeDevice(device: Device) {
     const index = this.userDevices.indexOf(device);
     if (index > -1) {
@@ -403,10 +429,7 @@ export class DeviceManager {
   }
 
   openConfigDialog(device: Device) {
-    console.log('Opening config dialog for device:', device);
-
     this.currentConfigDevice = device;
-
     this.configForm = {
       width: Math.round(device.settings.width),
       height: Math.round(device.settings.height),
@@ -414,9 +437,6 @@ export class DeviceManager {
       channelCount: device.settings.channelCount,
       sampleRate: device.settings.sampleRate,
     };
-
-    console.log('Config form initialized:', this.configForm);
-
     this.selectedPreset = '';
     return {
       success: true,
@@ -434,7 +454,7 @@ export class DeviceManager {
         this.configForm.height = preset.height;
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
       throw new Error('应用预设失败');
     }
   };
@@ -559,4 +579,158 @@ export class DeviceManager {
   };
 
   setScreenMaxFrameRate = (fps: number) => {};
+
+  /**
+   * 从配置文件加载设备
+   */
+  async loadDevicesFromConfig(devicesConfig: any): Promise<Device[]> {
+    const loadedDevices: Device[] = [];
+
+    try {
+      // 加载屏幕设备
+      if (devicesConfig.screens && devicesConfig.screens.length > 0) {
+        for (const screenConfig of devicesConfig.screens) {
+          const screen = this.availableScreens.find((s) => s.id === screenConfig.id);
+          if (screen) {
+            const device: Device = {
+              id: screen.id,
+              name: screen.name,
+              type: 'screen',
+              classId: this.getOrCreateClassId(screen.id, 'screen'),
+              enabled: true,
+              isDefault: false,
+            };
+            await this.startDeviceStream(device);
+            this.userDevices.push(device);
+            loadedDevices.push(device);
+          }
+        }
+      }
+
+      // 加载摄像头设备
+      if (devicesConfig.cameras && devicesConfig.cameras.length > 0) {
+        for (const cameraConfig of devicesConfig.cameras) {
+          const camera = this.availableCameras.find((c) => c.deviceId === cameraConfig.id);
+          if (camera) {
+            const device: Device = {
+              id: camera.deviceId,
+              name: camera.label,
+              type: 'camera',
+              classId: this.getOrCreateClassId(camera.deviceId, 'camera'),
+              enabled: true,
+              isDefault: false,
+            };
+            await this.startDeviceStream(device);
+            this.userDevices.push(device);
+            loadedDevices.push(device);
+          }
+        }
+      }
+
+      // 加载麦克风设备
+      if (devicesConfig.microphones && devicesConfig.microphones.length > 0) {
+        for (const micConfig of devicesConfig.microphones) {
+          const mic = this.availableMicrophones.find((m) => m.deviceId === micConfig.id);
+          if (mic) {
+            const device: Device = {
+              id: mic.deviceId,
+              name: mic.label,
+              type: 'microphone',
+              classId: this.getOrCreateClassId(mic.deviceId, 'microphone'),
+              enabled: true,
+              isDefault: false,
+            };
+            await this.startDeviceStream(device);
+            this.userDevices.push(device);
+            loadedDevices.push(device);
+          }
+        }
+      }
+
+      return loadedDevices;
+    } catch (error) {
+      console.error('从配置加载设备失败:', error);
+      throw new Error('从配置加载设备失败');
+    }
+  }
+
+  /**
+   * 保存所有设备到配置文件
+   */
+  async saveAllDevicesToConfig(): Promise<void> {
+    try {
+      const screens = this.userDevices
+        .filter((d) => d.type === 'screen' && d.settings)
+        .map((d) => {
+          if (!d.settings!.width) throw new Error(`屏幕设备 ${d.name} 缺少 width 属性`);
+          if (!d.settings!.height) throw new Error(`屏幕设备 ${d.name} 缺少 height 属性`);
+          if (!d.settings!.frameRate) throw new Error(`屏幕设备 ${d.name} 缺少 frameRate 属性`);
+
+          console.log('Saving screen device:', d.name, d.settings.sampleRate);
+
+          return {
+            id: d.id,
+            name: d.name,
+            width: Math.round(d.settings!.width),
+            height: Math.round(d.settings!.height),
+            frameRate: Math.round(d.settings!.frameRate),
+          };
+        });
+
+      const cameras = this.userDevices
+        .filter((d) => d.type === 'camera' && d.settings)
+        .map((d) => {
+          if (!d.settings!.width) throw new Error(`摄像头设备 ${d.name} 缺少 width 属性`);
+          if (!d.settings!.height) throw new Error(`摄像头设备 ${d.name} 缺少 height 属性`);
+          if (!d.settings!.frameRate) throw new Error(`摄像头设备 ${d.name} 缺少 frameRate 属性`);
+
+          return {
+            id: d.id,
+            name: d.name,
+            width: Math.round(d.settings!.width),
+            height: Math.round(d.settings!.height),
+            frameRate: Math.round(d.settings!.frameRate),
+          };
+        });
+
+      const microphones = this.userDevices
+        .filter((d) => d.type === 'microphone' && d.settings)
+        .map((d) => {
+          if (!d.settings!.sampleRate) throw new Error(`麦克风设备 ${d.name} 缺少 sampleRate 属性`);
+          if (!d.settings!.channelCount)
+            throw new Error(`麦克风设备 ${d.name} 缺少 channelCount 属性`);
+
+          return {
+            id: d.id,
+            name: d.name,
+            sampleRate: d.settings!.sampleRate,
+            channelCount: d.settings!.channelCount,
+          };
+        });
+
+      if (screens.length > 0) {
+        await window.electron.updateVideoConfig(screens, 'screen');
+      } else {
+        // 如果没有屏幕设备，更新为空数组以清空配置
+        await window.electron.updateVideoConfig([], 'screen');
+      }
+
+      if (cameras.length > 0) {
+        await window.electron.updateVideoConfig(cameras, 'camera');
+      } else {
+        // 如果没有摄像头设备，更新为空数组以清空配置
+        await window.electron.updateVideoConfig([], 'camera');
+      }
+
+      if (microphones.length > 0) {
+        await window.electron.updateAudioConfig(microphones);
+      } else {
+        // 如果没有麦克风设备，更新为空数组以清空配置
+        await window.electron.updateAudioConfig([]);
+      }
+    } catch (error) {
+      console.error('保存设备配置失败:', error);
+      throw new Error('保存设备配置失败');
+    }
+  }
 }

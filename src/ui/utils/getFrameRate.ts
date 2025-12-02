@@ -3,7 +3,7 @@
  * @param {number} sampleCount - 采样帧数，默认 60
  * @returns {Promise<number>} 整数 Hz
  */
-export function getScreenActualRefreshRate(sampleCount = 60) {
+export function getScreenActualRefreshRate(sampleCount = 60): Promise<number> {
   return new Promise(resolve => {
     let count = 0;
     

@@ -1,25 +1,31 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
+import SettingsNav from '@/components/settings-nav.vue';
+import SettingsContent from '@/components/settings-content.vue';
 
-@Options({})
-export default class SettingsView extends Vue {
-
-}
+@Options({
+  components: {
+    SettingsNav,
+    SettingsContent,
+  },
+})
+export default class SettingsView extends Vue {}
 </script>
 
 <template>
-    <div class="settings-view">
-        Settings View
-    </div>
+  <div class="settings-view">
+    <settings-nav />
+    <settings-content />
+  </div>
 </template>
 
 <style scoped lang="less">
 .settings-view {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: var(--font-secondary-color);
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--bg-secondary-color);
 }
 </style>

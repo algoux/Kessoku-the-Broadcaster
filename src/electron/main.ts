@@ -6,6 +6,7 @@ import { WebSocketService } from './services/websocket-service';
 import { VideoRecordingService } from './services/video-recording-service';
 import { createTray } from './utils/tray';
 import fs from 'fs';
+import { ConfigManager } from './services/config-manager';
 
 app.setName('Kessoku the Broadcaster');
 
@@ -14,6 +15,7 @@ let mainWindow: BrowserWindow;
 let webSocketService: WebSocketService;
 let videoRecordingService: VideoRecordingService;
 const SERVICE_URL: string = 'http://localhost:3001';
+let configManager: ConfigManager = new ConfigManager();
 
 app.setAboutPanelOptions({
   applicationName: app.getName(),
@@ -130,7 +132,7 @@ function createSettingsWindow() {
     resizable: false,
     show: false,
     titleBarStyle: 'hiddenInset',
-  })
+  });
 
   if (isDevelopment()) {
     settingsWindow.loadURL('http://localhost:5123/#settings');
@@ -182,9 +184,9 @@ function setupIpcHandlers() {
     }
   });
 
-  ipcMainOn("openSettingsWindow", () => {
+  ipcMainOn('openSettingsWindow', () => {
     createSettingsWindow();
-  })
+  });
 
   // 获取连接状态
   ipcMainHandle('get-connection-status', () => {
@@ -270,6 +272,33 @@ function setupIpcHandlers() {
       throw error;
     }
   });
+
+  ipcMainHandle('getAppConfig', async () => {
+    return configManager.getConfigData;
+  });
+
+  ipcMainHandle('getDevicesConfig', async () => {
+    return configManager.getDevicesConfig;
+  });
+
+  ipcMainHandle('hasDevicesConfig', async () => {
+    return configManager.hasDevicesConfig();
+  });
+
+  ipcMainHandle('updateAppConfig', async (data: UpdateAppConfigDTO) => {
+    configManager.updateAppConfig(data);
+  });
+
+  ipcMainHandle('updateAudioConfig', async (data: UpdateAudioConfigDTO[]) => {
+    configManager.updateAudioConfig(data);
+  });
+
+  ipcMainHandle(
+    'updateVideoConfig',
+    async ({ data, type }: { data: UpdateVideoConfigDTO[]; type: 'camera' | 'screen' }) => {
+      configManager.updateVideoConfig(data, type);
+    },
+  );
 }
 
 const handleCloseEvents = (mainWindow: BrowserWindow) => {

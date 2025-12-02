@@ -1,9 +1,11 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
+import { Provide } from 'vue-property-decorator';
 
 import LoginView from './modules/login/login.view.vue';
 import HomeView from './modules/home/home.view.vue';
 import Tools from './components/tools.vue';
+import { AppConfigInterface } from 'common/interface/config.interface';
 
 @Options({
   components: {
@@ -13,7 +15,7 @@ import Tools from './components/tools.vue';
   },
 })
 export default class App extends Vue {
-  async mounted() {
+  mounted() {
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && ['=', '-', '0'].includes(e.key)) {
         e.preventDefault();
@@ -21,7 +23,7 @@ export default class App extends Vue {
 
       if (e.metaKey && e.key == ',') {
         e.preventDefault();
-        window.electron.openSettingsWindow()
+        window.electron.openSettingsWindow();
       }
     });
   }

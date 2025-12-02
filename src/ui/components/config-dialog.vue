@@ -90,16 +90,16 @@ export default class ConfigDialog extends Vue {
         <div class="resolution-inputs">
           <el-input-number
             v-model="deviceManager.configForm.width"
-            :min="deviceManager.currentConfigDevice?.capabilities?.width?.min"
-            :max="deviceManager.currentConfigDevice?.capabilities?.width?.max"
+            :min="deviceManager.currentConfigDevice.capabilities.width.min"
+            :max="deviceManager.currentConfigDevice.capabilities.width.max"
             :step="1"
             controls-position="right"
           />
           <span class="resolution-separator">×</span>
           <el-input-number
             v-model="deviceManager.configForm.height"
-            :min="deviceManager.currentConfigDevice?.capabilities?.height?.min"
-            :max="deviceManager.currentConfigDevice?.capabilities?.height?.max"
+            :min="deviceManager.currentConfigDevice.capabilities.height.min"
+            :max="deviceManager.currentConfigDevice.capabilities.height.max"
             :step="1"
             controls-position="right"
           />
@@ -142,8 +142,8 @@ export default class ConfigDialog extends Vue {
       <el-form-item label="帧率">
         <el-input-number
           v-model="deviceManager.configForm.frameRate"
-          :min="deviceManager.currentConfigDevice?.capabilities?.frameRate?.min"
-          :max="60"
+          :min="deviceManager.currentConfigDevice.capabilities.frameRate.min"
+          :max="deviceManager.currentConfigDevice.capabilities.frameRate.max"
           :step="1"
           controls-position="right"
         />
@@ -152,16 +152,16 @@ export default class ConfigDialog extends Vue {
 
       <el-form-item label="支持范围">
         <div class="capabilities-info">
-          <p v-if="deviceManager.currentConfigDevice?.capabilities">
+          <p v-if="deviceManager.currentConfigDevice.capabilities">
             宽度:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.width?.min) }} -
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.width?.max) }}<br />
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.width.min) }} -
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.width.max) }}<br />
             高度:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.height?.min) }} -
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.height?.max) }}<br />
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.height.min) }} -
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.height.max) }}<br />
             帧率:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.frameRate?.min) }} -
-            {{ 60 }}
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.frameRate.min) }} -
+            {{ Math.round(deviceManager.currentConfigDevice.capabilities.frameRate.max) }}
             fps
           </p>
           <p v-else>待获取设备参数信息</p>

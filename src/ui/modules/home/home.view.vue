@@ -1,12 +1,12 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
-import { provide, reactive } from 'vue';
+import { reactive } from 'vue';
 import { Device, DeviceType } from 'common/modules/home/home.interface';
 import { Provide, Ref } from 'vue-property-decorator';
 import { RendererService } from '@/services/renderer-service';
 import { DeviceManager } from '@/services/device-manager';
 import { RecorderService } from '@/services/media-recorder';
-import { getScreenActualRefreshRate, getCameraActualFPS } from '@/utils/getFrameRate';
+import { getScreenActualRefreshRate } from '@/utils/getFrameRate';
 
 import { ElIcon, ElMessage, ElLoading } from 'element-plus';
 
@@ -55,6 +55,14 @@ export default class HomeView extends Vue {
     this.isReady = !this.isReady;
 
     if (this.isReady) {
+      // 每次准备就绪时保存设备配置（即使设备数量为0也要更新）
+      try {
+        await this.deviceManager.saveAllDevicesToConfig();
+        console.log('已保存设备配置到文件');
+      } catch (error) {
+        console.error('保存设备配置失败:', error);
+      }
+
       // 上报设备信息到服务器
       await this.reportDeviceState();
       window.electron.hasReady();
@@ -337,8 +345,11 @@ export default class HomeView extends Vue {
   }
 
   async mounted() {
-    // 自动初始化渲染服务
     await this.initializeService();
+
+    const fps = await getScreenActualRefreshRate();
+
+    this.deviceManager.setScreenAvailableMaxFrameRate = fps;
 
     await this.refreshAllDevices();
 
@@ -517,7 +528,6 @@ export default class HomeView extends Vue {
 
 .capabilities-info {
   padding: 10px;
-  // background: rgba(0, 0, 0, 0.03);
   background: var(--bg-primary-color);
   border: 1px solid var(--border-color);
   border-radius: 4px;

@@ -91,7 +91,25 @@ electron.contextBridge.exposeInMainWorld('electron', {
   },
   openSettingsWindow: () => {
     ipcSend('openSettingsWindow');
-  }
+  },
+  getAppConfig: () => {
+    return ipcInvoke('getAppConfig');
+  },
+  getDevicesConfig: () => {
+    return ipcInvoke('getDevicesConfig');
+  },
+  hasDevicesConfig: () => {
+    return ipcInvoke('hasDevicesConfig');
+  },
+  updateVideoConfig: (data: UpdateVideoConfigDTO[], type: 'camera' | 'screen') => {
+    return ipcInvoke('updateVideoConfig', { data, type });
+  },
+  updateAudioConfig: (data: UpdateAudioConfigDTO[]) => {
+    return ipcInvoke('updateAudioConfig', data);
+  },
+  updateAppConfig: (data: UpdateAppConfigDTO) => {
+    return ipcInvoke('updateAppConfig', data);
+  },
 } satisfies Window['electron']);
 
 function ipcInvoke<Key extends keyof EventPayloadMapping>(

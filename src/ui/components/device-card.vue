@@ -46,14 +46,12 @@ export default class DeviceCard extends Vue {
   @Inject()
   updateVideoElement!: (device: Device) => void;
 
-  // 使用本地响应式数据
   private localFormatSetting: string = '';
 
   mounted() {
     this.updateFormatSetting();
   }
 
-  // 公共方法：更新 formatSetting 显示
   public updateFormatSetting() {
     this.localFormatSetting = this.device?.formatSetting || '未获取当前设备参数';
   }

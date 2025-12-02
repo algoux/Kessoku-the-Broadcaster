@@ -1,3 +1,9 @@
+import {
+  AppConfigInterface,
+  UpdateAppConfigDTO,
+  UpdateAudioConfigDTO,
+} from 'common/interface/config.interface';
+
 declare global {
   type Statistics = {
     cpuUsage: number;
@@ -10,6 +16,12 @@ declare global {
     cpuModel: string;
     totalMemoryGB: number;
   };
+
+  type UpdateAppConfigDTO = UpdateAudioConfigDTO;
+
+  type UpdateVideoConfigDTO = UpdateVideoConfigDTO;
+
+  type UpdateAudioConfigDTO = UpdateAudioConfigDTO;
 
   type UnsubscribeFunction = () => void;
 
@@ -26,7 +38,7 @@ declare global {
 
     // WebSocket 相关事件
     login: { success: boolean; error?: string };
-    openSettingsWindow: void
+    openSettingsWindow: void;
     'get-connection-status': { connected: boolean; socketId: string | null };
     'get-router-rtp-capabilities': any;
     'create-producer-transport': any;
@@ -52,6 +64,31 @@ declare global {
     'get-recording-blob': void;
     'cut-video': { success: boolean; filePath?: string; error?: string };
     'read-video-file': ArrayBuffer;
+
+    getAppConfig: AppConfigInterface;
+    getDevicesConfig: {
+      screens?: Array<{
+        id: string;
+        name: string;
+        width: number;
+        height: number;
+        frameRate: number;
+        sampleRate: number;
+      }>;
+      cameras?: Array<{
+        id: string;
+        name: string;
+        width: number;
+        height: number;
+        frameRate: number;
+        sampleRate: number;
+      }>;
+      microphones?: Array<{ id: string; name: string; sampleRate: number; channelCount: number }>;
+    };
+    hasDevicesConfig: boolean;
+    updateVideoConfig: void;
+    updateAudioConfig: void;
+    updateAppConfig: void;
   };
 
   // 扩展 Window 接口
@@ -102,6 +139,31 @@ declare global {
         seconds: number,
       ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       openSettingsWindow: () => void;
+
+      getAppConfig: () => Promise<AppConfigInterface>;
+      getDevicesConfig: () => Promise<{
+        screens?: Array<{
+          id: string;
+          name: string;
+          width: number;
+          height: number;
+          frameRate: number;
+          sampleRate: number;
+        }>;
+        cameras?: Array<{
+          id: string;
+          name: string;
+          width: number;
+          height: number;
+          frameRate: number;
+          sampleRate: number;
+        }>;
+        microphones?: Array<{ id: string; name: string; sampleRate: number; channelCount: number }>;
+      }>;
+      hasDevicesConfig: () => Promise<boolean>;
+      updateVideoConfig: (data: UpdateVideoConfigDTO[], type: 'camera' | 'screen') => Promise<void>;
+      updateAudioConfig: (data: UpdateAudioConfigDTO[]) => Promise<void>;
+      updateAppConfig: (data: UpdateAppConfigDTO) => Promise<void>;
     };
   }
 }
