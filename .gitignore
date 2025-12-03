@@ -22,3 +22,6 @@ dist-electron
 *.njsproj
 *.sln
 *.sw?
+
+# FFmpeg binaries (download separately, see README)
+resources/ffmpeg/
