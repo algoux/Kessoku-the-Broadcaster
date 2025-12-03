@@ -3,7 +3,6 @@ import { Vue, Options } from 'vue-class-component';
 import { Inject } from 'vue-property-decorator';
 import { CanAddState, DeviceType } from 'common/modules/home/home.interface';
 
-import CircleUser from '@/components/svgs/circle-user.vue';
 import {
   ElDescriptions,
   ElDescriptionsItem,
@@ -16,7 +15,9 @@ import {
   ElBadge,
 } from 'element-plus';
 import MapPin from './svgs/map-pin.vue';
+import CircleUser from '@/components/svgs/circle-user.vue';
 import PlayIcon from './svgs/play.vue';
+import PauseIcon from './svgs/pause.vue';
 import CirclePlus from './svgs/circle-plus.vue';
 import Refresh from './svgs/refresh.vue';
 import WebCamera from './svgs/web-camera.vue';
@@ -45,6 +46,7 @@ import { DeviceManager } from '@/services/device-manager';
     ScreenShare,
     Mic,
     WebState,
+    PauseIcon,
   },
 })
 export default class HomeHeader extends Vue {
@@ -84,6 +86,7 @@ export default class HomeHeader extends Vue {
     <section class="user-sec">
       <div class="main-sec">A20 - Wujinhao</div>
       <div class="org-sec">山东理工大学</div>
+      <div class="contest-sec">山东理工大学第十七届网络编程擂台赛</div>
     </section>
 
     <section class="tools-sec">
@@ -148,8 +151,9 @@ export default class HomeHeader extends Vue {
         @click="changeReadyState"
         class="primary-button"
       >
-        <play-icon style="width: 25px; margin-right: 5px" />
-        {{ isReady ? '解除就绪状态' : '准备就绪' }}
+        <pause-icon v-if="isReady" style="width: 25px; margin-right: 5px" />
+        <play-icon v-else style="width: 25px; margin-right: 5px" />
+        {{ isReady ? '解除就绪状态' : '准备' }}
       </el-button>
     </section>
   </div>
@@ -180,16 +184,23 @@ export default class HomeHeader extends Vue {
   & .user-sec {
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 10px;
 
     & .main-sec {
-      font-size: 35px;
+      font-size: 30px;
       font-weight: bold;
       color: var(--font-primary-color);
     }
 
     & .org-sec {
-      font-size: 24px;
+      font-size: 20px;
+      font-weight: bold;
+      color: var(--font-primary-color);
+    }
+
+    & .contest-sec {
+      font-size: 16px;
+      margin-top: 16px;
       color: var(--font-secondary-color);
     }
   }
@@ -208,8 +219,7 @@ export default class HomeHeader extends Vue {
 }
 
 .primary-button {
-  width: 180px;
-  height: 60px;
+  padding: 25px 30px;
   border-radius: 10px;
   font-size: 20px;
 

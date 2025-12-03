@@ -18,14 +18,19 @@ export interface AppConfigInterface {
   version: string;
   appConfig: {
     autoOpenOnLogin?: boolean; // 开机自启动
-    autoStartStreaming?: boolean; // 启动时自动开始推流
-    autoHiddenOnStart?: boolean; // 启动时自动隐藏主窗口
-    videoCachePath: string; // 视频缓存路径
+    autoReady?: boolean; // 启动时自动准备
+    videoCachePath?: string; // 视频缓存路径
   };
   userConfig: {
-    rlToken?: string;
+    rlToken?: string; // rl 推流 token
     userId?: string;
-    competitionId?: string;
+    userName?: string; 
+    organizationName?: string; // 组织名称（山东理工大学）
+    placeName?: string; // 场地名称（A20）
+  };
+  competitionConfig: {
+    competitionId?: number; // 赛事 ID
+    competitionName?: string;
   };
   devicesConfig: {
     screens?: Array<VideoConfig>;
@@ -51,8 +56,15 @@ export interface UpdateAudioConfigDTO {
 }
 
 export interface UpdateAppConfigDTO {
-  autoOpenOnLogin: boolean;
-  autoStartStreaming: boolean;
-  autoHiddenOnStart: boolean;
-  videoCachePath: string;
+  autoOpenOnLogin?: boolean; // 开机自启动
+  autoReady?: boolean; // 启动时自动准备
+  videoCachePath: string; // 视频缓存路径
+}
+
+export interface UpdateUserConfigDTO {
+  rlToken?: string;
+  userId?: string;
+  userName?: string;
+  organizationName?: string;
+  placeName?: string;
 }
