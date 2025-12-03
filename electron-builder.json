@@ -1,7 +1,14 @@
 {
   "appId": "com.algoux.kessoku-broadcaster",
   "files": ["dist/electron/**", "dist/ui/**", "resources/icon/**"],
-  "extraResources": ["dist/electron/preload.cts"],
+  "extraResources": [
+    "dist/electron/preload.cts",
+    {
+      "from": "resources/ffmpeg",
+      "to": "ffmpeg",
+      "filter": ["**/*"]
+    }
+  ],
   "generateUpdatesFilesForAllChannels": false,
   "mac": {
     "target": "dmg",

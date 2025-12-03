@@ -18,21 +18,30 @@ export function getFFmpegpath() {
   let ffmpegPath: string;
   let ffprobePath: string;
 
-  if (isDevelopment()) {
-    ffmpegPath = '/opt/homebrew/bin/ffmpeg';
-    ffprobePath = '/opt/homebrew/bin/ffprobe';
-  } else {
-    ffmpegPath = path.join(
-      process.resourcesPath,
-      'ffmpeg',
-      process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg',
-    );
+  const platform = process.platform;
+  const arch = process.arch;
 
-    ffprobePath = path.join(
-      process.resourcesPath,
-      'ffmpeg',
-      process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe',
-    );
+  let platformDir: string;
+  if (platform === 'darwin') {
+    platformDir = arch === 'arm64' ? 'mac-arm64' : 'mac-x64';
+  } else if (platform === 'win32') {
+    platformDir = arch === 'arm64' ? 'win-arm64' : 'win-x64';
+  } else if (platform === 'linux') {
+    platformDir = arch === 'arm64' ? 'linux-arm64' : 'linux-x64';
+  } else {
+    throw new Error(`不支持的平台: ${platform}-${arch}`);
+  }
+
+  const ffmpegName = platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  const ffprobeName = platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+
+  if (isDevelopment()) {
+    const resourcesPath = path.join(app.getAppPath(), 'resources', 'ffmpeg', platformDir);
+    ffmpegPath = path.join(resourcesPath, ffmpegName);
+    ffprobePath = path.join(resourcesPath, ffprobeName);
+  } else {
+    ffmpegPath = path.join(process.resourcesPath, 'ffmpeg', platformDir, ffmpegName);
+    ffprobePath = path.join(process.resourcesPath, 'ffmpeg', platformDir, ffprobeName);
   }
 
   return {
