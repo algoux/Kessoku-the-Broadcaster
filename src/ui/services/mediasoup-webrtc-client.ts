@@ -84,17 +84,7 @@ export class MediasoupClient {
     if (!this.producerTransport) throw new Error('传输通道未创建');
 
     try {
-      const producer = await this.producerTransport.produce({
-        track,
-        encodings: [
-          { maxBitrate: 2000000 }, // 2 Mbps
-          { maxBitrate: 1000000 }, // 1 Mbps
-          { maxBitrate: 500000 }, // 500 Kbps
-        ],
-        codecOptions: {
-          videoGoogleStartBitrate: 1000,
-        },
-      });
+      const producer = await this.producerTransport.produce({ track });
 
       // 将 producer 存储到 Map 中
       this.producers.set(producer.id, producer);

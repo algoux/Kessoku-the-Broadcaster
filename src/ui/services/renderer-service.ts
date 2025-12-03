@@ -1,6 +1,6 @@
 // 渲染进程服务 - 处理主进程的 IPC 通信和 MediaSoup 推流
 import { MediasoupClient } from './mediasoup-webrtc-client';
-import type { DeviceInfo } from 'common/modules/home/home.interface';
+import { DeviceInfo } from '@/typings/data';
 
 export class RendererService {
   private mediasoupClient: MediasoupClient | null = null;
@@ -50,15 +50,8 @@ export class RendererService {
   // 上报设备状态到服务器
   async reportDeviceState(devices: DeviceInfo[], isReady: boolean) {
     try {
-      console.log('📤 [渲染服务] 准备上报设备状态:', {
-        devices,
-        isReady,
-        deviceCount: devices.length,
-      });
       await window.electron.reportDeviceState(devices, isReady);
-      console.log('✅ [渲染服务] 设备状态上报成功');
     } catch (error) {
-      console.error('❌ [渲染服务] 设备状态上报失败:', error);
       throw error;
     }
   }
@@ -81,7 +74,6 @@ export class RendererService {
         await this.mediasoupClient.produceStream(stream);
       }
     } catch (error) {
-      console.error('推流失败:', error);
       throw error;
     }
   }

@@ -4,10 +4,6 @@ import os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
 import { getFFmpegpath } from '../utils/path-resolver';
 
-/**
- * 视频录制服务
- * 管理连续录制的视频文件,并支持 FFmpeg 截取最后 N 秒
- */
 export class VideoRecordingService {
   private recordingFiles: Map<string, RecordingData> = new Map();
   private cacheDir: string;

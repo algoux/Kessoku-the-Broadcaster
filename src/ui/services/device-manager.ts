@@ -222,7 +222,6 @@ export class DeviceManager {
     : T extends 'camera'
       ? `camera_${string}`
       : `microphone_${string}` {
-    // 如果已存在映射关系，直接返回
     if (this.deviceIdToClassIdMap.has(deviceId)) {
       return this.deviceIdToClassIdMap.get(deviceId)! as any;
     }

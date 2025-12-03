@@ -2,7 +2,7 @@
 import { Vue, Options } from 'vue-class-component';
 import { Inject, Prop, Ref } from 'vue-property-decorator';
 import { DeviceManager } from '@/services/device-manager';
-import { DeviceType, Device } from 'common/modules/home/home.interface';
+import { DeviceType, Device } from '@/typings/data';
 
 import SettingsIcon from './svgs/settings.vue';
 import Trash from './svgs/trash.vue';

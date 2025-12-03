@@ -1,13 +1,13 @@
 const electron = require('electron');
+import {
+  UpdateAppConfigDTO,
+  UpdateAudioConfigDTO,
+  UpdateVideoConfigDTO,
+} from 'common/config.interface';
 
 electron.contextBridge.exposeInMainWorld('electron', {
-  subscribeStatistics: (callback: (statistics: Statistics) => void) =>
-    ipcOn('statistics', (stats: Statistics) => {
-      callback(stats);
-    }),
   getSources: () => ipcInvoke('getSources'),
   saveVideo: (arrayBuffer) => ipcInvoke('saveVideo', arrayBuffer),
-  getStaticData: () => ipcInvoke('getStaticData'),
   setWindowTitle: (title: string) => {
     ipcSend('setWindowTitle', title);
   },
@@ -65,6 +65,11 @@ electron.contextBridge.exposeInMainWorld('electron', {
   },
   onStopReplayRequest: (callback: (data: { classId: string }) => void) => {
     return ipcOn('stop-replay-request', callback);
+  },
+  onConnectionStateChanged: (
+    callback: (state: 'connected' | 'disconnected' | 'connecting') => void,
+  ) => {
+    return ipcOn('connection-state-changed', callback);
   },
   removeAllListeners: (channel: string) => {
     electron.ipcRenderer.removeAllListeners(channel);

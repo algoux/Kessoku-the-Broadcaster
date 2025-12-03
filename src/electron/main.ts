@@ -1,12 +1,16 @@
-import { app, BrowserWindow, ipcMain, dialog, desktopCapturer, Tray } from 'electron';
+import { app, BrowserWindow, desktopCapturer } from 'electron';
 import { isDevelopment, ipcMainHandle, ipcMainOn } from './utils/index';
-import ResourcesManager from './utils/resource-manager';
-import { getPreloadPath, getUIPath, getAssetsPath } from './utils/path-resolver';
+import { getPreloadPath, getUIPath } from './utils/path-resolver';
 import { WebSocketService } from './services/websocket-service';
 import { VideoRecordingService } from './services/video-recording-service';
 import { createTray } from './utils/tray';
 import fs from 'fs';
 import { ConfigManager } from './services/config-manager';
+import {
+  UpdateAppConfigDTO,
+  UpdateAudioConfigDTO,
+  UpdateVideoConfigDTO,
+} from 'common/config.interface';
 
 app.setName('Kessoku the Broadcaster');
 
@@ -193,10 +197,21 @@ function setupIpcHandlers() {
 
   // 获取连接状态
   ipcMainHandle('get-connection-status', () => {
-    return webSocketService
-      ? webSocketService.getConnectionStatus()
-      : { connected: false, socketId: null };
+    return webSocketService ? webSocketService.getConnectionStatus() : 'disconnected';
   });
+
+  // 延迟启动连接状态检查定时器，确保init完成
+  setTimeout(() => {
+    const checkConnectionState = () => {
+      if (webSocketService) {
+        const state = webSocketService.getConnectionStatus();
+        mainWindow?.webContents.send('connection-state-changed', state);
+      }
+    };
+
+    // 定期检查连接状态
+    setInterval(checkConnectionState, 1000);
+  }, 2000);
 
   // 获取路由器 RTP 能力
   ipcMainHandle('get-router-rtp-capabilities', () => {

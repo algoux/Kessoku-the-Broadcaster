@@ -1,7 +1,7 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import { Inject } from 'vue-property-decorator';
-import { CanAddState, DeviceType } from 'common/modules/home/home.interface';
+import { DeviceType, ConnectState } from '@/typings/data';
 
 import {
   ElDescriptions,
@@ -56,6 +56,9 @@ export default class HomeHeader extends Vue {
   isReady!: boolean;
 
   @Inject()
+  connectionState!: ConnectState;
+
+  @Inject()
   availableScreens!: Array<{ id: string; name: string }>;
   @Inject()
   availableCameras!: Array<MediaDeviceInfo>;
@@ -78,13 +81,45 @@ export default class HomeHeader extends Vue {
       this.deviceManager.canAddState.microphone > 0
     );
   }
+
+  get connectionStateClass(): string {
+    switch (this.connectionState) {
+      case ConnectState.CONNECTED:
+        return 'connect-dot-connected';
+      case ConnectState.CONNECTING:
+        return 'connect-dot-connecting';
+      case ConnectState.DISCONNECTED:
+        return 'connect-dot-disconnected';
+      default:
+        return 'connect-dot-disconnected';
+    }
+  }
+
+  get connectionStateText(): string {
+    switch (this.connectionState) {
+      case ConnectState.CONNECTED:
+        return '已连接';
+      case ConnectState.CONNECTING:
+        return '连接中';
+      case ConnectState.DISCONNECTED:
+        return '未连接';
+      default:
+        return '未连接';
+    }
+  }
 }
 </script>
 
 <template>
   <div class="home-header">
     <section class="user-sec">
-      <div class="main-sec">A20 - Wujinhao</div>
+      <div class="main-sec">
+        A20 - Wujinhao
+        <div class="connect-state">
+          <div class="connect-dot" :class="connectionStateClass"></div>
+          <div class="connect-info">{{ connectionStateText }}</div>
+        </div>
+      </div>
       <div class="org-sec">山东理工大学</div>
       <div class="contest-sec">山东理工大学第十七届网络编程擂台赛</div>
     </section>
@@ -187,9 +222,52 @@ export default class HomeHeader extends Vue {
     gap: 10px;
 
     & .main-sec {
+      width: fit-content;
       font-size: 30px;
       font-weight: bold;
       color: var(--font-primary-color);
+      position: relative;
+
+      & .connect-state {
+        padding: 5px 10px;
+        border: 1px solid var(--border-color);
+        position: absolute;
+        top: 50%;
+        right: 0;
+        border-radius: 5px;
+        transform: translate(120%, -50%);
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        gap: 5px;
+
+        & .connect-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+
+          &-connecting {
+            background-color: orange;
+            box-shadow: 0 0 5px orange;
+            animation: blink 1.5s infinite;
+          }
+
+          &-connected {
+            background-color: #4caf50;
+            box-shadow: 0 0 5px #4caf50;
+          }
+
+          &-disconnected {
+            background-color: red;
+            box-shadow: 0 0 5px red;
+          }
+        }
+
+        & .connect-info {
+          font-size: 12px;
+          color: #ffffff;
+        }
+      }
     }
 
     & .org-sec {

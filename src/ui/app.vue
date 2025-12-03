@@ -6,7 +6,7 @@ import LoginView from './modules/login/login.view.vue';
 import HomeView from './modules/home/home.view.vue';
 import Tools from './components/tools.vue';
 import WindowControls from './components/window-controls.vue';
-import { AppConfigInterface } from 'common/interface/config.interface';
+import { AppConfigInterface } from 'common/config.interface';
 
 @Options({
   components: {

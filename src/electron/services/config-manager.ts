@@ -3,7 +3,7 @@ import {
   UpdateAppConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
-} from 'common/interface/config.interface';
+} from 'common/config.interface';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';

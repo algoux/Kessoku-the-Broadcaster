@@ -1,7 +1,7 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import { reactive } from 'vue';
-import { Device, DeviceType } from 'common/modules/home/home.interface';
+import { Device, DeviceType, ConnectState } from '@/typings/data';
 import { Provide, Ref } from 'vue-property-decorator';
 import { RendererService } from '@/services/renderer-service';
 import { DeviceManager } from '@/services/device-manager';
@@ -47,8 +47,14 @@ export default class HomeView extends Vue {
   @Provide({ reactive: true })
   public isReady: boolean = false;
 
+  @Provide({ reactive: true })
+  public connectionState: ConnectState = ConnectState.DISCONNECTED;
+
   // 渲染进程服务
   private rendererService: RendererService | null = null;
+
+  @Provide({ reactive: true })
+  connectState: ConnectState = ConnectState.CONNECTING;
 
   @Provide()
   public async changeReadyState() {
@@ -129,7 +135,8 @@ export default class HomeView extends Vue {
 
       // 检查连接状态
       const loginStatus = await this.rendererService.getConnectionStatus();
-      this.deviceManager.streamStatus = loginStatus.connected ? '已连接，等待推流请求' : '未连接';
+      this.deviceManager.streamStatus =
+        loginStatus === 'connected' ? '已连接，等待推流请求' : '未连接';
     } catch (error) {
       console.error('连接失败:', error);
     }
@@ -346,6 +353,35 @@ export default class HomeView extends Vue {
 
   async mounted() {
     await this.initializeService();
+
+    // 立即获取初始连接状态
+    const initialState = await window.electron.getConnectionStatus();
+    switch (initialState) {
+      case 'connected':
+        this.connectionState = ConnectState.CONNECTED;
+        break;
+      case 'connecting':
+        this.connectionState = ConnectState.CONNECTING;
+        break;
+      case 'disconnected':
+        this.connectionState = ConnectState.DISCONNECTED;
+        break;
+    }
+
+    // 监听连接状态变化
+    window.electron.onConnectionStateChanged((state) => {
+      switch (state) {
+        case 'connected':
+          this.connectionState = ConnectState.CONNECTED;
+          break;
+        case 'connecting':
+          this.connectionState = ConnectState.CONNECTING;
+          break;
+        case 'disconnected':
+          this.connectionState = ConnectState.DISCONNECTED;
+          break;
+      }
+    });
 
     const fps = await getScreenActualRefreshRate();
 

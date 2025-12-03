@@ -2,34 +2,10 @@ import {
   AppConfigInterface,
   UpdateAppConfigDTO,
   UpdateAudioConfigDTO,
-} from 'common/interface/config.interface';
+} from 'common/config.interface';
 
 declare global {
-  type Statistics = {
-    cpuUsage: number;
-    ramUsage: number;
-    storageUsage: number;
-  };
-
-  type StaticData = {
-    totalStorage: number;
-    cpuModel: string;
-    totalMemoryGB: number;
-  };
-
-  type UpdateAppConfigDTO = UpdateAudioConfigDTO;
-
-  type UpdateVideoConfigDTO = UpdateVideoConfigDTO;
-
-  type UpdateAudioConfigDTO = UpdateAudioConfigDTO;
-
-  type UnsubscribeFunction = () => void;
-
-  // IPC 事件负载映射
   type EventPayloadMapping = {
-    // 基础事件
-    statistics: Statistics;
-    getStaticData: StaticData;
     getSources: Electron.DesktopCapturerSource[];
     saveVideo: string | null;
     hasReady: void;
@@ -39,7 +15,7 @@ declare global {
     // WebSocket 相关事件
     login: { success: boolean; error?: string };
     openSettingsWindow: void;
-    'get-connection-status': { connected: boolean; socketId: string | null };
+    'get-connection-status': 'connected' | 'disconnected' | 'connecting';
     'get-router-rtp-capabilities': any;
     'create-producer-transport': any;
     'connect-producer-transport': void;
@@ -53,6 +29,7 @@ declare global {
     'stop-streaming-request': { requestedBy: string };
     'replay-request': { requestedBy: string; classId: string; seconds: number };
     'stop-replay-request': { classId: string };
+    'connection-state-changed': 'connected' | 'disconnected' | 'connecting';
 
     // 回看相关事件
     'handle-replay-request': { success: boolean; filePath?: string; error?: string };
@@ -101,14 +78,12 @@ declare global {
     electron: {
       getSources: () => Promise<Electron.DesktopCapturerSource[]>;
       saveVideo: (arrayBuffer: ArrayBuffer) => Promise<string | null>;
-      subscribeStatistics: (callback: (statistics: Statistics) => void) => UnsubscribeFunction;
-      getStaticData: () => Promise<StaticData>;
       setWindowTitle: (title: string) => void;
       loginSuccess: () => void;
       hasReady: () => void;
       // WebSocket 相关方法
       login: (playerName: string) => Promise<{ success: boolean; error?: string }>;
-      getConnectionStatus: () => Promise<{ connected: boolean; socketId: string | null }>;
+      getConnectionStatus: () => Promise<'connected' | 'disconnected' | 'connecting'>;
       getRouterRtpCapabilities: () => Promise<any>;
       createProducerTransport: () => Promise<any>;
       connectProducerTransport: (transportId: string, dtlsParameters: any) => Promise<void>;
@@ -129,6 +104,9 @@ declare global {
         callback: (data: { classId: string; filePath: string; seconds: number }) => void,
       ) => void;
       onStopReplayRequest: (callback: (data: { classId: string }) => void) => void;
+      onConnectionStateChanged: (
+        callback: (state: 'connected' | 'disconnected' | 'connecting') => void,
+      ) => void;
       removeAllListeners: (channel: string) => void;
       // 视频录制相关
       startContinuousRecording: (classId: string) => Promise<{ success: boolean; error?: string }>;
