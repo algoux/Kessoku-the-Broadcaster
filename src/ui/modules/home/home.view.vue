@@ -383,7 +383,7 @@ export default class HomeView extends Vue {
       }
     });
 
-    const fps = await getScreenActualRefreshRate();
+    const fps = await getScreenActualRefreshRate(60);
 
     this.deviceManager.setScreenAvailableMaxFrameRate = fps;
 
