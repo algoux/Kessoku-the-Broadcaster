@@ -33,8 +33,8 @@ electron.contextBridge.exposeInMainWorld('electron', {
   connectProducerTransport: (transportId: string, dtlsParameters: any) => {
     return ipcInvoke('connect-producer-transport', { transportId, dtlsParameters });
   },
-  createProducer: (kind: string, rtpParameters: any) => {
-    return ipcInvoke('create-producer', { kind, rtpParameters });
+  createProducer: (kind: string, rtpParameters: any, appData?: any) => {
+    return ipcInvoke('create-producer', { kind, rtpParameters, appData });
   },
   notifyStreamingStarted: (producerId: string, kind: string, rtpParameters?: any) => {
     ipcSend('streaming-started', { producerId, kind, rtpParameters });

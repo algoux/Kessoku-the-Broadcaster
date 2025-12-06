@@ -1,64 +1,119 @@
 const path = require('path');
 const fs = require('fs');
-const unzipper = require('unzipper');
-const fetch = require('node-fetch');
-
-const MAC_FFMPEG_ARM_URL = 'https://evermeet.cx/ffmpeg/ffmpeg-121955-g413346bd06.zip';
-const MAC_FFPROBE_ARM_URL = 'https://evermeet.cx/ffmpeg/ffprobe-121955-g413346bd06.zip';
-
-function getDownloadUrl(platform, arch) {
-  if (platform === 'darwin' && arch === 'arm64') {
-    return {
-      ffmpeg: MAC_FFMPEG_ARM_URL,
-      ffprobe: MAC_FFPROBE_ARM_URL,
-    };
-  }
-}
+const os = require('os');
+const https = require('https');
 
 function getOutputPath(platform, arch) {
-  if (platform === 'darwin' && arch === 'arm64') {
-    return path.join(__dirname, '../resources/ffmpeg/mac-arm64');
+  const platformName = parsePlatform(platform);
+  const archName = parseArch(arch);
+  const dirName = `${platformName}-${archName}`;
+  const baseDir = path.join(__dirname, '..', 'resources', 'ffmpeg', dirName);
+
+  if (!fs.existsSync(baseDir)) {
+    fs.mkdirSync(baseDir, { recursive: true });
+  }
+
+  const extension = platformName === 'win' ? '.exe' : '';
+  return {
+    ffmpegPath: path.join(baseDir, `ffmpeg${extension}`),
+    ffprobePath: path.join(baseDir, `ffprobe${extension}`),
+    baseDir,
+  };
+}
+
+function parsePlatform(platform) {
+  if (platform === 'win32') {
+    return 'win';
+  } else if (platform === 'darwin') {
+    return 'mac';
+  } else if (platform === 'linux') {
+    return 'linux';
+  } else {
+    throw new Error(`Unsupported platform: ${platform}`);
   }
 }
 
-async function downloadAndExtract(url, outputPath) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to download from ${url}: ${res.statusText}`);
+function parseArch(arch) {
+  if (arch === 'x64') {
+    return 'x64';
+  } else if (arch === 'arm64') {
+    return 'arm64';
+  } else {
+    throw new Error(`Unsupported architecture: ${arch}`);
   }
+}
 
-  await new Promise((resolve, reject) => {
-    res.body
-      .pipe(unzipper.Extract({ path: outputPath }))
-      .on('close', resolve)
-      .on('error', reject);
+function getDownloadUrl(platform, arch) {
+  const ffmpegPath = `https://cdn.shaly.sdutacm.cn/atrior/ffmpeg-assets/${parsePlatform(platform)}-${parseArch(arch)}/ffmpeg${parsePlatform(platform) === 'win' ? '.exe' : ''}`;
+  const ffprobePath = `https://cdn.shaly.sdutacm.cn/atrior/ffmpeg-assets/${parsePlatform(platform)}-${parseArch(arch)}/ffprobe${parsePlatform(platform) === 'win' ? '.exe' : ''}`;
+  return { ffmpegPath, ffprobePath };
+}
+
+async function downloadFile(url, outputPath) {
+  console.log(`下载: ${url}`);
+
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, (response) => {
+        // 处理重定向
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          return downloadFile(response.headers.location, outputPath).then(resolve).catch(reject);
+        }
+
+        if (response.statusCode !== 200) {
+          reject(new Error(`下载失败: ${response.statusCode} ${response.statusMessage}`));
+          return;
+        }
+
+        const fileStream = fs.createWriteStream(outputPath);
+        response.pipe(fileStream);
+
+        fileStream.on('finish', () => {
+          fileStream.close();
+
+          // 给文件添加执行权限（Unix 系统）
+          if (process.platform !== 'win32') {
+            fs.chmodSync(outputPath, 0o755);
+          }
+
+          console.log(`完成: ${path.basename(outputPath)}`);
+          resolve();
+        });
+
+        fileStream.on('error', (err) => {
+          fs.unlink(outputPath, () => {});
+          reject(err);
+        });
+      })
+      .on('error', (err) => {
+        reject(err);
+      });
   });
 }
 
 async function main() {
-  const platform = process.platform;
-  const arch = process.arch;
+  const platform = os.platform();
+  const arch = os.arch();
 
-  const url = getDownloadUrl(platform, arch);
-  const outputPath = getOutputPath(platform, arch);
+  console.log(`平台: ${platform}, 架构: ${arch}`);
 
-  if (!url || !outputPath) {
-    console.log(`No prebuilt binaries available for ${platform} ${arch}. Skipping download.`);
-    return;
+  const {
+    ffmpegPath: ffmpegOutput,
+    ffprobePath: ffprobeOutput,
+    baseDir,
+  } = getOutputPath(platform, arch);
+  const { ffmpegPath: ffmpegUrl, ffprobePath: ffprobeUrl } = getDownloadUrl(platform, arch);
+
+  try {
+    await downloadFile(ffmpegUrl, ffmpegOutput);
+
+    await downloadFile(ffprobeUrl, ffprobeOutput);
+
+    console.log('所有 ffmpeg 相关二进制文件下载完成');
+  } catch (error) {
+    console.error('下载失败:', error.message);
+    process.exit(1);
   }
-  if (!fs.existsSync(outputPath)) {
-    fs.mkdirSync(outputPath, { recursive: true });
-  }
-
-  console.log(`Downloading ffmpeg from ${url.ffmpeg}...`);
-  await downloadAndExtract(url.ffmpeg, outputPath);
-  console.log(`Downloading ffprobe from ${url.ffprobe}...`);
-  await downloadAndExtract(url.ffprobe, outputPath);
-
-  console.log(`ffmpeg and ffprobe have been set up at ${outputPath}`);
 }
 
-main().catch((err) => {
-  console.error('Error during setup:', err);
-  process.exit(1);
-});
+main();

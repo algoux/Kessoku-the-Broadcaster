@@ -1,11 +1,12 @@
 import {
-  Device,
   DeviceType,
+  Device,
   CanAddState,
   DeviceCapabilities,
   ConfigForm,
   DeviceSettings,
-} from 'common/modules/home/home.interface';
+} from '@/typings/data';
+import { SimulcastConfig } from 'common/config.interface';
 
 interface DeviceAddingRes {
   success: boolean;
@@ -321,8 +322,8 @@ export class DeviceManager {
           }
 
           device.settings = {
-            width: rawSettings.width,
-            height: rawSettings.height,
+            width: capabilities.width.max,
+            height: capabilities.height.max,
             frameRate: device.type == 'screen' ? this.idealScreenFrameRate : rawSettings.frameRate,
             aspectRatio: rawSettings.aspectRatio,
             facingMode: rawSettings.facingMode,
@@ -342,7 +343,7 @@ export class DeviceManager {
     }
   }
 
-  async stopStreaming() {
+  async resetDeviceStreaming() {
     try {
       // Device 和 Transport 保持连接，以便下次快速推流
       this.isStreaming = false;
@@ -367,9 +368,8 @@ export class DeviceManager {
     }
   }
 
-  async startStreaming(classIds: string[] = []) {
+  async getEnableStreams(classIds: string[] = []) {
     try {
-      // 根据 classIds 筛选要推流的设备
       let devicesToStream = this.userDevices.filter((device) => device.enabled);
 
       if (classIds && classIds.length > 0) {
@@ -390,10 +390,15 @@ export class DeviceManager {
         }
       }
 
-      const enabledStreams: MediaStream[] = [];
+      const enabledStreams: Array<{ stream: MediaStream; simulcastConfigs?: SimulcastConfig[] }> =
+        [];
       for (const device of devicesToStream) {
         if (device.stream) {
-          enabledStreams.push(device.stream);
+          enabledStreams.push({
+            stream: device.stream,
+            simulcastConfigs:
+              device.type !== 'microphone' ? device.settings?.simulcastConfigs : undefined,
+          });
         }
       }
 
@@ -435,6 +440,12 @@ export class DeviceManager {
       frameRate: Math.round(device.settings.frameRate),
       channelCount: device.settings.channelCount,
       sampleRate: device.settings.sampleRate,
+      simulcastConfig: {
+        rid: 'high',
+        scaleResolutionDownBy: 1,
+        maxBitRate: 8000000,
+        maxFramerate: 60,
+      },
     };
     this.selectedPreset = '';
     return {
@@ -546,7 +557,6 @@ export class DeviceManager {
       // 更新 userDevices 数组中对应设备，使用 splice 确保 Vue 检测到变化
       const idx = this.userDevices.findIndex((d) => d.id === this.currentConfigDevice.id);
       if (idx !== -1) {
-        // 获取当前设备的引用
         const targetDevice = this.userDevices[idx];
 
         // 更新所有属性
@@ -555,7 +565,6 @@ export class DeviceManager {
         targetDevice.capabilities = this.currentConfigDevice.capabilities;
         targetDevice.formatSetting = this.getFormatSettings(this.currentConfigDevice);
 
-        // 使用 splice 触发数组的响应式更新
         this.userDevices.splice(idx, 1, targetDevice);
 
         return { updateIndex: idx, updateDevice: targetDevice };

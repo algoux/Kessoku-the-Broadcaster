@@ -1,5 +1,5 @@
 import RecordRTC from 'recordrtc';
-import { Device } from 'common/modules/home/home.interface';
+import { Device } from '@/typings/data';
 
 export class RecorderService {
   rollingRecordsMap: Map<string, any> = new Map();
@@ -19,7 +19,7 @@ export class RecorderService {
       video.style.opacity = '0.01';
       video.style.pointerEvents = 'none';
       video.style.zIndex = '-9999';
-      video.muted = true; // 必须静音才能自动播放
+      video.muted = true;
       video.autoplay = true;
       video.src = videoUrl;
       document.body.appendChild(video);

@@ -1,26 +1,19 @@
-// MediaSoup 客户端服务 - 只负责 WebRTC 推流，不处理信令
 import * as mediasoupClient from 'mediasoup-client';
+import { SimulcastConfig } from 'common/config.interface';
 
 export class MediasoupClient {
   private device!: mediasoupClient.Device;
   private producerTransport!: mediasoupClient.types.Transport;
-
-  // 使用 Map 存储多个 producers
   private producers: Map<string, mediasoupClient.types.Producer> = new Map();
 
-  private serverUrl!: string;
-
-  constructor(serverUrl: string = 'http://localhost:3001') {
-    this.serverUrl = serverUrl;
+  constructor() {
     this.device = new mediasoupClient.Device();
   }
 
   // 加载 Device
   async loadDevice() {
     if (!this.device || !this.device.loaded) {
-      console.log('📱 正在加载 Device...');
       try {
-        // 如果 device 不存在，创建一个新的
         if (!this.device) {
           this.device = new mediasoupClient.Device();
         }
@@ -32,9 +25,9 @@ export class MediasoupClient {
         }
 
         await this.device.load({ routerRtpCapabilities: rtpCapabilities });
-        console.log('✅ Device 加载成功');
+        console.log('Device 加载成功');
       } catch (error) {
-        console.error('❌ Device 加载失败:', error);
+        console.error('Device 加载失败:', error);
         throw error;
       }
     }
@@ -44,12 +37,10 @@ export class MediasoupClient {
   async createProducerTransport(): Promise<void> {
     if (!this.device) throw new Error('Device 未加载');
     if (this.producerTransport) {
-      console.log('Producer Transport 已存在，跳过创建');
       return;
     }
 
     try {
-      // 通过 IPC 获取 transport 参数
       const transportParams = await this.getTransportParams();
 
       this.producerTransport = this.device.createSendTransport(transportParams);
@@ -64,15 +55,17 @@ export class MediasoupClient {
         }
       });
 
-      // 监听推流事件
-      this.producerTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
-        try {
-          const { id } = await this.createProducer(kind, rtpParameters);
-          callback({ id });
-        } catch (error) {
-          errback(error as Error);
-        }
-      });
+      this.producerTransport.on(
+        'produce',
+        async ({ kind, rtpParameters, appData }, callback, errback) => {
+          try {
+            const { id } = await this.createProducer(kind, rtpParameters, appData);
+            callback({ id });
+          } catch (error) {
+            errback(error as Error);
+          }
+        },
+      );
     } catch (error) {
       console.error('推流传输通道创建失败:', error);
       throw error;
@@ -80,17 +73,47 @@ export class MediasoupClient {
   }
 
   // 推送视频流
-  async produceVideo(track: MediaStreamTrack): Promise<void> {
+  async produceVideo(track: MediaStreamTrack, simulcastConfigs?: SimulcastConfig[]): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
 
     try {
-      const producer = await this.producerTransport.produce({ track });
+      // 如果提供了 simulcastConfigs，使用它；否则使用默认配置
+      const encodings =
+        simulcastConfigs && simulcastConfigs.length > 0
+          ? simulcastConfigs.map((config) => ({
+              rid: config.rid,
+              scaleResolutionDownBy: config.scaleResolutionDownBy,
+              maxBitrate: config.maxBitRate,
+              maxFramerate: config.maxFramerate,
+            }))
+          : [
+              {
+                rid: 'high',
+                scaleResolutionDownBy: 1, // 不缩放 - 原始分辨率
+                maxBitrate: 8000000, // 8Mbps
+                maxFramerate: 60,
+              },
+              {
+                rid: 'low',
+                scaleResolutionDownBy: 2, // 分辨率缩小一半
+                maxBitrate: 2000000, // 2Mbps
+                maxFramerate: 30,
+              },
+            ];
+
+      const producer = await this.producerTransport.produce({
+        track,
+        encodings,
+        // 可选，让编码器更快进入目标码率
+        codecOptions: {
+          videoGoogleStartBitrate: 8000,
+        },
+      });
 
       // 将 producer 存储到 Map 中
       this.producers.set(producer.id, producer);
 
-      // 通知主进程推流已开始
-      window.electron.notifyStreamingStarted(producer.id, 'video', producer.rtpParameters);
+      console.log(`视频推流成功: producerId=${producer.id}`);
     } catch (error) {
       console.error('视频流推送失败:', error);
       throw error;
@@ -100,15 +123,11 @@ export class MediasoupClient {
   // 推送音频流
   async produceAudio(track: MediaStreamTrack): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
-
     try {
       const producer = await this.producerTransport.produce({ track });
-
       // 将 producer 存储到 Map 中
       this.producers.set(producer.id, producer);
-
-      // 通知主进程推流已开始
-      window.electron.notifyStreamingStarted(producer.id, 'audio', producer.rtpParameters);
+      console.log(`音频推流成功: producerId=${producer.id}`);
     } catch (error) {
       console.error('音频流推送失败:', error);
       throw error;
@@ -116,14 +135,12 @@ export class MediasoupClient {
   }
 
   // 推送整个 MediaStream
-  async produceStream(stream: MediaStream): Promise<void> {
+  async produceStream(stream: MediaStream, simulcastConfigs?: SimulcastConfig[]): Promise<void> {
     const videoTrack = stream.getVideoTracks()[0];
     const audioTrack = stream.getAudioTracks()[0];
-
     if (videoTrack) {
-      await this.produceVideo(videoTrack);
+      await this.produceVideo(videoTrack, simulcastConfigs);
     }
-
     if (audioTrack) {
       await this.produceAudio(audioTrack);
     }
@@ -131,7 +148,6 @@ export class MediasoupClient {
 
   // 停止推流
   stopProducing(): void {
-    // 关闭所有 producers
     for (const [producerId, producer] of this.producers.entries()) {
       if (!producer.closed) {
         producer.close();
@@ -139,8 +155,6 @@ export class MediasoupClient {
         window.electron.notifyStreamingStopped(producerId);
       }
     }
-
-    // 清空 producers Map
     this.producers.clear();
   }
 
@@ -163,14 +177,11 @@ export class MediasoupClient {
   // 断开连接
   disconnect(): void {
     this.stopProducing();
-
     if (this.producerTransport) {
       this.producerTransport.close();
       this.producerTransport = null;
     }
-
     this.device = null;
-    console.log('🔌 MediaSoup 客户端已断开');
   }
 
   // 获取 Transport 参数
@@ -184,7 +195,11 @@ export class MediasoupClient {
   }
 
   // 创建推流生产者
-  private async createProducer(kind: string, rtpParameters: any): Promise<{ id: string }> {
-    return await window.electron.createProducer(kind, rtpParameters);
+  private async createProducer(
+    kind: string,
+    rtpParameters: any,
+    appData?: any,
+  ): Promise<{ id: string }> {
+    return await window.electron.createProducer(kind, rtpParameters, appData);
   }
 }

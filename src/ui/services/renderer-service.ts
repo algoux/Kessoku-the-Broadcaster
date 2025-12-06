@@ -21,9 +21,9 @@ export class RendererService {
     try {
       this.mediasoupClient = new MediasoupClient();
       this.isInitialized = true;
-      console.log('✅ 渲染进程服务初始化成功');
+      console.log('渲染进程服务初始化成功');
     } catch (error) {
-      console.error('❌ 渲染进程服务初始化失败:', error);
+      console.error('渲染进程服务初始化失败:', error);
       throw error;
     }
   }
@@ -32,7 +32,7 @@ export class RendererService {
   private setupIpcListeners() {
     // 监听主进程的推流请求（携带 classIds）
     window.electron.onStreamingRequest(async ({ requestedBy, classIds }) => {
-      console.log(`📡 收到推流请求，来自: ${requestedBy}, classIds:`, classIds);
+      console.log(`收到推流请求，来自: ${requestedBy}, classIds:`, classIds);
       if (this.onStreamingRequest) {
         await this.onStreamingRequest(classIds || []);
       }
@@ -40,7 +40,7 @@ export class RendererService {
 
     // 监听主进程的停止推流请求
     window.electron.onStopStreamingRequest(async ({ requestedBy }) => {
-      console.log(`📡 收到停止推流请求，来自: ${requestedBy}`);
+      console.log(`收到停止推流请求，来自: ${requestedBy}`);
       if (this.onStopStreamingRequest) {
         await this.onStopStreamingRequest();
       }
@@ -57,9 +57,9 @@ export class RendererService {
   }
 
   // 开始推流
-  async startStreaming(streams: MediaStream[]) {
+  async startStreaming(streamData: Array<{ stream: MediaStream; simulcastConfigs?: any[] }>) {
     if (!this.mediasoupClient) {
-      throw new Error('MediaSoup 客户端未初始化');
+      throw new Error('MediaSoup Client 未初始化');
     }
 
     try {
@@ -70,8 +70,8 @@ export class RendererService {
       await this.mediasoupClient.createProducerTransport();
 
       // 推送所有流
-      for (const stream of streams) {
-        await this.mediasoupClient.produceStream(stream);
+      for (const data of streamData) {
+        await this.mediasoupClient.produceStream(data.stream, data.simulcastConfigs);
       }
     } catch (error) {
       throw error;

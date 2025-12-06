@@ -235,11 +235,11 @@ function setupIpcHandlers() {
   });
 
   // 创建推流生产者
-  ipcMainHandle('create-producer', async ({ kind, rtpParameters }) => {
+  ipcMainHandle('create-producer', async ({ kind, rtpParameters, appData }) => {
     if (!webSocketService) {
       throw new Error('WebSocket 服务未初始化');
     }
-    return await webSocketService.createProducer(kind, rtpParameters);
+    return await webSocketService.createProducer(kind, rtpParameters, appData);
   });
 
   // 上报设备状态

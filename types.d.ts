@@ -87,7 +87,7 @@ declare global {
       getRouterRtpCapabilities: () => Promise<any>;
       createProducerTransport: () => Promise<any>;
       connectProducerTransport: (transportId: string, dtlsParameters: any) => Promise<void>;
-      createProducer: (kind: string, rtpParameters: any) => Promise<{ id: string }>;
+      createProducer: (kind: string, rtpParameters: any, appData?: any) => Promise<{ id: string }>;
       notifyStreamingStarted: (producerId: string, kind: string, rtpParameters?: any) => void;
       notifyStreamingStopped: (producerId: string) => void;
       // 设备状态上报

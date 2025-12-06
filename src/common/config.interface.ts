@@ -1,3 +1,10 @@
+export interface SimulcastConfig {
+  rid: string;
+  scaleResolutionDownBy: number;
+  maxBitRate: number;
+  maxFramerate: number;
+}
+
 export interface VideoConfig {
   id: string;
   name: string;
@@ -5,6 +12,7 @@ export interface VideoConfig {
   height: number;
   frameRate: number;
   sampleRate: number;
+  simulcastConfigs: SimulcastConfig[];
 }
 
 export interface AudioConfig {
@@ -24,7 +32,7 @@ export interface AppConfigInterface {
   userConfig: {
     rlToken?: string; // rl 推流 token
     userId?: string;
-    userName?: string; 
+    userName?: string;
     organizationName?: string; // 组织名称（山东理工大学）
     placeName?: string; // 场地名称（A20）
   };
@@ -46,6 +54,7 @@ export interface UpdateVideoConfigDTO {
   height: number;
   frameRate: number;
   sampleRate: number;
+  simulcastConfigs: SimulcastConfig[];
 }
 
 export interface UpdateAudioConfigDTO {

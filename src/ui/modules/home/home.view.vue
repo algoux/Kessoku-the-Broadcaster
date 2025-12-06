@@ -117,14 +117,14 @@ export default class HomeView extends Vue {
 
       // 设置推流请求回调（支持按 classId 选择设备）
       this.rendererService.onStreamingRequest = async (classIds: string[]) => {
-        const mediastreamings = await this.deviceManager.startStreaming(classIds);
+        const mediastreamings = await this.deviceManager.getEnableStreams(classIds);
         this.rendererService.startStreaming(mediastreamings);
       };
 
       // 设置停止推流请求回调
       this.rendererService.onStopStreamingRequest = async () => {
         await this.rendererService.stopStreaming();
-        await this.deviceManager.stopStreaming();
+        await this.deviceManager.resetDeviceStreaming();
         for (const device of this.deviceManager.userDevices) {
           this.updateVideoElement(device);
         }
@@ -320,7 +320,7 @@ export default class HomeView extends Vue {
       }
       console.log(`开始回看推流: classId=${classId}, seconds=${seconds}`);
       const stream = await this.recorderService.startReplayStreaming(classId, filePath, seconds);
-      await this.rendererService.startStreaming([stream]);
+      await this.rendererService.startStreaming([{ stream }]);
       console.log('回看推流已开始');
     } catch (error) {
       console.error('回看推流失败:', error);

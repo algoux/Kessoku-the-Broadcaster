@@ -49,7 +49,16 @@ export class WebSocketService {
         console.log('主进程连接信令服务器:', this.socket.id);
 
         // 获取路由器 RTP 能力
-        this.socket.emit('getRouterRtpCapabilities', (rtpCapabilities: RtpCapabilities) => {
+        this.socket.emit('getRouterRtpCapabilities', (rtpCapabilities: any) => {
+          if (!rtpCapabilities || rtpCapabilities.error) {
+            console.log('服务器 router 未就绪，2秒后重试...');
+            setTimeout(() => {
+              this.disconnect();
+              this.connect(this.playerName);
+            }, 2000);
+            return;
+          }
+
           this.routerRtpCapabilities = rtpCapabilities;
 
           // 注册为选手端
@@ -64,6 +73,7 @@ export class WebSocketService {
                 this.isConnected = true;
                 this.connectionState = 'connected';
                 this.setupEventHandlers();
+                this.lastHeartbeatResponse = Date.now(); // 重置心跳时间
                 this.startHeartbeat();
                 this.stopReconnecting();
                 resolve(true);
@@ -164,8 +174,6 @@ export class WebSocketService {
         ipcWebContentsSend('stop-replay-request', this.mainWindow.webContents, { classId });
       }
     });
-
-    // 注意：disconnect 和 connect 事件由重连逻辑统一管理，这里不再重复监听
   }
 
   // 通知服务器推流已开始
@@ -267,7 +275,13 @@ export class WebSocketService {
           console.log('重连成功，正在注册...');
 
           // 获取 RTP 能力并注册
-          this.socket.emit('getRouterRtpCapabilities', (rtpCapabilities: RtpCapabilities) => {
+          this.socket.emit('getRouterRtpCapabilities', (rtpCapabilities: any) => {
+            if (!rtpCapabilities || rtpCapabilities.error) {
+              console.log('服务器 router 未就绪，继续重连...');
+              // 不停止重连，让重连逻辑继续尝试
+              return;
+            }
+
             this.routerRtpCapabilities = rtpCapabilities;
 
             this.socket.emit(
@@ -282,6 +296,7 @@ export class WebSocketService {
                   this.isConnected = true;
                   this.connectionState = 'connected';
                   this.setupEventHandlers();
+                  this.lastHeartbeatResponse = Date.now();
                   this.startHeartbeat();
                   this.stopReconnecting();
 
@@ -392,14 +407,14 @@ export class WebSocketService {
   }
 
   // 创建推流生产者
-  async createProducer(kind: string, rtpParameters: any): Promise<{ id: string }> {
+  async createProducer(kind: string, rtpParameters: any, appData?: any): Promise<{ id: string }> {
     return new Promise((resolve, reject) => {
       if (!this.socket || !this.socket.connected) {
         reject(new Error('WebSocket 未连接'));
         return;
       }
 
-      this.socket.emit('produce', { kind, rtpParameters }, (response: any) => {
+      this.socket.emit('produce', { kind, rtpParameters, appData }, (response: any) => {
         if (response.error) {
           reject(new Error(response.error));
         } else {
@@ -419,8 +434,6 @@ export class WebSocketService {
       console.warn('WebSocket 未连接，无法上报设备状态（已保存状态，等待重连后上报）');
       return;
     }
-
-    console.log('上报设备状态:', { devices: devices.length, isReady });
     this.socket.emit('reportDeviceState', {
       devices,
       isReady,

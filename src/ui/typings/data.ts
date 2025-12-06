@@ -1,3 +1,5 @@
+import { SimulcastConfig } from 'common/config.interface';
+
 export interface DeviceSettings {
   width?: number;
   height?: number;
@@ -8,6 +10,7 @@ export interface DeviceSettings {
   sampleRate?: number;
   channelCount?: number;
   formatSetting?: string;
+  simulcastConfigs?: SimulcastConfig[]; // Simulcast 编码配置
 }
 
 export type DeviceType = 'screen' | 'camera' | 'microphone';
@@ -48,6 +51,7 @@ export interface ConfigForm {
   frameRate: number;
   sampleRate?: number;
   channelCount?: number;
+  simulcastConfig: SimulcastConfig;
 }
 
 // 设备信息上报接口（发送给服务器）

@@ -32,6 +32,15 @@ export default class ConfigDialog extends Vue {
 
   @Inject()
   closeConfigDialog: Function;
+
+  simulcastOptions = [
+    { rid: 'high', scaleResolutionDownBy: 1.0, maxBitrate: 8000000, maxFramerate: 60 },
+    { rid: 'low', scaleResolutionDownBy: 2.0, maxBitrate: 2000000, maxFramerate: 30 },
+  ];
+
+  private formatSimulcastConfig(rid: string, maxBitrate: number, maxFramerate: number) {
+    return `${rid} @ ${maxFramerate} fps, ${Math.round(maxBitrate / 1000)} Mbps`;
+  }
 }
 </script>
 
@@ -86,26 +95,6 @@ export default class ConfigDialog extends Vue {
       </el-form-item>
     </el-form>
     <el-form v-else :model="deviceManager.configForm" label-width="100px" style="margin-top: 15px">
-      <el-form-item label="分辨率">
-        <div class="resolution-inputs">
-          <el-input-number
-            v-model="deviceManager.configForm.width"
-            :min="deviceManager.currentConfigDevice.capabilities.width.min"
-            :max="deviceManager.currentConfigDevice.capabilities.width.max"
-            :step="1"
-            controls-position="right"
-          />
-          <span class="resolution-separator">×</span>
-          <el-input-number
-            v-model="deviceManager.configForm.height"
-            :min="deviceManager.currentConfigDevice.capabilities.height.min"
-            :max="deviceManager.currentConfigDevice.capabilities.height.max"
-            :step="1"
-            controls-position="right"
-          />
-        </div>
-      </el-form-item>
-
       <el-form-item label="预设分辨率">
         <el-select
           v-model="deviceManager.selectedPreset"
@@ -114,11 +103,7 @@ export default class ConfigDialog extends Vue {
         >
           <el-option label="自定义" value="" />
           <el-option
-            v-if="
-              deviceManager.currentConfigDevice?.capabilities?.width?.max &&
-              deviceManager.currentConfigDevice?.capabilities?.height?.max
-            "
-            label="设备最大分辨率"
+            :label="`${Math.round(deviceManager.currentConfigDevice.capabilities.width.max)} × ${Math.round(deviceManager.currentConfigDevice.capabilities.height.max)} (最高分辨率)`"
             :value="
               JSON.stringify({
                 width: Math.round(deviceManager.currentConfigDevice.capabilities.width.max),
@@ -148,6 +133,17 @@ export default class ConfigDialog extends Vue {
           controls-position="right"
         />
         <span style="margin-left: 10px">fps</span>
+      </el-form-item>
+
+      <el-form-item label="画质档位">
+        <el-select :placeholder="'选择画质档位'" v-model="deviceManager.configForm.simulcastConfig.rid">
+          <el-option
+            v-for="option in simulcastOptions"
+            :key="option.rid"
+            :label="formatSimulcastConfig(option.rid, option.maxBitrate, option.maxFramerate)"
+            :value="option.rid"
+          />
+        </el-select>
       </el-form-item>
 
       <el-form-item label="支持范围">
