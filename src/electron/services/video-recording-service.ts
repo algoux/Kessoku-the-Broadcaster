@@ -4,6 +4,14 @@ import os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
 import { getFFmpegpath } from '../utils/path-resolver';
 
+interface RecordingData {
+  classId: string;
+  filePath: string;
+  writeStream: fs.WriteStream;
+  startTime: number;
+  chunks: Buffer[];
+}
+
 export class VideoRecordingService {
   private recordingFiles: Map<string, RecordingData> = new Map();
   private cacheDir: string;
@@ -270,12 +278,4 @@ export class VideoRecordingService {
       console.error('清理临时文件失败:', error);
     }
   }
-}
-
-interface RecordingData {
-  classId: string;
-  filePath: string;
-  writeStream: fs.WriteStream;
-  startTime: number;
-  chunks: Buffer[];
 }
