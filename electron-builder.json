@@ -25,6 +25,7 @@
     "category": "Utility"
   },
   "win": {
-    "target": ["portable", "msi"]
+    "target": ["portable", "nsis"],
+    "icon": "resources/icon/icon.ico"
   }
 }
