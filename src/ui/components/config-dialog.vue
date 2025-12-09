@@ -34,7 +34,7 @@ export default class ConfigDialog extends Vue {
   closeConfigDialog: Function;
 
   simulcastOptions = [
-    { rid: 'high', scaleResolutionDownBy: 1.0, maxBitrate: 8000000, maxFramerate: 60 },
+    { rid: 'original', scaleResolutionDownBy: 1.0, maxBitrate: 8000000, maxFramerate: 60 },
     { rid: 'low', scaleResolutionDownBy: 2.0, maxBitrate: 2000000, maxFramerate: 30 },
   ];
 
@@ -136,7 +136,10 @@ export default class ConfigDialog extends Vue {
       </el-form-item>
 
       <el-form-item label="画质档位">
-        <el-select :placeholder="'选择画质档位'" v-model="deviceManager.configForm.simulcastConfig.rid">
+        <el-select
+          :placeholder="'选择画质档位'"
+          v-model="deviceManager.configForm.simulcastConfig.rid"
+        >
           <el-option
             v-for="option in simulcastOptions"
             :key="option.rid"

@@ -3,44 +3,52 @@ import { MediasoupClient } from './mediasoup-webrtc-client';
 import { DeviceInfo } from '@/typings/data';
 
 export class RendererService {
-  private mediasoupClient: MediasoupClient | null = null;
+  public mediasoupClient: MediasoupClient | null = null;
   private isInitialized: boolean = false;
 
   // 推流请求回调（支持 classIds 参数）
-  public onStreamingRequest: ((classIds: string[]) => Promise<void>) | null = null;
+  public onStreamingRequest:
+    | ((data: {
+        classIds: string[];
+        transport?: any;
+        routerRtpCapabilities?: any;
+      }) => Promise<void>)
+    | null = null;
   public onStopStreamingRequest: (() => Promise<void>) | null = null;
 
   constructor() {
     this.setupIpcListeners();
   }
 
-  // 初始化 MediaSoup 客户端
+  // 初始化 MediaSoup Client
   async initialize() {
     if (this.isInitialized) return;
-
     try {
       this.mediasoupClient = new MediasoupClient();
       this.isInitialized = true;
-      console.log('渲染进程服务初始化成功');
     } catch (error) {
-      console.error('渲染进程服务初始化失败:', error);
       throw error;
     }
   }
 
   // 设置 IPC 监听器
   private setupIpcListeners() {
-    // 监听主进程的推流请求（携带 classIds）
-    window.electron.onStreamingRequest(async ({ requestedBy, classIds }) => {
-      console.log(`收到推流请求，来自: ${requestedBy}, classIds:`, classIds);
+    // 监听主进程的推流请求（携带 transport 和 rtpCapabilities）
+    window.electron.onStreamingRequest(async (data) => {
+      console.log('收到推流请求, classIds:', data.classIds);
+
       if (this.onStreamingRequest) {
-        await this.onStreamingRequest(classIds || []);
+        await this.onStreamingRequest({
+          classIds: data.classIds || [],
+          transport: (data as any).transport,
+          routerRtpCapabilities: (data as any).routerRtpCapabilities,
+        });
       }
     });
 
     // 监听主进程的停止推流请求
-    window.electron.onStopStreamingRequest(async ({ requestedBy }) => {
-      console.log(`收到停止推流请求，来自: ${requestedBy}`);
+    window.electron.onStopStreamingRequest(async () => {
+      console.log('收到停止推流请求');
       if (this.onStopStreamingRequest) {
         await this.onStopStreamingRequest();
       }
@@ -57,17 +65,20 @@ export class RendererService {
   }
 
   // 开始推流
-  async startStreaming(streamData: Array<{ stream: MediaStream; simulcastConfigs?: any[] }>) {
+  async startStreaming(
+    streamData: Array<{ stream: MediaStream; simulcastConfigs?: any[] }>,
+    broadcasterData: { transport: any; routerRtpCapabilities: any },
+  ) {
     if (!this.mediasoupClient) {
       throw new Error('MediaSoup Client 未初始化');
     }
 
     try {
-      // 加载 Device
-      await this.mediasoupClient.loadDevice();
+      // 加载 Device（使用服务端提供的 rtpCapabilities）
+      await this.mediasoupClient.loadDeviceWithCapabilities(broadcasterData.routerRtpCapabilities);
 
-      // 创建推流传输通道
-      await this.mediasoupClient.createProducerTransport();
+      // 使用服务端创建的 transport
+      await this.mediasoupClient.createProducerTransportFromServer(broadcasterData.transport);
 
       // 推送所有流
       for (const data of streamData) {

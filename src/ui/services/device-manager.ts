@@ -441,7 +441,7 @@ export class DeviceManager {
       channelCount: device.settings.channelCount,
       sampleRate: device.settings.sampleRate,
       simulcastConfig: {
-        rid: 'high',
+        rid: 'original',
         scaleResolutionDownBy: 1,
         maxBitRate: 8000000,
         maxFramerate: 60,

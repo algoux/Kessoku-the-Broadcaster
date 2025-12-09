@@ -2,6 +2,7 @@
 import { Vue, Options } from 'vue-class-component';
 import { Inject } from 'vue-property-decorator';
 import { DeviceType, ConnectState } from '@/typings/data';
+import type { ContestInfo, Text } from '../../common/types/broadcaster.types';
 
 import {
   ElDescriptions,
@@ -74,6 +75,48 @@ export default class HomeHeader extends Vue {
   @Inject()
   refreshAllDevices!: () => Promise<void>;
 
+  // 比赛信息
+  private contestInfo: ContestInfo | null = null;
+
+  async mounted() {
+    await this.loadContestInfo();
+  }
+
+  async loadContestInfo() {
+    try {
+      const resp = await window.electron.getContestInfo();
+      if (resp.success && resp.data) {
+        this.contestInfo = resp.data;
+      }
+    } catch (error) {
+      console.error('获取比赛信息失败:', error);
+    }
+  }
+
+  // 辅助方法：将 Text 类型转换为字符串
+  private resolveText(text: Text | undefined): string {
+    if (!text) return '';
+    if (typeof text === 'string') return text;
+    // 如果是国际化对象，优先返回中文，否则返回 fallback
+    return text['zh-CN'] || text['zh'] || text.fallback || Object.values(text)[0] || '';
+  }
+
+  get userLocation(): string {
+    return this.resolveText(this.contestInfo?.user?.location);
+  }
+
+  get userName(): string {
+    return this.resolveText(this.contestInfo?.user?.name) || 'Unknown';
+  }
+
+  get userOrganization(): string {
+    return this.resolveText(this.contestInfo?.user?.organization) || '';
+  }
+
+  get contestTitle(): string {
+    return this.resolveText(this.contestInfo?.contest?.title) || '';
+  }
+
   get hasDeviceToAdd(): boolean {
     return (
       this.deviceManager.canAddState.screen > 0 ||
@@ -114,14 +157,14 @@ export default class HomeHeader extends Vue {
   <div class="home-header">
     <section class="user-sec">
       <div class="main-sec">
-        A20 - Wujinhao
+        <template v-if="userLocation">{{ userLocation }} - </template>{{ userName }}
         <div class="connect-state">
           <div class="connect-dot" :class="connectionStateClass"></div>
           <div class="connect-info">{{ connectionStateText }}</div>
         </div>
       </div>
-      <div class="org-sec">山东理工大学</div>
-      <div class="contest-sec">山东理工大学第十七届网络编程擂台赛</div>
+      <div class="org-sec">{{ userOrganization }}</div>
+      <div class="contest-sec">{{ contestTitle }}</div>
     </section>
 
     <section class="tools-sec">

@@ -21,6 +21,31 @@ export class ConfigManager {
     if (fs.existsSync(this.configPath)) {
       const rawData = fs.readFileSync(this.configPath, 'utf-8');
       this.configData = JSON.parse(rawData) as AppConfigInterface;
+
+      // 确保 appConfig 有默认值
+      if (!this.configData.appConfig) {
+        this.configData.appConfig = {};
+      }
+      if (this.configData.appConfig.autoOpenOnLogin === undefined) {
+        this.configData.appConfig.autoOpenOnLogin = false;
+      }
+      if (this.configData.appConfig.autoReady === undefined) {
+        this.configData.appConfig.autoReady = false;
+      }
+      if (!this.configData.appConfig.videoCachePath) {
+        this.configData.appConfig.videoCachePath = os.homedir() + '/.Kessoku-the-Broadcaster/cache';
+      }
+
+      // 确保缓存目录存在
+      if (
+        this.configData.appConfig.videoCachePath &&
+        !fs.existsSync(this.configData.appConfig.videoCachePath)
+      ) {
+        fs.mkdirSync(this.configData.appConfig.videoCachePath, { recursive: true });
+      }
+
+      // 保存更新后的配置
+      this.saveConfig();
     } else {
       // 确保配置目录存在
       const configDir = path.dirname(this.configPath);
@@ -28,13 +53,25 @@ export class ConfigManager {
         fs.mkdirSync(configDir, { recursive: true });
       }
 
+      const defaultCachePath = os.homedir() + '/.Kessoku-the-Broadcaster/cache';
+
+      // 确保缓存目录存在
+      if (!fs.existsSync(defaultCachePath)) {
+        fs.mkdirSync(defaultCachePath, { recursive: true });
+      }
+
       fs.writeFileSync(
         this.configPath,
         JSON.stringify(
           {
             version: app.getVersion(),
-            appConfig: {},
+            appConfig: {
+              autoOpenOnLogin: false,
+              autoReady: false,
+              videoCachePath: defaultCachePath,
+            },
             userConfig: {},
+            competitionConfig: {},
             devicesConfig: {},
           } as AppConfigInterface,
           null,
@@ -73,6 +110,28 @@ export class ConfigManager {
   updateAppConfig(data: UpdateAppConfigDTO) {
     this.configData.appConfig = {
       ...this.configData.appConfig,
+      ...data,
+    };
+
+    // 如果更新了 videoCachePath，确保目录存在
+    if (data.videoCachePath && !fs.existsSync(data.videoCachePath)) {
+      fs.mkdirSync(data.videoCachePath, { recursive: true });
+    }
+
+    this.saveConfig();
+  }
+
+  updateUserConfig(data: Partial<AppConfigInterface['userConfig']>) {
+    this.configData.userConfig = {
+      ...this.configData.userConfig,
+      ...data,
+    };
+    this.saveConfig();
+  }
+
+  updateCompetitionConfig(data: Partial<AppConfigInterface['competitionConfig']>) {
+    this.configData.competitionConfig = {
+      ...this.configData.competitionConfig,
       ...data,
     };
     this.saveConfig();

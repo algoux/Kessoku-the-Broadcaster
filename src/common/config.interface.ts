@@ -1,9 +1,7 @@
-export interface SimulcastConfig {
-  rid: string;
-  scaleResolutionDownBy: number;
-  maxBitRate: number;
-  maxFramerate: number;
-}
+// 导入 Broadcaster 类型定义
+import type { SimulcastConfig } from './types/broadcaster.types';
+
+export type { SimulcastConfig };
 
 export interface VideoConfig {
   id: string;
@@ -30,7 +28,7 @@ export interface AppConfigInterface {
     videoCachePath?: string; // 视频缓存路径
   };
   userConfig: {
-    rlToken?: string; // rl 推流 token
+    broadcasterToken?: string; // Broadcaster 推流 token
     userId?: string;
     userName?: string;
     organizationName?: string; // 组织名称（山东理工大学）
@@ -38,7 +36,8 @@ export interface AppConfigInterface {
   };
   competitionConfig: {
     competitionId?: number; // 赛事 ID
-    competitionName?: string;
+    competitionName?: string; // 赛事名称
+    alias?: string; // 赛事别名（用于连接 Broadcaster Server）
   };
   devicesConfig: {
     screens?: Array<VideoConfig>;
@@ -71,9 +70,15 @@ export interface UpdateAppConfigDTO {
 }
 
 export interface UpdateUserConfigDTO {
-  rlToken?: string;
+  broadcasterToken?: string;
   userId?: string;
   userName?: string;
   organizationName?: string;
   placeName?: string;
+}
+
+export interface UpdateCompetitionConfigDTO {
+  competitionId?: number;
+  competitionName?: string;
+  alias?: string;
 }

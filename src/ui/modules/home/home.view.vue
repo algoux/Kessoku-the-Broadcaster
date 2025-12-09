@@ -18,6 +18,7 @@ import HomeHeader from '@/components/home-header.vue';
 import SettingsIcon from '@/components/svgs/settings.vue';
 import DeviceCard from '@/components/device-card.vue';
 import ConfigDialog from '@/components/config-dialog.vue';
+import SettingsButton from '@/components/settings-button.vue';
 
 @Options({
   components: {
@@ -30,6 +31,7 @@ import ConfigDialog from '@/components/config-dialog.vue';
     SettingsIcon,
     DeviceCard,
     ConfigDialog,
+    SettingsButton,
   },
 })
 export default class HomeView extends Vue {
@@ -116,9 +118,13 @@ export default class HomeView extends Vue {
       this.rendererService = new RendererService();
 
       // 设置推流请求回调（支持按 classId 选择设备）
-      this.rendererService.onStreamingRequest = async (classIds: string[]) => {
-        const mediastreamings = await this.deviceManager.getEnableStreams(classIds);
-        this.rendererService.startStreaming(mediastreamings);
+      this.rendererService.onStreamingRequest = async (data) => {
+        const mediastreamings = await this.deviceManager.getEnableStreams(data.classIds);
+        // 将 transport 和 rtpCapabilities 传递给 startStreaming
+        await this.rendererService.startStreaming(mediastreamings, {
+          transport: data.transport,
+          routerRtpCapabilities: data.routerRtpCapabilities,
+        });
       };
 
       // 设置停止推流请求回调
@@ -312,37 +318,6 @@ export default class HomeView extends Vue {
     }
   }
 
-  // 回看推流 - 从裁剪的视频文件创建流并推送
-  private async startReplayStreaming(classId: string, filePath: string, seconds: number) {
-    try {
-      if (!this.rendererService) {
-        throw new Error('渲染服务未初始化');
-      }
-      console.log(`开始回看推流: classId=${classId}, seconds=${seconds}`);
-      const stream = await this.recorderService.startReplayStreaming(classId, filePath, seconds);
-      await this.rendererService.startStreaming([{ stream }]);
-      console.log('回看推流已开始');
-    } catch (error) {
-      console.error('回看推流失败:', error);
-    }
-  }
-
-  // 停止回看推流
-  private async stopReplayStreaming(classId: string) {
-    try {
-      this.recorderService.stopReplayStreaming(classId);
-      if (this.rendererService) {
-        await this.rendererService.stopStreaming();
-      }
-    } catch (error) {
-      console.error('停止回看推流失败:', error);
-    }
-  }
-
-  openSettingsWindow() {
-    window.electron.openSettingsWindow();
-  }
-
   showMessage(message: string, type: 'primary' | 'info' | 'error') {
     ElMessage({
       message,
@@ -388,56 +363,9 @@ export default class HomeView extends Vue {
     this.deviceManager.setScreenAvailableMaxFrameRate = fps;
 
     await this.refreshAllDevices();
-
-    // 监听回看请求
-    window.electron.onReplayRequest(async ({ requestedBy, classId, seconds }) => {
-      console.log(`收到回看请求: classId=${classId}, seconds=${seconds}`);
-      try {
-        // 调用主进程处理回看
-        const result = await window.electron.handleReplayRequest(classId, seconds);
-        if (!result.success) {
-          ElMessage.error({ message: `回看失败: ${result.error}`, plain: true });
-        }
-      } catch (error) {
-        console.error('处理回看请求失败:', error);
-        ElMessage.error({ message: `回看失败: ${error.message}`, plain: true });
-      }
-    });
-
-    // 监听回看视频准备就绪
-    window.electron.onReplayVideoReady(async ({ classId, filePath, seconds }) => {
-      console.log(`回看视频已准备好: classId=${classId}, filePath=${filePath}`);
-      await this.startReplayStreaming(classId, filePath, seconds);
-    });
-
-    // 监听停止回看请求
-    window.electron.onStopReplayRequest?.(({ classId }) => {
-      console.log('收到 stopReplayRequest，销毁回看流', classId);
-      this.stopReplayStreaming(classId);
-    });
   }
 
   beforeUnmount() {
-    // 清理所有回看视频
-    for (const [classId, video] of this.recorderService.replayVideos.entries()) {
-      if (video) {
-        video.pause();
-        const url = video.src;
-        video.src = '';
-        if (video.parentNode) {
-          video.parentNode.removeChild(video);
-        }
-        if (url) {
-          URL.revokeObjectURL(url);
-        }
-      }
-    }
-    this.recorderService.replayVideos.clear();
-
-    // 移除回看相关的监听器
-    window.electron.removeAllListeners('replay-request');
-    window.electron.removeAllListeners('replay-video-ready');
-
     // 停止推流和清理服务
     if (this.rendererService) {
       this.rendererService.cleanup();
@@ -456,9 +384,7 @@ export default class HomeView extends Vue {
   <div class="home-view">
     <home-header />
     <main class="home-main">
-      <div class="open-settings-button" @click="openSettingsWindow">
-        <settings-icon style="width: 70%; height: 70%" />
-      </div>
+      <settings-button />
       <device-card
         v-for="(device, index) in deviceManager.userDevices"
         :device="device"
@@ -520,29 +446,6 @@ export default class HomeView extends Vue {
         opacity: 0.8;
       }
     }
-  }
-}
-
-.open-settings-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  z-index: 1000;
-  width: 30px;
-  aspect-ratio: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 50%;
-  background-color: var(--bg-secondary-color);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  transform: scale(1);
-  &:hover {
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-    transform: scale(1.05);
   }
 }
 

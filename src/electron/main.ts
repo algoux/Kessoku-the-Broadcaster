@@ -40,8 +40,8 @@ function createLoginWindow() {
     webPreferences: {
       preload: getPreloadPath(),
     },
-    width: 420,
-    height: 520,
+    width: 720,
+    height: 500,
     resizable: false,
     show: false,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
@@ -87,14 +87,14 @@ function createMainWindow() {
   });
 
   // 处理回看请求
-  ipcMainHandle('handle-replay-request', async ({ classId, seconds }) => {
+  ipcMainHandle('handle-replay-request', async ({ classId, startTime, endTime }) => {
     if (!videoRecordingService) {
       return { success: false, error: '录制服务未初始化' };
     }
 
     try {
-      console.log(`处理回看请求: classId=${classId}, seconds=${seconds}`);
-      const result = await videoRecordingService.cutVideo(classId, seconds);
+      console.log(`处理回看请求: classId=${classId}, startTime=${startTime}, endTime=${endTime}`);
+      const result = await videoRecordingService.cutVideo(classId, startTime, endTime);
 
       if (result.success && result.filePath) {
         // 通知渲染进程视频已准备好
@@ -102,7 +102,8 @@ function createMainWindow() {
           mainWindow.webContents.send('replay-video-ready', {
             classId,
             filePath: result.filePath,
-            seconds,
+            startTime,
+            endTime,
           });
         }
       }
@@ -155,41 +156,42 @@ function createSettingsWindow() {
 // 设置 IPC 处理器
 function setupIpcHandlers() {
   // 登录并连接到服务器
-  ipcMainHandle('login', async (playerName: string) => {
-    // 初始化 WebSocket 服务（如果还没有初始化）
-    if (!webSocketService) {
-      webSocketService = new WebSocketService(SERVICE_URL);
-    }
+  ipcMainHandle(
+    'login',
+    async ({ alias, userId, token }: { alias: string; userId: string; token: string }) => {
+      // 初始化 WebSocket 服务（如果还没有初始化）
+      if (!webSocketService) {
+        webSocketService = new WebSocketService(SERVICE_URL);
+      }
 
-    if (!webSocketService) {
-      return { success: false, error: '未连接服务器' };
-    }
+      if (!webSocketService) {
+        return { success: false, error: '未连接服务器' };
+      }
 
-    const success = await webSocketService.connect(playerName);
+      try {
+        // 使用传入的参数进行连接
+        const success = await webSocketService.connect(alias, userId, token);
 
-    if (success && loginWindow) {
-      loginWindow.close();
-      loginWindow = null;
-      mainWindow = createMainWindow();
-      webSocketService.setMainWindow(mainWindow);
-      showWindow(mainWindow);
-    }
-    return { success };
-  });
+        if (success) {
+          // 登录成功，保存到配置文件
+          configManager.updateUserConfig({ userId, broadcasterToken: token });
+          configManager.updateCompetitionConfig({ alias });
 
-  // 渲染进程通知推流开始成功
-  ipcMainOn('streaming-started', ({ producerId, kind, rtpParameters }) => {
-    if (webSocketService) {
-      webSocketService.notifyStreamingStarted(producerId, kind, rtpParameters || {});
-    }
-  });
-
-  // 渲染进程通知推流停止
-  ipcMainOn('streaming-stopped', ({ producerId }) => {
-    if (webSocketService) {
-      webSocketService.notifyStreamingStopped(producerId);
-    }
-  });
+          if (loginWindow) {
+            loginWindow.close();
+            loginWindow = null;
+          }
+          mainWindow = createMainWindow();
+          webSocketService.setMainWindow(mainWindow);
+          showWindow(mainWindow);
+        }
+        return { success };
+      } catch (error) {
+        console.error('登录失败:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    },
+  );
 
   ipcMainOn('openSettingsWindow', () => {
     createSettingsWindow();
@@ -197,7 +199,19 @@ function setupIpcHandlers() {
 
   // 获取连接状态
   ipcMainHandle('get-connection-status', () => {
-    return webSocketService ? webSocketService.getConnectionStatus() : 'disconnected';
+    const status = webSocketService ? webSocketService.getConnectionStatus() : 'disconnected';
+    return status as 'connected' | 'disconnected' | 'connecting';
+  });
+
+  // 获取比赛信息
+  ipcMainHandle('get-contest-info', async () => {
+    if (!webSocketService) {
+      return {
+        success: false,
+        msg: 'WebSocket 服务未初始化',
+      };
+    }
+    return await webSocketService.getContestInfo();
   });
 
   // 延迟启动连接状态检查定时器，确保init完成
@@ -213,25 +227,15 @@ function setupIpcHandlers() {
     setInterval(checkConnectionState, 1000);
   }, 2000);
 
-  // 获取路由器 RTP 能力
-  ipcMainHandle('get-router-rtp-capabilities', () => {
-    return webSocketService ? webSocketService.getRouterRtpCapabilities() : null;
-  });
-
-  // 创建推流传输通道
-  ipcMainHandle('create-producer-transport', async () => {
-    if (!webSocketService) {
-      throw new Error('WebSocket 服务未初始化');
-    }
-    return await webSocketService.createProducerTransport();
-  });
-
   // 连接推流传输通道
   ipcMainHandle('connect-producer-transport', async ({ transportId, dtlsParameters }) => {
     if (!webSocketService) {
       throw new Error('WebSocket 服务未初始化');
     }
-    return await webSocketService.connectProducerTransport(transportId, dtlsParameters);
+    const resp = await webSocketService.completeConnectTransport({ dtlsParameters });
+    if (!resp.success) {
+      throw new Error((resp as any).msg || '连接 transport 失败');
+    }
   });
 
   // 创建推流生产者
@@ -239,16 +243,53 @@ function setupIpcHandlers() {
     if (!webSocketService) {
       throw new Error('WebSocket 服务未初始化');
     }
-    return await webSocketService.createProducer(kind, rtpParameters, appData);
+    const resp = await webSocketService.produce({ kind, rtpParameters, appData });
+    if (!resp.success) {
+      throw new Error((resp as any).msg || '推流失败');
+    }
+    return { id: resp.data!.producerId };
   });
 
-  // 上报设备状态
+  // 上报设备状态（替换为 confirmReady）
   ipcMainHandle('report-device-state', async ({ devices, isReady }) => {
     if (!webSocketService) {
       throw new Error('WebSocket 服务未初始化');
     }
-    webSocketService.reportDeviceState(devices, isReady);
-    return { success: true };
+
+    if (isReady && devices && devices.length > 0) {
+      // 转换设备信息为 TrackInfo 格式
+      const tracks = devices.map((device: any) => {
+        const track: any = {
+          trackId: device.classId,
+          type: device.type,
+          name: device.name,
+        };
+
+        // 根据设备类型添加 video 或 audio 配置
+        if (device.type !== 'microphone' && device.settings) {
+          track.video = {
+            width: device.settings.width,
+            height: device.settings.height,
+            frameRate: device.settings.frameRate,
+            sampleRate: device.settings.sampleRate || 0,
+            simulcastConfigs: device.settings.simulcastConfigs,
+          };
+        } else if (device.type === 'microphone' && device.settings) {
+          track.audio = {
+            sampleRate: device.settings.sampleRate,
+            channelCount: device.settings.channelCount,
+          };
+        }
+
+        return track;
+      });
+
+      const resp = await webSocketService.confirmReady(tracks);
+      return { success: resp.success };
+    } else {
+      const resp = await webSocketService.cancelReady();
+      return { success: resp.success };
+    }
   });
 
   // 视频录制相关
@@ -273,11 +314,11 @@ function setupIpcHandlers() {
     await videoRecordingService.saveRecordingChunk(classId, arrayBuffer);
   });
 
-  ipcMainHandle('cut-video', async ({ classId, seconds }) => {
+  ipcMainHandle('cut-video', async ({ classId, startTime, endTime }) => {
     if (!videoRecordingService) {
       return { success: false, error: '录制服务未初始化' };
     }
-    return await videoRecordingService.cutVideo(classId, seconds);
+    return await videoRecordingService.cutVideo(classId, startTime, endTime);
   });
 
   // 读取视频文件
@@ -305,6 +346,36 @@ function setupIpcHandlers() {
 
   ipcMainHandle('updateAppConfig', async (data: UpdateAppConfigDTO) => {
     configManager.updateAppConfig(data);
+  });
+
+  ipcMainHandle('clearVideoCache', async () => {
+    try {
+      const cachePath = configManager.getConfigData.appConfig?.videoCachePath;
+      if (!cachePath || !fs.existsSync(cachePath)) {
+        return { success: false, error: '缓存目录不存在' };
+      }
+
+      // 读取目录中的所有文件
+      const files = fs.readdirSync(cachePath);
+      let deletedCount = 0;
+
+      // 删除所有文件
+      for (const file of files) {
+        const filePath = `${cachePath}/${file}`;
+        const stat = fs.statSync(filePath);
+
+        if (stat.isFile()) {
+          fs.unlinkSync(filePath);
+          deletedCount++;
+        }
+      }
+
+      console.log(`清理缓存完成，删除 ${deletedCount} 个文件`);
+      return { success: true, deletedCount };
+    } catch (error) {
+      console.error('清理缓存失败:', error);
+      return { success: false, error: (error as Error).message };
+    }
   });
 
   ipcMainHandle('updateAudioConfig', async (data: UpdateAudioConfigDTO[]) => {
@@ -364,7 +435,40 @@ const handleCloseEvents = (mainWindow: BrowserWindow) => {
   });
 };
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   setupIpcHandlers();
+
+  // 尝试自动登录
+  const appConfig = configManager.getConfigData;
+  const alias = appConfig?.competitionConfig?.alias;
+  const userId = appConfig?.userConfig?.userId;
+  const token = appConfig?.userConfig?.broadcasterToken;
+
+  if (alias && userId && token) {
+    console.log('检测到配置文件，尝试自动登录...');
+
+    // 初始化 WebSocket 服务
+    if (!webSocketService) {
+      webSocketService = new WebSocketService(SERVICE_URL);
+    }
+
+    try {
+      const success = await webSocketService.connect(alias, userId, token);
+
+      if (success) {
+        console.log('自动登录成功，创建主窗口');
+        mainWindow = createMainWindow();
+        webSocketService.setMainWindow(mainWindow);
+        showWindow(mainWindow);
+        return; // 成功则不显示登录窗口
+      } else {
+        console.log('自动登录失败，显示登录窗口');
+      }
+    } catch (error) {
+      console.error('自动登录出错:', error);
+    }
+  }
+
+  // 自动登录失败或没有配置，显示登录窗口
   createLoginWindow();
 });

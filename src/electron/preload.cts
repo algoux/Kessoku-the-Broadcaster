@@ -18,48 +18,46 @@ electron.contextBridge.exposeInMainWorld('electron', {
     ipcSend('hasReady');
   },
   // WebSocket 相关方法
-  login: (playerName: string) => {
-    return ipcInvoke('login', playerName);
+  login: (alias: string, userId: string, token: string) => {
+    return ipcInvoke('login', { alias, userId, token });
   },
   getConnectionStatus: () => {
     return ipcInvoke('get-connection-status');
   },
-  getRouterRtpCapabilities: () => {
-    return ipcInvoke('get-router-rtp-capabilities');
+  getContestInfo: () => {
+    return ipcInvoke('get-contest-info');
   },
-  createProducerTransport: () => {
-    return ipcInvoke('create-producer-transport');
-  },
-  connectProducerTransport: (transportId: string, dtlsParameters: any) => {
+  connectProducerTransport: (transportId: string | null, dtlsParameters: any) => {
     return ipcInvoke('connect-producer-transport', { transportId, dtlsParameters });
   },
-  createProducer: (kind: string, rtpParameters: any, appData?: any) => {
-    return ipcInvoke('create-producer', { kind, rtpParameters, appData });
-  },
-  notifyStreamingStarted: (producerId: string, kind: string, rtpParameters?: any) => {
-    ipcSend('streaming-started', { producerId, kind, rtpParameters });
-  },
-  notifyStreamingStopped: (producerId: string) => {
-    ipcSend('streaming-stopped', { producerId });
+  createProducer: (params: { kind: string; rtpParameters: any; appData?: any }) => {
+    return ipcInvoke('create-producer', params);
   },
   // 设备状态上报
   reportDeviceState: (devices: any[], isReady: boolean) => {
     return ipcInvoke('report-device-state', { devices, isReady });
   },
   // IPC 监听器方法
-  onStreamingRequest: (callback: (data: { requestedBy: string; classIds: string[] }) => void) => {
+  onStreamingRequest: (
+    callback: (data: { classIds: string[]; transport?: any; routerRtpCapabilities?: any }) => void,
+  ) => {
     return ipcOn('start-streaming-request', callback);
   },
-  onStopStreamingRequest: (callback: (data: { requestedBy: string }) => void) => {
+  onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => {
     return ipcOn('stop-streaming-request', callback);
   },
   onReplayRequest: (
-    callback: (data: { requestedBy: string; classId: string; seconds: number }) => void,
+    callback: (data: { classId: string; startTime: string; endTime: string }) => void,
   ) => {
     return ipcOn('replay-request', callback);
   },
   onReplayVideoReady: (
-    callback: (data: { classId: string; filePath: string; seconds: number }) => void,
+    callback: (data: {
+      classId: string;
+      filePath: string;
+      startTime: string;
+      endTime: string;
+    }) => void,
   ) => {
     return ipcOn('replay-video-ready', callback);
   },
@@ -85,14 +83,14 @@ electron.contextBridge.exposeInMainWorld('electron', {
     const arrayBuffer = await blob.arrayBuffer();
     return ipcInvoke('get-recording-blob', { classId, arrayBuffer });
   },
-  cutVideo: (classId: string, seconds: number) => {
-    return ipcInvoke('cut-video', { classId, seconds });
+  cutVideo: (classId: string, startTime: string, endTime: string) => {
+    return ipcInvoke('cut-video', { classId, startTime, endTime });
   },
   readVideoFile: (filePath: string) => {
     return ipcInvoke('read-video-file', filePath);
   },
-  handleReplayRequest: (classId: string, seconds: number) => {
-    return ipcInvoke('handle-replay-request', { classId, seconds });
+  handleReplayRequest: (classId: string, startTime: string, endTime: string) => {
+    return ipcInvoke('handle-replay-request', { classId, startTime, endTime });
   },
   openSettingsWindow: () => {
     ipcSend('openSettingsWindow');
@@ -114,6 +112,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   },
   updateAppConfig: (data: UpdateAppConfigDTO) => {
     return ipcInvoke('updateAppConfig', data);
+  },
+  clearVideoCache: () => {
+    return ipcInvoke('clearVideoCache');
   },
   // 窗口控制
   minimizeWindow: () => {

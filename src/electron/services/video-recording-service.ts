@@ -111,11 +111,15 @@ export class VideoRecordingService {
   }
 
   /**
-   * 截取视频的最后 N 秒
+   * 截取视频片段
+   * @param classId 设备ID
+   * @param startTime 起始时间 (HH:MM:SS 格式)
+   * @param endTime 结束时间 (HH:MM:SS 格式)
    */
   async cutVideo(
     classId: string,
-    seconds: number,
+    startTime: string,
+    endTime: string,
   ): Promise<{ success: boolean; filePath?: string; error?: string }> {
     const recording = this.recordingFiles.get(classId);
     if (!recording) {
@@ -123,6 +127,18 @@ export class VideoRecordingService {
     }
 
     try {
+      // 验证时间格式
+      const startSeconds = this.parseTimeString(startTime);
+      const endSeconds = this.parseTimeString(endTime);
+
+      if (startSeconds < 0 || endSeconds < 0) {
+        return { success: false, error: '时间格式错误，请使用 HH:MM:SS 格式' };
+      }
+
+      if (endSeconds <= startSeconds) {
+        return { success: false, error: '结束时间必须大于起始时间' };
+      }
+
       await this.flushRecording(classId);
 
       const inputPath = recording.filePath;
@@ -138,7 +154,7 @@ export class VideoRecordingService {
       }
 
       // 执行 FFmpeg 截取
-      return await this.performFFmpegCut(inputPath, outputPath, seconds, recording);
+      return await this.performFFmpegCut(inputPath, outputPath, startSeconds, endSeconds);
     } catch (error) {
       console.error('截取视频失败:', error);
       return { success: false, error: (error as Error).message };
@@ -151,43 +167,26 @@ export class VideoRecordingService {
   private performFFmpegCut(
     inputPath: string,
     outputPath: string,
-    seconds: number,
-    recording: RecordingData,
+    startSeconds: number,
+    endSeconds: number,
   ): Promise<{ success: boolean; filePath?: string; error?: string }> {
     return new Promise((resolve) => {
-      let detectedDuration = 0;
+      const duration = endSeconds - startSeconds;
+
+      console.log(`FFmpeg 截取视频: 起始=${startSeconds}s, 时长=${duration}s`);
 
       this.ffmpeg(inputPath)
-        .outputOptions(['-f', 'null'])
-        .output('-')
-        .on('codecData', (data) => {
-          if (data.duration) {
-            const duration = this.parseTimeString(data.duration);
-            if (duration > 0) {
-              detectedDuration = duration;
-            }
-          }
-        })
-        .on('progress', (progress) => {
-          // 从进度信息中获取已处理的时间
-          if (progress.timemark) {
-            const duration = this.parseTimeString(progress.timemark);
-            if (duration > 0) {
-              detectedDuration = Math.max(detectedDuration, duration);
-            }
-          }
-        })
+        .setStartTime(startSeconds)
+        .setDuration(duration)
+        .output(outputPath)
+        .videoCodec('copy')
+        .audioCodec('copy')
         .on('end', () => {
-          if (detectedDuration > 0) {
-            this.performCut(inputPath, outputPath, detectedDuration, seconds, resolve);
-          } else {
-            // 使用录制开始时间估算
-            const estimatedDuration = (Date.now() - recording.startTime) / 1000;
-            this.performCut(inputPath, outputPath, estimatedDuration, seconds, resolve);
-          }
+          console.log(`视频截取成功: ${outputPath}`);
+          resolve({ success: true, filePath: outputPath });
         })
         .on('error', (err) => {
-          console.error('扫描文件失败:', err);
+          console.error('FFmpeg 截取失败:', err);
           resolve({ success: false, error: err.message });
         })
         .run();

@@ -3,66 +3,6 @@ import { Device } from '@/typings/data';
 
 export class RecorderService {
   rollingRecordsMap: Map<string, any> = new Map();
-  replayVideos: Map<string, HTMLVideoElement> = new Map();
-
-  // 回看推流 - 从裁剪的视频文件创建流并推送
-  async startReplayStreaming(classId: string, filePath: string, seconds: number) {
-    try {
-      // 读取视频文件
-      const arrayBuffer = await window.electron.readVideoFile(filePath);
-      const blob = new Blob([arrayBuffer], { type: 'video/webm' });
-      const videoUrl = URL.createObjectURL(blob);
-      const video = document.createElement('video');
-      video.style.position = 'fixed';
-      video.style.width = '1px';
-      video.style.height = '1px';
-      video.style.opacity = '0.01';
-      video.style.pointerEvents = 'none';
-      video.style.zIndex = '-9999';
-      video.muted = true;
-      video.autoplay = true;
-      video.src = videoUrl;
-      document.body.appendChild(video);
-
-      // 等待视频加载元数据
-      await new Promise((resolve, reject) => {
-        video.onloadedmetadata = resolve;
-        video.onerror = () => reject(new Error('视频加载失败'));
-      });
-
-      await video.play();
-      this.replayVideos.set(classId, video);
-      // 先捕获流再播放(避免播放被中断)
-      const stream = (video as any).captureStream() as MediaStream;
-      return stream;
-    } catch (error) {
-      console.error('回看推流失败:', error);
-      throw new Error('回看推流失败');
-    }
-  }
-
-  // 停止回看推流
-  stopReplayStreaming(classId: string) {
-    try {
-      const video = this.replayVideos.get(classId);
-      if (video) {
-        video.pause();
-        const url = video.src;
-        video.src = '';
-        if (video.parentNode) {
-          video.parentNode.removeChild(video);
-        }
-        if (url) {
-          URL.revokeObjectURL(url);
-        }
-        this.replayVideos.delete(classId);
-        console.log(`回看推流已清理: classId=${classId}`);
-      }
-    } catch (error) {
-      console.error('停止回看推流失败:', error);
-      throw new Error('停止回看推流失败');
-    }
-  }
 
   // 开始滚动录制 - 单个连续录制,定期保存到文件
   async startRollingRecord(device: Device) {

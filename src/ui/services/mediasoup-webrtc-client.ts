@@ -10,22 +10,19 @@ export class MediasoupClient {
     this.device = new mediasoupClient.Device();
   }
 
-  // 加载 Device
-  async loadDevice() {
+  // 加载 Device（使用提供的 rtpCapabilities）
+  async loadDeviceWithCapabilities(rtpCapabilities: any) {
     if (!this.device || !this.device.loaded) {
       try {
         if (!this.device) {
           this.device = new mediasoupClient.Device();
         }
 
-        // 从主进程获取路由器 RTP 能力
-        const rtpCapabilities = await window.electron.getRouterRtpCapabilities();
-        if (!rtpCapabilities) {
-          throw new Error('无法获取路由器 RTP 能力');
-        }
+        // 通过 JSON 序列化/反序列化来清理对象，移除不可克隆的属性
+        const cleanRtpCapabilities = JSON.parse(JSON.stringify(rtpCapabilities));
 
-        await this.device.load({ routerRtpCapabilities: rtpCapabilities });
-        console.log('Device 加载成功');
+        await this.device.load({ routerRtpCapabilities: cleanRtpCapabilities });
+        console.log('Device 加载成功（使用服务端 rtpCapabilities）');
       } catch (error) {
         console.error('Device 加载失败:', error);
         throw error;
@@ -33,22 +30,28 @@ export class MediasoupClient {
     }
   }
 
-  // 创建推流传输通道
-  async createProducerTransport(): Promise<void> {
+  // 使用服务端创建的 transport
+  async createProducerTransportFromServer(transportInfo: any): Promise<void> {
     if (!this.device) throw new Error('Device 未加载');
     if (this.producerTransport) {
       return;
     }
 
     try {
-      const transportParams = await this.getTransportParams();
+      this.producerTransport = this.device.createSendTransport({
+        id: transportInfo.id,
+        iceParameters: transportInfo.iceParameters,
+        iceCandidates: transportInfo.iceCandidates,
+        dtlsParameters: transportInfo.dtlsParameters,
+      });
 
-      this.producerTransport = this.device.createSendTransport(transportParams);
+      console.log('使用服务端 transport 创建成功');
 
-      // 监听连接事件
+      // 监听连接事件（新协议）
       this.producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
         try {
-          await this.connectTransport(this.producerTransport!.id, dtlsParameters);
+          // 调用新协议的 completeConnectTransport
+          await window.electron.connectProducerTransport(null, dtlsParameters);
           callback();
         } catch (error) {
           errback(error as Error);
@@ -67,7 +70,7 @@ export class MediasoupClient {
         },
       );
     } catch (error) {
-      console.error('推流传输通道创建失败:', error);
+      console.error('使用服务端 transport 创建失败:', error);
       throw error;
     }
   }
@@ -88,7 +91,7 @@ export class MediasoupClient {
             }))
           : [
               {
-                rid: 'high',
+                rid: 'original',
                 scaleResolutionDownBy: 1, // 不缩放 - 原始分辨率
                 maxBitrate: 8000000, // 8Mbps
                 maxFramerate: 60,
@@ -151,8 +154,6 @@ export class MediasoupClient {
     for (const [producerId, producer] of this.producers.entries()) {
       if (!producer.closed) {
         producer.close();
-        // 通知主进程推流已停止
-        window.electron.notifyStreamingStopped(producerId);
       }
     }
     this.producers.clear();
@@ -184,11 +185,6 @@ export class MediasoupClient {
     this.device = null;
   }
 
-  // 获取 Transport 参数
-  private async getTransportParams(): Promise<any> {
-    return await window.electron.createProducerTransport();
-  }
-
   // 连接传输通道
   private async connectTransport(transportId: string, dtlsParameters: any): Promise<void> {
     return await window.electron.connectProducerTransport(transportId, dtlsParameters);
@@ -200,6 +196,6 @@ export class MediasoupClient {
     rtpParameters: any,
     appData?: any,
   ): Promise<{ id: string }> {
-    return await window.electron.createProducer(kind, rtpParameters, appData);
+    return await window.electron.createProducer({ kind, rtpParameters, appData });
   }
 }

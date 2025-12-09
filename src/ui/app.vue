@@ -1,12 +1,10 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
-import { Provide } from 'vue-property-decorator';
 
 import LoginView from './modules/login/login.view.vue';
 import HomeView from './modules/home/home.view.vue';
 import Tools from './components/tools.vue';
 import WindowControls from './components/window-controls.vue';
-import { AppConfigInterface } from 'common/config.interface';
 
 @Options({
   components: {
@@ -33,7 +31,8 @@ export default class App extends Vue {
 </script>
 
 <template>
-  <div class="window-drag"></div>
+  <div class="window-drag">
+  </div>
   <WindowControls />
   <router-view />
 </template>

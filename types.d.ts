@@ -16,24 +16,31 @@ declare global {
     login: { success: boolean; error?: string };
     openSettingsWindow: void;
     'get-connection-status': 'connected' | 'disconnected' | 'connecting';
-    'get-router-rtp-capabilities': any;
-    'create-producer-transport': any;
+    'get-contest-info': import('./src/common/types/broadcaster.types').Resp<
+      import('./src/common/types/broadcaster.types').ContestInfo
+    >;
     'connect-producer-transport': void;
     'create-producer': { id: string };
-    'streaming-started': { producerId: string; kind: string; rtpParameters?: any };
-    'streaming-stopped': { producerId: string };
     'report-device-state': { success: boolean };
 
     // 监听事件
-    'start-streaming-request': { requestedBy: string; classIds: string[] };
-    'stop-streaming-request': { requestedBy: string };
-    'replay-request': { requestedBy: string; classId: string; seconds: number };
+    'start-streaming-request': {
+      classIds: string[];
+      transport?: any;
+      routerRtpCapabilities?: any;
+    };
+    'stop-streaming-request': Record<string, never>;
+    'replay-request': {
+      classId: string;
+      startTime: string;
+      endTime: string;
+    };
     'stop-replay-request': { classId: string };
     'connection-state-changed': 'connected' | 'disconnected' | 'connecting';
 
     // 回看相关事件
     'handle-replay-request': { success: boolean; filePath?: string; error?: string };
-    'replay-video-ready': { classId: string; filePath: string; seconds: number };
+    'replay-video-ready': { classId: string; filePath: string; startTime: string; endTime: string };
 
     // 视频录制相关
     'start-continuous-recording': { success: boolean; error?: string };
@@ -66,6 +73,7 @@ declare global {
     updateVideoConfig: void;
     updateAudioConfig: void;
     updateAppConfig: void;
+    clearVideoCache: { success: boolean; deletedCount?: number; error?: string };
 
     // 窗口控制
     'window-minimize': void;
@@ -82,26 +90,44 @@ declare global {
       loginSuccess: () => void;
       hasReady: () => void;
       // WebSocket 相关方法
-      login: (playerName: string) => Promise<{ success: boolean; error?: string }>;
+      login: (
+        alias: string,
+        userId: string,
+        token: string,
+      ) => Promise<{ success: boolean; error?: string }>;
       getConnectionStatus: () => Promise<'connected' | 'disconnected' | 'connecting'>;
-      getRouterRtpCapabilities: () => Promise<any>;
-      createProducerTransport: () => Promise<any>;
-      connectProducerTransport: (transportId: string, dtlsParameters: any) => Promise<void>;
-      createProducer: (kind: string, rtpParameters: any, appData?: any) => Promise<{ id: string }>;
-      notifyStreamingStarted: (producerId: string, kind: string, rtpParameters?: any) => void;
-      notifyStreamingStopped: (producerId: string) => void;
+      getContestInfo: () => Promise<
+        import('./src/common/types/broadcaster.types').Resp<
+          import('./src/common/types/broadcaster.types').ContestInfo
+        >
+      >;
+      connectProducerTransport: (transportId: string | null, dtlsParameters: any) => Promise<void>;
+      createProducer: (params: {
+        kind: string;
+        rtpParameters: any;
+        appData?: any;
+      }) => Promise<{ id: string }>;
       // 设备状态上报
       reportDeviceState: (devices: any[], isReady: boolean) => Promise<{ success: boolean }>;
       // IPC 监听器方法
       onStreamingRequest: (
-        callback: (data: { requestedBy: string; classIds: string[] }) => void,
+        callback: (data: {
+          classIds: string[];
+          transport?: any;
+          routerRtpCapabilities?: any;
+        }) => void,
       ) => void;
-      onStopStreamingRequest: (callback: (data: { requestedBy: string }) => void) => void;
+      onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => void;
       onReplayRequest: (
-        callback: (data: { requestedBy: string; classId: string; seconds: number }) => void,
+        callback: (data: { classId: string; startTime: string; endTime: string }) => void,
       ) => void;
       onReplayVideoReady: (
-        callback: (data: { classId: string; filePath: string; seconds: number }) => void,
+        callback: (data: {
+          classId: string;
+          filePath: string;
+          startTime: string;
+          endTime: string;
+        }) => void,
       ) => void;
       onStopReplayRequest: (callback: (data: { classId: string }) => void) => void;
       onConnectionStateChanged: (
@@ -114,12 +140,14 @@ declare global {
       sendRecordingBlob: (classId: string, blob: Blob) => Promise<void>;
       cutVideo: (
         classId: string,
-        seconds: number,
+        startTime: string,
+        endTime: string,
       ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       readVideoFile: (filePath: string) => Promise<ArrayBuffer>;
       handleReplayRequest: (
         classId: string,
-        seconds: number,
+        startTime: string,
+        endTime: string,
       ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
       openSettingsWindow: () => void;
 
@@ -147,6 +175,7 @@ declare global {
       updateVideoConfig: (data: UpdateVideoConfigDTO[], type: 'camera' | 'screen') => Promise<void>;
       updateAudioConfig: (data: UpdateAudioConfigDTO[]) => Promise<void>;
       updateAppConfig: (data: UpdateAppConfigDTO) => Promise<void>;
+      clearVideoCache: () => Promise<{ success: boolean; deletedCount?: number; error?: string }>;
       // 窗口控制
       minimizeWindow: () => void;
       maximizeWindow: () => void;
