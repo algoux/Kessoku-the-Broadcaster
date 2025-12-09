@@ -10,6 +10,7 @@ import type {
   ProduceResponse,
   CompleteConnectTransportParams,
 } from '../../common/types/broadcaster.types';
+import log from 'electron-log';
 
 /**
  * WebSocket 服务 - 处理选手端与 Broadcaster Server 的通信

@@ -8,12 +8,18 @@ dependencies:
   '@element-plus/icons-vue':
     specifier: ^2.3.2
     version: 2.3.2(vue@3.5.25)
+  electron-log:
+    specifier: ^5.4.3
+    version: 5.4.3
   element-plus:
     specifier: ^2.11.7
-    version: 2.11.9(vue@3.5.25)
+    version: 2.12.0(vue@3.5.25)
   fix-webm-duration:
     specifier: ^1.0.6
     version: 1.0.6
+  fluent-ffmpeg:
+    specifier: ^2.1.3
+    version: 2.1.3
   media-recorder-js:
     specifier: ^2.1.0
     version: 2.1.0
@@ -60,7 +66,7 @@ devDependencies:
     version: 2.1.28
   '@types/node':
     specifier: ^24.6.0
-    version: 24.10.1
+    version: 24.10.2
   '@types/os-utils':
     specifier: ^0.0.4
     version: 0.0.4
@@ -75,7 +81,7 @@ devDependencies:
     version: 2.0.0(vue@3.5.25)
   '@vitejs/plugin-vue':
     specifier: ^6.0.1
-    version: 6.0.2(vite@7.2.6)(vue@3.5.25)
+    version: 6.0.2(vite@7.2.7)(vue@3.5.25)
   '@vue/tsconfig':
     specifier: ^0.8.1
     version: 0.8.1(typescript@5.9.3)(vue@3.5.25)
@@ -84,13 +90,10 @@ devDependencies:
     version: 10.1.0
   electron:
     specifier: ^39.1.0
-    version: 39.2.5
+    version: 39.2.6
   electron-builder:
     specifier: ^26.3.0
-    version: 26.3.3(electron-builder-squirrel-windows@26.3.3)
-  fluent-ffmpeg:
-    specifier: ^2.1.3
-    version: 2.1.3
+    version: 26.3.5(electron-builder-squirrel-windows@26.3.5)
   less:
     specifier: ^4.2.2
     version: 4.4.2
@@ -105,10 +108,10 @@ devDependencies:
     version: 5.9.3
   vite:
     specifier: ^7.1.7
-    version: 7.2.6(@types/node@24.10.1)(less@4.4.2)
+    version: 7.2.7(@types/node@24.10.2)(less@4.4.2)
   vue-tsc:
     specifier: ^3.1.0
-    version: 3.1.5(typescript@5.9.3)
+    version: 3.1.8(typescript@5.9.3)
 
 packages:
 
@@ -229,7 +232,7 @@ packages:
       node-gyp: 11.5.0
       ora: 5.4.1
       read-binary-file-arch: 1.0.6
-      semver: 7.7.2
+      semver: 7.7.3
       tar: 6.2.1
       yargs: 17.7.2
     transitivePeerDependencies:
@@ -612,7 +615,7 @@ packages:
     resolution: {integrity: sha512-/xGlezI6xfGO9NwuJlnwz/K14qD1kCSAGtacBHnGzeAIuJGazcp45KP5NuyARXoKb7cwulAGWVsbeSxdG/cb0Q==}
     engines: {node: ^18.17.0 || >=20.5.0}
     dependencies:
-      semver: 7.7.2
+      semver: 7.7.3
     dev: true
 
   /@pkgjs/parseargs@0.11.0:
@@ -837,7 +840,7 @@ packages:
     dependencies:
       '@types/http-cache-semantics': 4.0.4
       '@types/keyv': 3.1.4
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
       '@types/responselike': 1.0.3
     dev: true
 
@@ -861,13 +864,13 @@ packages:
   /@types/fluent-ffmpeg@2.1.28:
     resolution: {integrity: sha512-5ovxsDwBcPfJ+eYs1I/ZpcYCnkce7pvH9AHSvrZllAp1ZPpTRDZAFjF3TRFbukxSgIYTTNYePbS0rKUmaxVbXw==}
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
     dev: true
 
   /@types/fs-extra@9.0.13:
     resolution: {integrity: sha512-nEnwB++1u5lVDM2UI4c1+5R+FYaKfaAzS4OococimjVm3nQw3TuzH5UNsocrcTBbhnerblyHj4A49qXbIiZdpA==}
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
     dev: true
 
   /@types/http-cache-semantics@4.0.4:
@@ -877,7 +880,7 @@ packages:
   /@types/keyv@3.1.4:
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
     dev: true
 
   /@types/lodash-es@4.17.12:
@@ -893,14 +896,14 @@ packages:
   /@types/ms@2.1.0:
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  /@types/node@22.19.1:
-    resolution: {integrity: sha512-LCCV0HdSZZZb34qifBsyWlUmok6W7ouER+oQIGBScS8EsZsQbrtFTUrDX4hOl+CS6p7cnNC4td+qrSVGSCTUfQ==}
+  /@types/node@22.19.2:
+    resolution: {integrity: sha512-LPM2G3Syo1GLzXLGJAKdqoU35XvrWzGJ21/7sgZTUpbkBaOasTj8tjwn6w+hCkqaa1TfJ/w67rJSwYItlJ2mYw==}
     dependencies:
       undici-types: 6.21.0
     dev: true
 
-  /@types/node@24.10.1:
-    resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
+  /@types/node@24.10.2:
+    resolution: {integrity: sha512-WOhQTZ4G8xZ1tjJTvKOpyEVSGgOTvJAfDK3FNFgELyaTpzhdgHVHeqW8V+UJvzF5BT+/B54T/1S2K6gd9c7bbA==}
     dependencies:
       undici-types: 7.16.0
     dev: true
@@ -913,7 +916,7 @@ packages:
     resolution: {integrity: sha512-E6OCaRmAe4WDmWNsL/9RMqdkkzDCY1etutkflWk4c+AcjDU07Pcz1fQwTX0TQz+Pxqn9i4L1TU3UFpjnrcDgxA==}
     requiresBuild: true
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
       xmlbuilder: 15.1.1
     dev: true
     optional: true
@@ -921,13 +924,13 @@ packages:
   /@types/responselike@1.0.3:
     resolution: {integrity: sha512-H/+L+UkTV33uf49PH5pCAUBVPNj2nDBXTN+qS1dOwyyg24l3CcicicCA7ca+HMvJBZcFgl5r8e+RR6elsb4Lyw==}
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
     dev: true
 
   /@types/simple-peer@9.11.9:
     resolution: {integrity: sha512-6Gdl7TSS5oh9nuwKD4Pl8cSmaxWycYeZz9HLnJBNvIwWjZuGVsmHe9RwW3+9RxfhC1aIR9Z83DvaJoMw6rhkbg==}
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
     dev: true
 
   /@types/socket.io-client@3.0.0:
@@ -964,11 +967,11 @@ packages:
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
     requiresBuild: true
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
     dev: true
     optional: true
 
-  /@vitejs/plugin-vue@6.0.2(vite@7.2.6)(vue@3.5.25):
+  /@vitejs/plugin-vue@6.0.2(vite@7.2.7)(vue@3.5.25):
     resolution: {integrity: sha512-iHmwV3QcVGGvSC1BG5bZ4z6iwa1SOpAPWmnjOErd4Ske+lZua5K9TtAVdx0gMBClJ28DViCbSmZitjWZsWO3LA==}
     engines: {node: ^20.19.0 || >=22.12.0}
     peerDependencies:
@@ -976,24 +979,24 @@ packages:
       vue: ^3.2.25
     dependencies:
       '@rolldown/pluginutils': 1.0.0-beta.50
-      vite: 7.2.6(@types/node@24.10.1)(less@4.4.2)
+      vite: 7.2.7(@types/node@24.10.2)(less@4.4.2)
       vue: 3.5.25(typescript@5.9.3)
     dev: true
 
-  /@volar/language-core@2.4.23:
-    resolution: {integrity: sha512-hEEd5ET/oSmBC6pi1j6NaNYRWoAiDhINbT8rmwtINugR39loROSlufGdYMF9TaKGfz+ViGs1Idi3mAhnuPcoGQ==}
+  /@volar/language-core@2.4.26:
+    resolution: {integrity: sha512-hH0SMitMxnB43OZpyF1IFPS9bgb2I3bpCh76m2WEK7BE0A0EzpYsRp0CCH2xNKshr7kacU5TQBLYn4zj7CG60A==}
     dependencies:
-      '@volar/source-map': 2.4.23
+      '@volar/source-map': 2.4.26
     dev: true
 
-  /@volar/source-map@2.4.23:
-    resolution: {integrity: sha512-Z1Uc8IB57Lm6k7q6KIDu/p+JWtf3xsXJqAX/5r18hYOTpJyBn0KXUR8oTJ4WFYOcDzWC9n3IflGgHowx6U6z9Q==}
+  /@volar/source-map@2.4.26:
+    resolution: {integrity: sha512-JJw0Tt/kSFsIRmgTQF4JSt81AUSI1aEye5Zl65EeZ8H35JHnTvFGmpDOBn5iOxd48fyGE+ZvZBp5FcgAy/1Qhw==}
     dev: true
 
-  /@volar/typescript@2.4.23:
-    resolution: {integrity: sha512-lAB5zJghWxVPqfcStmAP1ZqQacMpe90UrP5RJ3arDyrhy4aCUQqmxPPLB2PWDKugvylmO41ljK7vZ+t6INMTag==}
+  /@volar/typescript@2.4.26:
+    resolution: {integrity: sha512-N87ecLD48Sp6zV9zID/5yuS1+5foj0DfuYGdQ6KHj/IbKvyKv1zNX6VCmnKYwtmHadEO6mFc2EKISiu3RDPAvA==}
     dependencies:
-      '@volar/language-core': 2.4.23
+      '@volar/language-core': 2.4.26
       path-browserify: 1.0.1
       vscode-uri: 3.1.0
     dev: true
@@ -1035,15 +1038,15 @@ packages:
   /@vue/devtools-api@6.6.4:
     resolution: {integrity: sha512-sGhTPMuXqZ1rVOk32RylztWkfXTRhuS7vgAKv0zjqk8gbsHkJ7xfFf+jbySxt7tWObEJwyKaHMikV/WGDiQm8g==}
 
-  /@vue/language-core@3.1.5(typescript@5.9.3):
-    resolution: {integrity: sha512-FMcqyzWN+sYBeqRMWPGT2QY0mUasZMVIuHvmb5NT3eeqPrbHBYtCP8JWEUCDCgM+Zr62uuWY/qoeBrPrzfa78w==}
+  /@vue/language-core@3.1.8(typescript@5.9.3):
+    resolution: {integrity: sha512-PfwAW7BLopqaJbneChNL6cUOTL3GL+0l8paYP5shhgY5toBNidWnMXWM+qDwL7MC9+zDtzCF2enT8r6VPu64iw==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
     dependencies:
-      '@volar/language-core': 2.4.23
+      '@volar/language-core': 2.4.26
       '@vue/compiler-dom': 3.5.25
       '@vue/shared': 3.5.25
       alien-signals: 3.1.1
@@ -1193,12 +1196,12 @@ packages:
     resolution: {integrity: sha512-j87o0j6LqPL3QRr8yid6c+Tt5gC7xNfYo6uQIQkorAC6MpeayVMZrEDzKmJJ/Hlv7EnOQpaRm53k6ktDYZyB6w==}
     dev: true
 
-  /app-builder-lib@26.3.3(dmg-builder@26.3.3)(electron-builder-squirrel-windows@26.3.3):
-    resolution: {integrity: sha512-Tb8sbdD+9p9SdvoSeSeeOA86fP59lqPXF4vkDzeey+dtn5CJfREArwlmutiogrnrP5I7jM/hlM0yBZC7jYFC6w==}
+  /app-builder-lib@26.3.5(dmg-builder@26.3.5)(electron-builder-squirrel-windows@26.3.5):
+    resolution: {integrity: sha512-AluSgBV7oWEE6wqC80S4drTTBWB8opxBgRGa8kSClRhULttN7pKiRz5K/74rCUi7XkstggtdQALsI6zCqenNzA==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
-      dmg-builder: 26.3.3
-      electron-builder-squirrel-windows: 26.3.3
+      dmg-builder: 26.3.5
+      electron-builder-squirrel-windows: 26.3.5
     dependencies:
       '@develar/schema-utils': 2.6.5
       '@electron/asar': 3.4.1
@@ -1210,17 +1213,17 @@ packages:
       '@malept/flatpak-bundler': 0.4.0
       '@types/fs-extra': 9.0.13
       async-exit-hook: 2.0.1
-      builder-util: 26.3.1
+      builder-util: 26.3.4
       builder-util-runtime: 9.5.1
       chromium-pickle-js: 0.2.0
       ci-info: 4.3.1
       debug: 4.4.3(supports-color@10.2.2)
-      dmg-builder: 26.3.3(electron-builder-squirrel-windows@26.3.3)
+      dmg-builder: 26.3.5(electron-builder-squirrel-windows@26.3.5)
       dotenv: 16.6.1
       dotenv-expand: 11.0.7
       ejs: 3.1.10
-      electron-builder-squirrel-windows: 26.3.3(dmg-builder@26.3.3)
-      electron-publish: 26.3.1
+      electron-builder-squirrel-windows: 26.3.5(dmg-builder@26.3.5)
+      electron-publish: 26.3.4
       fs-extra: 10.1.0
       hosted-git-info: 4.1.0
       isbinaryfile: 5.0.7
@@ -1231,7 +1234,7 @@ packages:
       minimatch: 10.1.1
       plist: 3.1.0
       resedit: 1.7.2
-      semver: 7.7.2
+      semver: 7.7.3
       tar: 6.2.1
       temp-file: 3.4.0
       tiny-async-pool: 1.3.0
@@ -1295,7 +1298,7 @@ packages:
 
   /async@0.2.10:
     resolution: {integrity: sha512-eAkdoKxU6/LkKDBzLpT+t6Ff5EtfSF4wx1WfJiPEEV7WNLnDaRXk0oVysiEPm262roaachGexwUv94WhSgN5TQ==}
-    dev: true
+    dev: false
 
   /async@3.2.6:
     resolution: {integrity: sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==}
@@ -1397,15 +1400,14 @@ packages:
       - supports-color
     dev: true
 
-  /builder-util@26.3.1:
-    resolution: {integrity: sha512-pplZEYBx1g15qvIOshpR1WTwjAwQM4ukhGgSNdYPnbuM6wLePq3+njy1sGfekCrJmUP+2xfuwuT9zEoUWfX5zQ==}
+  /builder-util@26.3.4:
+    resolution: {integrity: sha512-aRn88mYMktHxzdqDMF6Ayj0rKoX+ZogJ75Ck7RrIqbY/ad0HBvnS2xA4uHfzrGr5D2aLL3vU6OBEH4p0KMV2XQ==}
     dependencies:
       7zip-bin: 5.2.0
       '@types/debug': 4.1.12
       app-builder-bin: 5.0.0-alpha.12
       builder-util-runtime: 9.5.1
       chalk: 4.1.2
-      ci-info: 4.3.1
       cross-spawn: 7.0.6
       debug: 4.4.3(supports-color@10.2.2)
       fs-extra: 10.1.0
@@ -1790,11 +1792,11 @@ packages:
       p-limit: 3.1.0
     dev: true
 
-  /dmg-builder@26.3.3(electron-builder-squirrel-windows@26.3.3):
-    resolution: {integrity: sha512-vDDKK9npsEruUc9LN4Q0KdYkwR4GsA4WR+jPjKyIhB9Dlo0Di1EkJv4CfqWIkr9PCOwEdvK+mG3SiDEnbl4FZA==}
+  /dmg-builder@26.3.5(electron-builder-squirrel-windows@26.3.5):
+    resolution: {integrity: sha512-3qXWrP5zWswQi3EqFQyQWMkAHpwMdNDoVaJfqbfLPqX1umq7m+Fav30mQd6Sk7nXH+YvrrjjoeIfif/PH/l1mQ==}
     dependencies:
-      app-builder-lib: 26.3.3(dmg-builder@26.3.3)(electron-builder-squirrel-windows@26.3.3)
-      builder-util: 26.3.1
+      app-builder-lib: 26.3.5(dmg-builder@26.3.5)(electron-builder-squirrel-windows@26.3.5)
+      builder-util: 26.3.4
       fs-extra: 10.1.0
       iconv-lite: 0.6.3
       js-yaml: 4.1.1
@@ -1866,28 +1868,28 @@ packages:
       jake: 10.9.4
     dev: true
 
-  /electron-builder-squirrel-windows@26.3.3(dmg-builder@26.3.3):
-    resolution: {integrity: sha512-F5FkbHag6Nahbyoa3/gR8XNh1kgCyOh/J+xUnm1Nq3WRirK2ZIL9J+w3oNrvB8pXfsRs7YD14hr8HGfZ869kyA==}
+  /electron-builder-squirrel-windows@26.3.5(dmg-builder@26.3.5):
+    resolution: {integrity: sha512-FXreB4Ox47Gn4wWyMMyPgpWnZ1tSBnxACL+mqzrC1AAIs4pMtAQnYXqJwZ2x5BFi2FhIRLIzbLcnP/xfUegYww==}
     dependencies:
-      app-builder-lib: 26.3.3(dmg-builder@26.3.3)(electron-builder-squirrel-windows@26.3.3)
-      builder-util: 26.3.1
+      app-builder-lib: 26.3.5(dmg-builder@26.3.5)(electron-builder-squirrel-windows@26.3.5)
+      builder-util: 26.3.4
       electron-winstaller: 5.4.0
     transitivePeerDependencies:
       - dmg-builder
       - supports-color
     dev: true
 
-  /electron-builder@26.3.3(electron-builder-squirrel-windows@26.3.3):
-    resolution: {integrity: sha512-uIEcQmOpIiocHrUmTb5oCrwykeJg3Ys11NxyrlEvhwzNXkX5Uey7fLOxZyTje6KhPVuTI06kxX5xU7UmlUx9DQ==}
+  /electron-builder@26.3.5(electron-builder-squirrel-windows@26.3.5):
+    resolution: {integrity: sha512-I0HNjrWEGnCKDsQ9GkFa92E1hW/FmKe88bh75jucBoHRIcZUvTwbqJFGn9kKG6cFq9eOWCXOEVs+RvXT/Ma49Q==}
     engines: {node: '>=14.0.0'}
     hasBin: true
     dependencies:
-      app-builder-lib: 26.3.3(dmg-builder@26.3.3)(electron-builder-squirrel-windows@26.3.3)
-      builder-util: 26.3.1
+      app-builder-lib: 26.3.5(dmg-builder@26.3.5)(electron-builder-squirrel-windows@26.3.5)
+      builder-util: 26.3.4
       builder-util-runtime: 9.5.1
       chalk: 4.1.2
       ci-info: 4.3.1
-      dmg-builder: 26.3.3(electron-builder-squirrel-windows@26.3.3)
+      dmg-builder: 26.3.5(electron-builder-squirrel-windows@26.3.5)
       fs-extra: 10.1.0
       lazy-val: 1.0.5
       simple-update-notifier: 2.0.0
@@ -1897,11 +1899,16 @@ packages:
       - supports-color
     dev: true
 
-  /electron-publish@26.3.1:
-    resolution: {integrity: sha512-XYGYL/fpQULLW9slTVPelaUOGlKfOTmV2Uda3K+qzFzvNnkGJCj7L0nLVvMuj5cgxpAX+3BhO5HOUb4rv6jikA==}
+  /electron-log@5.4.3:
+    resolution: {integrity: sha512-sOUsM3LjZdugatazSQ/XTyNcw8dfvH1SYhXWiJyfYodAAKOZdHs0txPiLDXFzOZbhXgAgshQkshH2ccq0feyLQ==}
+    engines: {node: '>= 14'}
+    dev: false
+
+  /electron-publish@26.3.4:
+    resolution: {integrity: sha512-5/ouDPb73SkKuay2EXisPG60LTFTMNHWo2WLrK5GDphnWK9UC+yzYrzVeydj078Yk4WUXi0+TaaZsNd6Zt5k/A==}
     dependencies:
       '@types/fs-extra': 9.0.13
-      builder-util: 26.3.1
+      builder-util: 26.3.4
       builder-util-runtime: 9.5.1
       chalk: 4.1.2
       form-data: 4.0.5
@@ -1928,21 +1935,21 @@ packages:
       - supports-color
     dev: true
 
-  /electron@39.2.5:
-    resolution: {integrity: sha512-LXlOcH3CNopcVTQWjp680fMygdNrWKdIe3hyMtlyceO+Jd0b2hdMw1iWz36I+UUXHXPH87i937gXYi0jze2fCw==}
+  /electron@39.2.6:
+    resolution: {integrity: sha512-dHBgTodWBZd+tL1Dt0PSh/CFLHeDkFCTKCTXu1dgPhlE9Z3k2zzlBQ9B2oW55CFsKanBDHiUomHJNw0XaSdQpA==}
     engines: {node: '>= 12.20.55'}
     hasBin: true
     requiresBuild: true
     dependencies:
       '@electron/get': 2.0.3
-      '@types/node': 22.19.1
+      '@types/node': 22.19.2
       extract-zip: 2.0.1
     transitivePeerDependencies:
       - supports-color
     dev: true
 
-  /element-plus@2.11.9(vue@3.5.25):
-    resolution: {integrity: sha512-yTckX+fMGDGiBHVL1gpwfmjEc8P8OwuyU5ZX3f4FhMy2OdC2Y+OwQYWUXmuB+jFMukuSdnGYXYgHq6muBjSxTg==}
+  /element-plus@2.12.0(vue@3.5.25):
+    resolution: {integrity: sha512-M9YLSn2np9OnqrSKWsiXvGe3qnF8pd94+TScsHj1aTMCD+nSEvucXermf807qNt6hOP040le0e5Aft7E9ZfHmA==}
     peerDependencies:
       vue: ^3.2.0
     dependencies:
@@ -2278,7 +2285,7 @@ packages:
     dependencies:
       async: 0.2.10
       which: 1.3.1
-    dev: true
+    dev: false
 
   /for-each@0.3.5:
     resolution: {integrity: sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg==}
@@ -2896,7 +2903,6 @@ packages:
 
   /isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
-    dev: true
 
   /isexe@3.1.1:
     resolution: {integrity: sha512-LpB/54B+/2J5hqQ7imZHfdU31OlgQqx7ZicVlkm9kzg9/w8GKLEcFfJl/t7DCEDueOyBAD6zCCwTO6Fzs0NoEQ==}
@@ -3320,7 +3326,7 @@ packages:
     resolution: {integrity: sha512-u2EC1CeNe25uVtX3EZbdQ275c74zdZmmpzrHEQh2aIYqoVjlglfUpOX9YY85x1nlBydEKDVaSmMNhR7N82Qj8A==}
     engines: {node: '>=22.12.0'}
     dependencies:
-      semver: 7.7.2
+      semver: 7.7.3
     dev: true
 
   /node-addon-api@1.7.2:
@@ -3332,7 +3338,7 @@ packages:
   /node-api-version@0.2.1:
     resolution: {integrity: sha512-2xP/IGGMmmSQpI1+O/k72jF/ykvZ89JeuKX3TLJAYPDVLUalrshrLHkeVcCCZqG/eEa635cr8IBYzgnDvM2O8Q==}
     dependencies:
-      semver: 7.7.2
+      semver: 7.7.3
     dev: true
 
   /node-domexception@1.0.0:
@@ -3361,7 +3367,7 @@ packages:
       make-fetch-happen: 14.0.3
       nopt: 8.1.0
       proc-log: 5.0.0
-      semver: 7.7.2
+      semver: 7.7.3
       tar: 7.5.2
       tinyglobby: 0.2.15
       which: 5.0.0
@@ -3905,12 +3911,6 @@ packages:
 
   /semver@6.3.1:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
-    hasBin: true
-    dev: true
-
-  /semver@7.7.2:
-    resolution: {integrity: sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==}
-    engines: {node: '>=10'}
     hasBin: true
     dev: true
 
@@ -4502,8 +4502,8 @@ packages:
     dev: true
     optional: true
 
-  /vite@7.2.6(@types/node@24.10.1)(less@4.4.2):
-    resolution: {integrity: sha512-tI2l/nFHC5rLh7+5+o7QjKjSR04ivXDF4jcgV0f/bTQ+OJiITy5S6gaynVsEM+7RqzufMnVbIon6Sr5x1SDYaQ==}
+  /vite@7.2.7(@types/node@24.10.2)(less@4.4.2):
+    resolution: {integrity: sha512-ITcnkFeR3+fI8P1wMgItjGrR10170d8auB4EpMLPqmx6uxElH3a/hHGQabSHKdqd4FXWO1nFIp9rRn7JQ34ACQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -4542,7 +4542,7 @@ packages:
       yaml:
         optional: true
     dependencies:
-      '@types/node': 24.10.1
+      '@types/node': 24.10.2
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
       less: 4.4.2
@@ -4599,14 +4599,14 @@ packages:
       '@vue/devtools-api': 6.6.4
       vue: 3.5.25(typescript@5.9.3)
 
-  /vue-tsc@3.1.5(typescript@5.9.3):
-    resolution: {integrity: sha512-L/G9IUjOWhBU0yun89rv8fKqmKC+T0HfhrFjlIml71WpfBv9eb4E9Bev8FMbyueBIU9vxQqbd+oOsVcDa5amGw==}
+  /vue-tsc@3.1.8(typescript@5.9.3):
+    resolution: {integrity: sha512-deKgwx6exIHeZwF601P1ktZKNF0bepaSN4jBU3AsbldPx9gylUc1JDxYppl82yxgkAgaz0Y0LCLOi+cXe9HMYA==}
     hasBin: true
     peerDependencies:
       typescript: '>=5.0.0'
     dependencies:
-      '@volar/typescript': 2.4.23
-      '@vue/language-core': 3.1.5(typescript@5.9.3)
+      '@volar/typescript': 2.4.26
+      '@vue/language-core': 3.1.8(typescript@5.9.3)
       typescript: 5.9.3
     dev: true
 
@@ -4703,7 +4703,6 @@ packages:
     hasBin: true
     dependencies:
       isexe: 2.0.0
-    dev: true
 
   /which@2.0.2:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}

@@ -1,18 +1,24 @@
 {
   "appId": "com.algoux.kessoku-broadcaster",
-  "files": ["dist/electron/**", "dist/ui/**", "resources/icon/**"],
+  "productName": "Kessoku the Broadcaster",
+  "files": ["dist/electron/**", "dist/ui/**"],
   "extraResources": [
     "dist/electron/preload.cts",
     {
       "from": "resources/ffmpeg",
       "to": "ffmpeg",
       "filter": ["**/*"]
+    },
+    {
+      "from": "resources",
+      "to": "resources",
+      "filter": ["*.png", "*.jpg", "*.jpeg", "*.ico"]
     }
   ],
   "generateUpdatesFilesForAllChannels": false,
   "mac": {
     "target": "dmg",
-    "icon": "resources/icon/SDUTOJ.icon"
+    "icon": "resources/icon/icon.icns"
   },
   "linux": {
     "target": "AppImage",

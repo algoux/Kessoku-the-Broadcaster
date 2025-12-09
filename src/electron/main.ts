@@ -5,12 +5,33 @@ import { WebSocketService } from './services/websocket-service';
 import { VideoRecordingService } from './services/video-recording-service';
 import { createTray } from './utils/tray';
 import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import { ConfigManager } from './services/config-manager';
 import {
   UpdateAppConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
 } from 'common/config.interface';
+import log from 'electron-log';
+
+// 配置日志路径到用户目录
+const homeDir = os.homedir();
+const appDir = path.join(homeDir, '.Kessoku-the-Broadcaster');
+const logsDir = path.join(appDir, 'logs');
+
+// 确保日志目录存在
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
+// 设置日志文件路径
+log.transports.file.resolvePathFn = () => path.join(logsDir, 'main.log');
+log.transports.file.level = 'info';
+log.transports.console.level = 'debug';
+
+console.log('日志文件路径:', log.transports.file.getFile().path);
+log.info('应用启动', { version: app.getVersion(), platform: process.platform });
 
 app.setName('Kessoku the Broadcaster');
 
@@ -36,6 +57,7 @@ function showWindow(window: BrowserWindow) {
 }
 
 function createLoginWindow() {
+  log.info('创建登录窗口');
   loginWindow = new BrowserWindow({
     webPreferences: {
       preload: getPreloadPath(),
@@ -47,6 +69,7 @@ function createLoginWindow() {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(process.platform === 'win32' && { frame: false }),
   });
+  log.info('登录窗口创建完成');
 
   if (isDevelopment()) {
     loginWindow.loadURL('http://localhost:5123/#login');
@@ -60,6 +83,7 @@ function createLoginWindow() {
 }
 
 function createMainWindow() {
+  log.info('创建主窗口');
   mainWindow = new BrowserWindow({
     webPreferences: {
       preload: getPreloadPath(),
@@ -436,6 +460,7 @@ const handleCloseEvents = (mainWindow: BrowserWindow) => {
 };
 
 app.whenReady().then(async () => {
+  log.info('Electron 应用就绪');
   setupIpcHandlers();
 
   // 尝试自动登录
@@ -445,6 +470,7 @@ app.whenReady().then(async () => {
   const token = appConfig?.userConfig?.broadcasterToken;
 
   if (alias && userId && token) {
+    log.info('检测到配置文件，尝试自动登录', { alias, userId });
     console.log('检测到配置文件，尝试自动登录...');
 
     // 初始化 WebSocket 服务
@@ -456,19 +482,44 @@ app.whenReady().then(async () => {
       const success = await webSocketService.connect(alias, userId, token);
 
       if (success) {
+        log.info('自动登录成功');
         console.log('自动登录成功，创建主窗口');
         mainWindow = createMainWindow();
         webSocketService.setMainWindow(mainWindow);
         showWindow(mainWindow);
         return; // 成功则不显示登录窗口
       } else {
+        log.warn('自动登录失败，显示登录窗口');
         console.log('自动登录失败，显示登录窗口');
       }
     } catch (error) {
+      log.error('自动登录出错', error);
       console.error('自动登录出错:', error);
     }
   }
 
   // 自动登录失败或没有配置，显示登录窗口
+  log.info('显示登录窗口');
   createLoginWindow();
+});
+
+// 捕获未处理的异常
+process.on('uncaughtException', (error) => {
+  log.error('未捕获的异常', error);
+  console.error('未捕获的异常:', error);
+});
+
+// 捕获未处理的 Promise 拒绝
+process.on('unhandledRejection', (reason, promise) => {
+  log.error('未处理的 Promise 拒绝', { reason, promise });
+  console.error('未处理的 Promise 拒绝:', reason);
+});
+
+// 应用退出时的日志
+app.on('will-quit', () => {
+  log.info('应用即将退出');
+});
+
+app.on('quit', () => {
+  log.info('应用已退出');
 });

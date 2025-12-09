@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
 import { getFFmpegpath } from '../utils/path-resolver';
+import log from 'electron-log';
 
 interface RecordingData {
   classId: string;
@@ -23,10 +24,12 @@ export class VideoRecordingService {
     this.cacheDir = path.join(appDir, 'cache');
     if (!fs.existsSync(this.cacheDir)) {
       fs.mkdirSync(this.cacheDir, { recursive: true });
+      log.info('创建缓存目录', { path: this.cacheDir });
       console.log(`创建缓存目录: ${this.cacheDir}`);
     }
 
     const { ffmpegPath, ffprobePath } = getFFmpegpath();
+    log.info('FFmpeg 路径', { ffmpegPath, ffprobePath });
     if (!fs.existsSync(ffmpegPath) && !fs.existsSync(ffprobePath)) {
       throw new Error('未检测到 ffmpeg');
     }

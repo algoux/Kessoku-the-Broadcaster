@@ -11,7 +11,12 @@ export function getUIPath() {
 }
 
 export function getAssetsPath() {
-  return path.join(app.getAppPath(), isDevelopment() ? '.' : '', 'resources');
+  // 打包后使用 process.resourcesPath，开发时使用项目目录
+  if (isDevelopment()) {
+    return path.join(app.getAppPath(), 'resources');
+  } else {
+    return path.join(process.resourcesPath, 'resources');
+  }
 }
 
 export function getFFmpegpath() {

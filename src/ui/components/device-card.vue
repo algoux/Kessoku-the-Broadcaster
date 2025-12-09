@@ -162,8 +162,6 @@ export default class DeviceCard extends Vue {
     border-bottom: 1px solid var(--border-color);
     background-color: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(20px);
-    position: absolute;
-    top: 0;
     z-index: 40;
   }
 
@@ -216,7 +214,7 @@ export default class DeviceCard extends Vue {
   :deep(.el-card__body) {
     padding: 0;
     width: 100%;
-    height: 62%;
+    height: 60%;
   }
 
   .device-body {
@@ -250,8 +248,6 @@ export default class DeviceCard extends Vue {
     width: 100%;
     height: 20%;
     border-top: 1px solid var(--border-color);
-    position: absolute;
-    bottom: 0;
     background-color: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(20px);
     z-index: 40;
