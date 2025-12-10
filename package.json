@@ -4,7 +4,9 @@
   "version": "0.0.1-alpha",
   "main": "dist/electron/main.js",
   "author": {
-    "name": "algoUX"
+    "name": "algoUX",
+    "url": "https://algoux.org/",
+    "email": "sdutacm@163.com"
   },
   "description": "专注于算法竞赛的直播推流软件",
   "scripts": {
@@ -15,9 +17,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "transpile:electron": "rm -rf dist/electron && tsc -p tsconfig.json",
-    "dist:mac" : "npm run transpile:electron && npm run build && electron-builder --mac && npm run sign:mac",
-    "dist:win" : "npm run transpile:electron && npm run build && electron-builder --win",
-    "dist:linux" : "npm run transpile:electron && npm run build && electron-builder --linux",
+    "dist:mac": "npm run transpile:electron && npm run build && electron-builder --mac && npm run sign:mac",
+    "dist:win": "npm run transpile:electron && npm run build && electron-builder --win",
+    "dist:linux": "npm run transpile:electron && npm run build && electron-builder --linux",
     "dist:mac:arm64": "npm run transpile:electron && npm run build && electron-builder --mac --arm64 && npm run sign:mac",
     "dist:mac:x64": "npm run transpile:electron && npm run build && electron-builder --mac --x64 && npm run sign:mac",
     "dist:win:x64": "npm run transpile:electron && npm run build && electron-builder --win --x64",
