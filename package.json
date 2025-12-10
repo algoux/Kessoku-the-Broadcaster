@@ -1,7 +1,7 @@
 {
   "name": "Kessoku-the-Broadcaster",
   "private": true,
-  "version": "0.0.4-alpha",
+  "version": "0.0.5-alpha",
   "main": "dist/electron/main.js",
   "author": {
     "name": "algoUX",
@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
+    "cos-nodejs-sdk-v5": "^2.15.4",
     "electron-log": "^5.4.3",
     "element-plus": "^2.11.7",
     "fix-webm-duration": "^1.0.6",
