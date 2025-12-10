@@ -1,7 +1,7 @@
 {
   "appId": "com.algoux.kessoku-the-broadcaster",
   "productName": "Kessoku the Broadcaster",
-  "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+  "artifactName": "Kessoku-the-Broadcaster-${version}-${os}-${arch}.${ext}",
   "files": ["dist/electron/**", "dist/ui/**"],
   "extraResources": [
     "dist/electron/preload.cts",
