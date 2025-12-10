@@ -38,8 +38,19 @@ export default class ConfigDialog extends Vue {
     { rid: 'low', scaleResolutionDownBy: 2.0, maxBitrate: 2000000, maxFramerate: 30 },
   ];
 
+  private convertRidName(rid: string) {
+    switch (rid) {
+      case 'original':
+        return '原画';
+      case 'low':
+        return '低清';
+      default:
+        return rid;
+    }
+  }
+
   private formatSimulcastConfig(rid: string, maxBitrate: number, maxFramerate: number) {
-    return `${rid} @ ${maxFramerate} fps, ${Math.round(maxBitrate / 1000)} Mbps`;
+    return `${this.convertRidName(rid)} - ${maxFramerate} fps @ ${Math.round(maxBitrate / 1000)} Mbps`;
   }
 }
 </script>

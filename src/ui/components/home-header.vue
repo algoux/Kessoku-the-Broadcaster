@@ -308,7 +308,7 @@ export default class HomeHeader extends Vue {
 
         & .connect-info {
           font-size: 12px;
-          color: #ffffff;
+          color: var(--font-secondary-color);
         }
       }
     }

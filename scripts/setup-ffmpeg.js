@@ -3,23 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const https = require('https');
 
-function getOutputPath(platform, arch) {
-  const platformName = parsePlatform(platform);
-  const archName = parseArch(arch);
-  const dirName = `${platformName}-${archName}`;
-  const baseDir = path.join(__dirname, '..', 'resources', 'ffmpeg', dirName);
-
-  if (!fs.existsSync(baseDir)) {
-    fs.mkdirSync(baseDir, { recursive: true });
-  }
-
-  const extension = platformName === 'win' ? '.exe' : '';
-  return {
-    ffmpegPath: path.join(baseDir, `ffmpeg${extension}`),
-    ffprobePath: path.join(baseDir, `ffprobe${extension}`),
-    baseDir,
-  };
-}
+const ReleaseVersion = 'b6.1.1';
 
 function parsePlatform(platform) {
   if (platform === 'win32') {
@@ -43,9 +27,27 @@ function parseArch(arch) {
   }
 }
 
+function getOutputPath(platform, arch) {
+  const platformName = parsePlatform(platform);
+  const archName = parseArch(arch);
+  const dirName = `${platformName}-${archName}`;
+  const baseDir = path.join(__dirname, '..', 'resources', 'ffmpeg', dirName);
+
+  if (!fs.existsSync(baseDir)) {
+    fs.mkdirSync(baseDir, { recursive: true });
+  }
+
+  const extension = platformName === 'win' ? '.exe' : '';
+  return {
+    ffmpegPath: path.join(baseDir, `ffmpeg${extension}`),
+    ffprobePath: path.join(baseDir, `ffprobe${extension}`),
+    baseDir,
+  };
+}
+
 function getDownloadUrl(platform, arch) {
-  const ffmpegPath = `https://cdn.shaly.sdutacm.cn/atrior/ffmpeg-assets/${parsePlatform(platform)}-${parseArch(arch)}/ffmpeg${parsePlatform(platform) === 'win' ? '.exe' : ''}`;
-  const ffprobePath = `https://cdn.shaly.sdutacm.cn/atrior/ffmpeg-assets/${parsePlatform(platform)}-${parseArch(arch)}/ffprobe${parsePlatform(platform) === 'win' ? '.exe' : ''}`;
+  const ffmpegPath = `https://github.com/eugeneware/ffmpeg-static/releases/download/${ReleaseVersion}/ffmpeg-${platform}-${arch}`;
+  const ffprobePath = `https://github.com/eugeneware/ffmpeg-static/releases/download/${ReleaseVersion}/ffprobe-${platform}-${arch}`;
   return { ffmpegPath, ffprobePath };
 }
 
@@ -95,7 +97,7 @@ async function main() {
   const platform = os.platform();
   const arch = os.arch();
 
-  console.log(`平台: ${platform}, 架构: ${arch}`);
+  console.log(`平台: ${platform}, 架构: ${arch}, GitHub Release 版本: ${ReleaseVersion}`);
 
   const {
     ffmpegPath: ffmpegOutput,

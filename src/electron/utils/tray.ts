@@ -5,7 +5,7 @@ import log from 'electron-log';
 import fs from 'fs';
 
 export function createTray(mainWindow: BrowserWindow) {
-  const iconName = process.platform == 'darwin' ? 'livingTemplate.png' : 'living.png';
+  const iconName = process.platform == 'darwin' ? 'livingTemplate.png' : 'living.ico';
   const iconPath = path.join(getAssetsPath(), iconName);
 
   log.info('托盘图标路径', { iconPath, exists: fs.existsSync(iconPath) });

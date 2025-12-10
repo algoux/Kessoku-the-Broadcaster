@@ -1,5 +1,5 @@
 {
-  "appId": "com.algoux.kessoku-broadcaster",
+  "appId": "com.algoux.kessoku-the-broadcaster",
   "productName": "Kessoku the Broadcaster",
   "files": ["dist/electron/**", "dist/ui/**"],
   "extraResources": [
@@ -21,11 +21,20 @@
     "icon": "resources/icon/icon.icns"
   },
   "linux": {
-    "target": "AppImage",
-    "category": "Utility"
+    "target": ["AppImage", "deb"],
+    "category": "Utility",
+    "icon": "resources/icon/icon.png"
   },
   "win": {
     "target": ["portable", "nsis"],
     "icon": "resources/icon/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": true,
+    "allowElevation": true,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
   }
 }

@@ -2,7 +2,13 @@ import {
   AppConfigInterface,
   UpdateAppConfigDTO,
   UpdateAudioConfigDTO,
+  UpdateGlobalConfigDTO,
+  VideoConfig,
+  AudioConfig,
+  RequestStartBroadcast,
 } from 'common/config.interface';
+
+import { Resp, ContestInfo } from './src/common/types/broadcaster.types';
 
 declare global {
   type EventPayloadMapping = {
@@ -16,9 +22,7 @@ declare global {
     login: { success: boolean; error?: string };
     openSettingsWindow: void;
     'get-connection-status': 'connected' | 'disconnected' | 'connecting';
-    'get-contest-info': import('./src/common/types/broadcaster.types').Resp<
-      import('./src/common/types/broadcaster.types').ContestInfo
-    >;
+    'get-contest-info': Resp<ContestInfo>;
     'connect-producer-transport': void;
     'create-producer': { id: string };
     'report-device-state': { success: boolean };
@@ -73,6 +77,7 @@ declare global {
     updateVideoConfig: void;
     updateAudioConfig: void;
     updateAppConfig: void;
+    updateGlobalConfig: void;
     clearVideoCache: { success: boolean; deletedCount?: number; error?: string };
 
     // 窗口控制
@@ -96,11 +101,7 @@ declare global {
         token: string,
       ) => Promise<{ success: boolean; error?: string }>;
       getConnectionStatus: () => Promise<'connected' | 'disconnected' | 'connecting'>;
-      getContestInfo: () => Promise<
-        import('./src/common/types/broadcaster.types').Resp<
-          import('./src/common/types/broadcaster.types').ContestInfo
-        >
-      >;
+      getContestInfo: () => Promise<Resp<ContestInfo>>;
       connectProducerTransport: (transportId: string | null, dtlsParameters: any) => Promise<void>;
       createProducer: (params: {
         kind: string;
@@ -110,13 +111,7 @@ declare global {
       // 设备状态上报
       reportDeviceState: (devices: any[], isReady: boolean) => Promise<{ success: boolean }>;
       // IPC 监听器方法
-      onStreamingRequest: (
-        callback: (data: {
-          classIds: string[];
-          transport?: any;
-          routerRtpCapabilities?: any;
-        }) => void,
-      ) => void;
+      onStreamingRequest: (callback: (data: RequestStartBroadcast) => void) => void;
       onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => void;
       onReplayRequest: (
         callback: (data: { classId: string; startTime: string; endTime: string }) => void,
@@ -153,28 +148,15 @@ declare global {
 
       getAppConfig: () => Promise<AppConfigInterface>;
       getDevicesConfig: () => Promise<{
-        screens?: Array<{
-          id: string;
-          name: string;
-          width: number;
-          height: number;
-          frameRate: number;
-          sampleRate: number;
-        }>;
-        cameras?: Array<{
-          id: string;
-          name: string;
-          width: number;
-          height: number;
-          frameRate: number;
-          sampleRate: number;
-        }>;
-        microphones?: Array<{ id: string; name: string; sampleRate: number; channelCount: number }>;
+        screens?: Array<VideoConfig>;
+        cameras?: Array<VideoConfig>;
+        microphones?: Array<AudioConfig>;
       }>;
       hasDevicesConfig: () => Promise<boolean>;
       updateVideoConfig: (data: UpdateVideoConfigDTO[], type: 'camera' | 'screen') => Promise<void>;
       updateAudioConfig: (data: UpdateAudioConfigDTO[]) => Promise<void>;
       updateAppConfig: (data: UpdateAppConfigDTO) => Promise<void>;
+      updateGlobalConfig: (data: UpdateGlobalConfigDTO) => Promise<void>;
       clearVideoCache: () => Promise<{ success: boolean; deletedCount?: number; error?: string }>;
       // 窗口控制
       minimizeWindow: () => void;

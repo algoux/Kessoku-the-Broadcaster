@@ -30,7 +30,6 @@ log.transports.file.resolvePathFn = () => path.join(logsDir, 'main.log');
 log.transports.file.level = 'info';
 log.transports.console.level = 'debug';
 
-console.log('日志文件路径:', log.transports.file.getFile().path);
 log.info('应用启动', { version: app.getVersion(), platform: process.platform });
 
 app.setName('Kessoku the Broadcaster');
@@ -39,7 +38,7 @@ let loginWindow: BrowserWindow;
 let mainWindow: BrowserWindow;
 let webSocketService: WebSocketService;
 let videoRecordingService: VideoRecordingService;
-const SERVICE_URL: string = 'http://localhost:3001';
+// const SERVICE_URL: string = 'http://localhost:3001';
 let configManager: ConfigManager = new ConfigManager();
 
 app.setAboutPanelOptions({
@@ -183,15 +182,6 @@ function setupIpcHandlers() {
   ipcMainHandle(
     'login',
     async ({ alias, userId, token }: { alias: string; userId: string; token: string }) => {
-      // 初始化 WebSocket 服务（如果还没有初始化）
-      if (!webSocketService) {
-        webSocketService = new WebSocketService(SERVICE_URL);
-      }
-
-      if (!webSocketService) {
-        return { success: false, error: '未连接服务器' };
-      }
-
       try {
         // 使用传入的参数进行连接
         const success = await webSocketService.connect(alias, userId, token);
@@ -276,10 +266,6 @@ function setupIpcHandlers() {
 
   // 上报设备状态（替换为 confirmReady）
   ipcMainHandle('report-device-state', async ({ devices, isReady }) => {
-    if (!webSocketService) {
-      throw new Error('WebSocket 服务未初始化');
-    }
-
     if (isReady && devices && devices.length > 0) {
       // 转换设备信息为 TrackInfo 格式
       const tracks = devices.map((device: any) => {
@@ -465,6 +451,9 @@ app.whenReady().then(async () => {
 
   // 尝试自动登录
   const appConfig = configManager.getConfigData;
+  if (!appConfig.servicePath) {
+    configManager.updateGlobalConfig({ servicePath: "127.0.0.1:3000" });
+  }
   const alias = appConfig?.competitionConfig?.alias;
   const userId = appConfig?.userConfig?.userId;
   const token = appConfig?.userConfig?.broadcasterToken;
@@ -475,7 +464,7 @@ app.whenReady().then(async () => {
 
     // 初始化 WebSocket 服务
     if (!webSocketService) {
-      webSocketService = new WebSocketService(SERVICE_URL);
+      webSocketService = new WebSocketService(configManager.getConfigData.servicePath);
     }
 
     try {

@@ -3,6 +3,7 @@ import {
   UpdateAppConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
+  UpdateGlobalConfigDTO
 } from 'common/config.interface';
 import fs from 'fs';
 import path from 'path';
@@ -65,6 +66,7 @@ export class ConfigManager {
         JSON.stringify(
           {
             version: app.getVersion(),
+            servicePath: undefined,
             appConfig: {
               autoOpenOnLogin: false,
               autoReady: false,
@@ -148,6 +150,14 @@ export class ConfigManager {
 
   updateAudioConfig(data: UpdateAudioConfigDTO[]) {
     this.configData.devicesConfig.microphones = data;
+    this.saveConfig();
+  }
+
+  updateGlobalConfig(data: UpdateGlobalConfigDTO) {
+    this.configData = {
+      ...this.configData,
+      ...data,
+    };
     this.saveConfig();
   }
 }

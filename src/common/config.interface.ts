@@ -22,6 +22,7 @@ export interface AudioConfig {
 
 export interface AppConfigInterface {
   version: string;
+  servicePath: string | undefined;
   appConfig: {
     autoOpenOnLogin?: boolean; // 开机自启动
     autoReady?: boolean; // 启动时自动准备
@@ -81,4 +82,9 @@ export interface UpdateCompetitionConfigDTO {
   competitionId?: number;
   competitionName?: string;
   alias?: string;
+}
+
+export interface UpdateGlobalConfigDTO {
+  version?: string;
+  servicePath?: string;
 }
