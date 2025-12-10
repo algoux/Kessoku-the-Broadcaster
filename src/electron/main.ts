@@ -188,7 +188,7 @@ function setupIpcHandlers() {
         const config = configManager.getConfigData;
         webSocketService = new WebSocketService(
           config.serviceURL || '127.0.0.1:3000',
-          config.servicePath
+          config.servicePath,
         );
 
         // 使用传入的参数进行连接
@@ -478,7 +478,7 @@ app.whenReady().then(async () => {
     if (!webSocketService) {
       webSocketService = new WebSocketService(
         configManager.getConfigData.serviceURL || '127.0.0.1:3000',
-        configManager.getConfigData.servicePath
+        configManager.getConfigData.servicePath,
       );
     }
 
