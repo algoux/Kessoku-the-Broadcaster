@@ -46,6 +46,11 @@ function getOutputPath(platform, arch) {
 }
 
 function getDownloadUrl(platform, arch) {
+  if (platform === 'win32' && arch === 'arm64') {
+    const ffmpegPath = 'https://cdn.shaly.sdutacm.cn/atrior/ffmpeg-assets/win-arm64/ffmpeg.exe';
+    const ffprobePath = 'https://cdn.shaly.sdutacm.cn/atrior/ffmpeg-assets/win-arm64/ffprobe.exe';
+    return { ffmpegPath, ffprobePath };
+  }
   const ffmpegPath = `https://github.com/eugeneware/ffmpeg-static/releases/download/${ReleaseVersion}/ffmpeg-${platform}-${arch}`;
   const ffprobePath = `https://github.com/eugeneware/ffmpeg-static/releases/download/${ReleaseVersion}/ffprobe-${platform}-${arch}`;
   return { ffmpegPath, ffprobePath };
