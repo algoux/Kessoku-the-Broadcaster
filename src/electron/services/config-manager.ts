@@ -5,7 +5,7 @@ import {
   UpdateVideoConfigDTO,
   UpdateGlobalConfigDTO,
   VideoConfig,
-  AudioConfig
+  AudioConfig,
 } from 'common/config.interface';
 import fs from 'fs';
 import path from 'path';
