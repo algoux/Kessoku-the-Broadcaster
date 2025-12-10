@@ -26,22 +26,26 @@ jobs:
           - os: windows-latest
             build_script: pnpm run dist:win:x64
             artifact_name: windows-x64
-            artifact_path: 'dist/*.exe'
+            artifact_path: 'dist/*-x64.exe'
           # Windows ARM64
           - os: windows-latest
             build_script: pnpm run dist:win:arm64
             artifact_name: windows-arm64
-            artifact_path: 'dist/*.exe'
+            artifact_path: 'dist/*-arm64.exe'
           # Linux x64
           - os: ubuntu-latest
             build_script: pnpm run dist:linux:x64
             artifact_name: linux-x64
-            artifact_path: 'dist/*.{AppImage,deb}'
+            artifact_path: |-
+              dist/*-x64.AppImage
+              dist/*-x64.deb
           # Linux ARM64
           - os: ubuntu-latest
             build_script: pnpm run dist:linux:arm64
             artifact_name: linux-arm64
-            artifact_path: 'dist/*.{AppImage,deb}'
+            artifact_path: |-
+              dist/*-arm64.AppImage
+              dist/*-arm64.deb
 
     steps:
       - name: Checkout code
