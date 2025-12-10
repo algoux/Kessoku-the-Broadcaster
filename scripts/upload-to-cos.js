@@ -4,9 +4,9 @@ const COS = require('cos-nodejs-sdk-v5');
 
 const args = process.argv.slice(2);
 const releaseVersion = args[0];
-const baseDir = path.join(__dirname, '../release');
+const baseDir = path.join(__dirname, './dist');
 
-const REMOTE_PATH = (process.env.COS_BASE_PATH || 'Kessoku-the-Broadcaster/dist/') + releaseVersion + '/';
+const REMOTE_PATH = (process.env.COS_BASE_PATH || 'Kessoku-the-Broadcaster/release/') + releaseVersion + '/';
 const CDN_DOMAIN = 'https://cdn.algoux.cn/';
 
 async function listFiles(dir, maxDepth = Infinity, filter, _depth = 0) {
