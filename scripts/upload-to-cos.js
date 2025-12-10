@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 const releaseVersion = args[0];
 const baseDir = path.join(__dirname, '../release');
 
-const REMOTE_PATH = (process.env.COS_BASE_PATH || 'Kessoku-the-Broadcaster/release/') + releaseVersion + '/';
+const REMOTE_PATH = (process.env.COS_BASE_PATH || 'Kessoku-the-Broadcaster/dist/') + releaseVersion + '/';
 const CDN_DOMAIN = 'https://cdn.algoux.cn/';
 
 async function listFiles(dir, maxDepth = Infinity, filter, _depth = 0) {
