@@ -1,7 +1,7 @@
 {
   "appId": "com.algoux.kessoku-the-broadcaster",
   "productName": "Kessoku the Broadcaster",
-  "artifactName": "${productName}-${version}-${arch}.${ext}",
+  "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
   "files": ["dist/electron/**", "dist/ui/**"],
   "extraResources": [
     "dist/electron/preload.cts",
@@ -26,9 +26,6 @@
     "target": ["AppImage", "deb"],
     "category": "Utility",
     "icon": "resources/icon/icon.png"
-  },
-  "deb": {
-    "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "win": {
     "target": "nsis",
