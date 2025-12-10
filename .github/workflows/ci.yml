@@ -15,13 +15,13 @@ jobs:
           # macOS ARM64
           - os: macos-26
             build_script: pnpm run dist:mac:arm64
-            artifact_pattern: 'dist/mac-arm64/*.dmg'
+            artifact_pattern: 'dist/*.dmg'
             platform: mac
             arch: arm64
           # macOS x64
           - os: macos-26
             build_script: pnpm run dist:mac:x64
-            artifact_pattern: 'dist/mac/*.dmg'
+            artifact_pattern: 'dist/*.dmg'
             platform: mac
             arch: x64
           # Windows x64
