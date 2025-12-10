@@ -3,6 +3,7 @@ import {
   UpdateAppConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
+  UpdateGlobalConfigDTO,
 } from 'common/config.interface';
 
 electron.contextBridge.exposeInMainWorld('electron', {
@@ -112,6 +113,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   },
   updateAppConfig: (data: UpdateAppConfigDTO) => {
     return ipcInvoke('updateAppConfig', data);
+  },
+  updateGlobalConfig: (data: UpdateGlobalConfigDTO) => {
+    return ipcInvoke('updateGlobalConfig', data);
   },
   clearVideoCache: () => {
     return ipcInvoke('clearVideoCache');

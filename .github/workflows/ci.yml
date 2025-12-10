@@ -13,13 +13,13 @@ jobs:
       matrix:
         include:
           # macOS ARM64
-          - os: macos-latest
+          - os: macos-26
             build_script: pnpm run dist:mac:arm64
             artifact_pattern: 'dist/mac-arm64/*.dmg'
             platform: mac
             arch: arm64
           # macOS x64
-          - os: macos-13
+          - os: macos-26
             build_script: pnpm run dist:mac:x64
             artifact_pattern: 'dist/mac/*.dmg'
             platform: mac

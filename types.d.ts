@@ -55,23 +55,9 @@ declare global {
 
     getAppConfig: AppConfigInterface;
     getDevicesConfig: {
-      screens?: Array<{
-        id: string;
-        name: string;
-        width: number;
-        height: number;
-        frameRate: number;
-        sampleRate: number;
-      }>;
-      cameras?: Array<{
-        id: string;
-        name: string;
-        width: number;
-        height: number;
-        frameRate: number;
-        sampleRate: number;
-      }>;
-      microphones?: Array<{ id: string; name: string; sampleRate: number; channelCount: number }>;
+      screens?: VideoConfig[];
+      cameras?: VideoConfig[];
+      microphones?: AudioConfig[];
     };
     hasDevicesConfig: boolean;
     updateVideoConfig: void;

@@ -3,7 +3,9 @@ import {
   UpdateAppConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
-  UpdateGlobalConfigDTO
+  UpdateGlobalConfigDTO,
+  VideoConfig,
+  AudioConfig
 } from 'common/config.interface';
 import fs from 'fs';
 import path from 'path';
@@ -92,7 +94,11 @@ export class ConfigManager {
     return this.configData;
   }
 
-  get getDevicesConfig() {
+  get getDevicesConfig(): {
+    screens?: VideoConfig[];
+    cameras?: VideoConfig[];
+    microphones?: AudioConfig[];
+  } {
     return this.configData.devicesConfig || {};
   }
 
