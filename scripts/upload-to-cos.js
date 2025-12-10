@@ -4,9 +4,11 @@ const COS = require('cos-nodejs-sdk-v5');
 
 const args = process.argv.slice(2);
 const releaseVersion = args[0];
-const baseDir = path.join(__dirname, '../dist');
+const artifactsDir = args[1] || 'dist'; // 支持传入自定义目录，默认为 dist
+const baseDir = path.join(__dirname, '..', artifactsDir);
 
-const REMOTE_PATH = (process.env.COS_BASE_PATH || 'Kessoku-the-Broadcaster/release/') + releaseVersion + '/';
+const REMOTE_PATH =
+  (process.env.COS_BASE_PATH || 'Kessoku-the-Broadcaster/release/') + releaseVersion + '/';
 const CDN_DOMAIN = 'https://cdn.algoux.cn/';
 
 async function listFiles(dir, maxDepth = Infinity, filter, _depth = 0) {
