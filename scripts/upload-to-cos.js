@@ -4,7 +4,7 @@ const COS = require('cos-nodejs-sdk-v5');
 
 const args = process.argv.slice(2);
 const releaseVersion = args[0];
-const baseDir = path.join(__dirname, './dist');
+const baseDir = path.join(__dirname, '../dist');
 
 const REMOTE_PATH = (process.env.COS_BASE_PATH || 'Kessoku-the-Broadcaster/release/') + releaseVersion + '/';
 const CDN_DOMAIN = 'https://cdn.algoux.cn/';
