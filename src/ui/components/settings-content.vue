@@ -14,6 +14,8 @@ export default class SettingsContent extends Vue {
     autoOpenOnLogin: false,
     autoReady: false,
     videoCachePath: '',
+    serviceURL: '127.0.0.1:3000',
+    servicePath: '',
   };
 
   async mounted() {
@@ -26,6 +28,8 @@ export default class SettingsContent extends Vue {
       autoOpenOnLogin: config.appConfig?.autoOpenOnLogin ?? false,
       autoReady: config.appConfig?.autoReady ?? false,
       videoCachePath: config.appConfig?.videoCachePath ?? '',
+      serviceURL: config.serviceURL ?? '127.0.0.1:3000',
+      servicePath: config.servicePath ?? '',
     };
   }
 
@@ -58,6 +62,20 @@ export default class SettingsContent extends Vue {
     console.log('视频缓存路径已保存:', this.appConfig.videoCachePath);
   }
 
+  async onServiceURLChange() {
+    await window.electron.updateGlobalConfig({
+      serviceURL: this.appConfig.serviceURL,
+    });
+    console.log('Service URL 已保存:', this.appConfig.serviceURL);
+  }
+
+  async onServicePathChange() {
+    await window.electron.updateGlobalConfig({
+      servicePath: this.appConfig.servicePath || undefined,
+    });
+    console.log('Service Path 已保存:', this.appConfig.servicePath);
+  }
+
   async clearCache() {
     const result = await window.electron.clearVideoCache();
     if (result.success) {
@@ -80,6 +98,41 @@ export default class SettingsContent extends Vue {
         <el-checkbox v-model="appConfig.autoReady" @change="onAutoReadyChange">
           启动时自动准备
         </el-checkbox>
+      </div>
+      <div class="settings-content-section">
+        <p class="settings-content-section-title">服务配置</p>
+        <div class="path-input-wrapper">
+          <label
+            style="
+              display: block;
+              margin-bottom: 5px;
+              font-size: 14px;
+              color: var(--font-secondary-color);
+            "
+            >Service URL</label
+          >
+          <el-input
+            v-model="appConfig.serviceURL"
+            placeholder="127.0.0.1:3000"
+            @blur="onServiceURLChange"
+          />
+        </div>
+        <div class="path-input-wrapper" style="margin-top: 10px">
+          <label
+            style="
+              display: block;
+              margin-bottom: 5px;
+              font-size: 14px;
+              color: var(--font-secondary-color);
+            "
+            >Service Path (可选)</label
+          >
+          <el-input
+            v-model="appConfig.servicePath"
+            placeholder="例如: /api"
+            @blur="onServicePathChange"
+          />
+        </div>
       </div>
       <div class="settings-content-section">
         <p class="settings-content-section-title">视频缓存路径</p>

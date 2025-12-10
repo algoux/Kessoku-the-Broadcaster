@@ -22,6 +22,7 @@ export interface AudioConfig {
 
 export interface AppConfigInterface {
   version: string;
+  serviceURL: string | undefined;
   servicePath: string | undefined;
   appConfig: {
     autoOpenOnLogin?: boolean; // 开机自启动
@@ -86,5 +87,6 @@ export interface UpdateCompetitionConfigDTO {
 
 export interface UpdateGlobalConfigDTO {
   version?: string;
+  serviceURL?: string;
   servicePath?: string;
 }

@@ -21,6 +21,7 @@ export class WebSocketService {
   private mainWindow!: BrowserWindow;
   private isConnected: boolean = false;
   private connectionState: 'connected' | 'disconnected' | 'connecting' = 'disconnected';
+  private servicePath: string | undefined = undefined;
 
   // 鉴权信息
   private alias!: string;
@@ -31,8 +32,9 @@ export class WebSocketService {
   private lastTracks: TrackInfo[] = [];
   private isReady: boolean = false;
 
-  constructor(serviceURL: string) {
+  constructor(serviceURL: string, servicePath?: string) {
     this.serviceURL = serviceURL;
+    this.servicePath = servicePath;
   }
 
   setMainWindow(mainWindow: BrowserWindow) {
@@ -62,6 +64,7 @@ export class WebSocketService {
         reconnectionDelay: 1000, // 初始重连延迟 1 秒
         reconnectionDelayMax: 5000, // 最大重连延迟 5 秒
         timeout: 10000, // 连接超时 10 秒
+        path: this.servicePath,
         auth: {
           alias: this.alias,
           userId: this.userId,

@@ -12,6 +12,7 @@ import {
   UpdateAppConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
+  UpdateGlobalConfigDTO,
 } from 'common/config.interface';
 import log from 'electron-log';
 
@@ -183,6 +184,13 @@ function setupIpcHandlers() {
     'login',
     async ({ alias, userId, token }: { alias: string; userId: string; token: string }) => {
       try {
+        // 重新初始化 WebSocket 服务，确保使用最新的配置
+        const config = configManager.getConfigData;
+        webSocketService = new WebSocketService(
+          config.serviceURL || '127.0.0.1:3000',
+          config.servicePath
+        );
+
         // 使用传入的参数进行连接
         const success = await webSocketService.connect(alias, userId, token);
 
@@ -399,6 +407,10 @@ function setupIpcHandlers() {
     },
   );
 
+  ipcMainHandle('updateGlobalConfig', async (data: UpdateGlobalConfigDTO) => {
+    configManager.updateGlobalConfig(data);
+  });
+
   // 窗口控制
   ipcMainOn('window-minimize', () => {
     const win = BrowserWindow.getFocusedWindow();
@@ -452,7 +464,7 @@ app.whenReady().then(async () => {
   // 尝试自动登录
   const appConfig = configManager.getConfigData;
   if (!appConfig.servicePath) {
-    configManager.updateGlobalConfig({ servicePath: "127.0.0.1:3000" });
+    configManager.updateGlobalConfig({ serviceURL: '127.0.0.1:3000' });
   }
   const alias = appConfig?.competitionConfig?.alias;
   const userId = appConfig?.userConfig?.userId;
@@ -464,7 +476,10 @@ app.whenReady().then(async () => {
 
     // 初始化 WebSocket 服务
     if (!webSocketService) {
-      webSocketService = new WebSocketService(configManager.getConfigData.servicePath);
+      webSocketService = new WebSocketService(
+        configManager.getConfigData.serviceURL || '127.0.0.1:3000',
+        configManager.getConfigData.servicePath
+      );
     }
 
     try {

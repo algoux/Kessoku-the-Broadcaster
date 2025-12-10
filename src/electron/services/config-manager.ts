@@ -68,6 +68,7 @@ export class ConfigManager {
         JSON.stringify(
           {
             version: app.getVersion(),
+            serviceURL: '127.0.0.1:3000',
             servicePath: undefined,
             appConfig: {
               autoOpenOnLogin: false,
@@ -160,10 +161,15 @@ export class ConfigManager {
   }
 
   updateGlobalConfig(data: UpdateGlobalConfigDTO) {
-    this.configData = {
-      ...this.configData,
-      ...data,
-    };
+    if ('version' in data) {
+      this.configData.version = data.version;
+    }
+    if ('serviceURL' in data) {
+      this.configData.serviceURL = data.serviceURL;
+    }
+    if ('servicePath' in data) {
+      this.configData.servicePath = data.servicePath;
+    }
     this.saveConfig();
   }
 }
