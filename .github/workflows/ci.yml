@@ -85,6 +85,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Install COS SDK
+        run: npm install cos-nodejs-sdk-v5
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
