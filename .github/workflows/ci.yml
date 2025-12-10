@@ -70,7 +70,7 @@ jobs:
       - name: Build Electron App
         run: ${{ matrix.build_script }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.ATRIOR_TOKEN }}
 
       # 上传构建产物到 Release
       - name: Upload Release Artifacts
@@ -80,4 +80,4 @@ jobs:
           prerelease: true
           draft: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ATRIOR_TOKEN }}
