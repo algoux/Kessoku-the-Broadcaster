@@ -1,7 +1,7 @@
 {
   "name": "Kessoku-the-Broadcaster",
   "private": true,
-  "version": "0.0.5",
+  "version": "0.0.1-alpha",
   "main": "dist/electron/main.js",
   "author": {
     "name": "algoUX"
