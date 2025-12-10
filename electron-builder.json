@@ -1,6 +1,7 @@
 {
   "appId": "com.algoux.kessoku-the-broadcaster",
   "productName": "Kessoku the Broadcaster",
+  "artifactName": "${productName}-${version}-${arch}.${ext}",
   "files": ["dist/electron/**", "dist/ui/**"],
   "extraResources": [
     "dist/electron/preload.cts",
@@ -15,6 +16,7 @@
       "filter": ["*.png", "*.jpg", "*.jpeg", "*.ico"]
     }
   ],
+  "publish": null,
   "generateUpdatesFilesForAllChannels": false,
   "mac": {
     "target": "dmg",
@@ -24,6 +26,9 @@
     "target": ["AppImage", "deb"],
     "category": "Utility",
     "icon": "resources/icon/icon.png"
+  },
+  "deb": {
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "win": {
     "target": "nsis",
@@ -35,7 +40,6 @@
     "allowElevation": true,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
-    "createStartMenuShortcut": true,
-    "artifactName": "${productName} Setup ${version} ${arch}.${ext}"
+    "createStartMenuShortcut": true
   }
 }
