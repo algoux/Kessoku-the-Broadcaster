@@ -15,39 +15,33 @@ jobs:
           # macOS ARM64
           - os: macos-26
             build_script: pnpm run dist:mac:arm64
-            artifact_pattern: 'dist/*.dmg'
-            platform: mac
-            arch: arm64
+            artifact_name: macos-arm64
+            artifact_path: 'dist/*.dmg'
           # macOS x64
           - os: macos-26
             build_script: pnpm run dist:mac:x64
-            artifact_pattern: 'dist/*.dmg'
-            platform: mac
-            arch: x64
+            artifact_name: macos-x64
+            artifact_path: 'dist/*.dmg'
           # Windows x64
           - os: windows-latest
             build_script: pnpm run dist:win:x64
-            artifact_pattern: 'dist/*.exe'
-            platform: win
-            arch: x64
+            artifact_name: windows-x64
+            artifact_path: 'dist/*.exe'
           # Windows ARM64
           - os: windows-latest
             build_script: pnpm run dist:win:arm64
-            artifact_pattern: 'dist/*.exe'
-            platform: win
-            arch: arm64
+            artifact_name: windows-arm64
+            artifact_path: 'dist/*.exe'
           # Linux x64
           - os: ubuntu-latest
             build_script: pnpm run dist:linux:x64
-            artifact_pattern: 'dist/*.{AppImage,deb}'
-            platform: linux
-            arch: x64
+            artifact_name: linux-x64
+            artifact_path: 'dist/*.{AppImage,deb}'
           # Linux ARM64
           - os: ubuntu-latest
             build_script: pnpm run dist:linux:arm64
-            artifact_pattern: 'dist/*.{AppImage,deb}'
-            platform: linux
-            arch: arm64
+            artifact_name: linux-arm64
+            artifact_path: 'dist/*.{AppImage,deb}'
 
     steps:
       - name: Checkout code
@@ -72,11 +66,31 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ATRIOR_TOKEN }}
 
-      # 上传构建产物到 Release
-      - name: Upload Release Artifacts
+      # 上传构建产物为 GitHub Actions artifacts
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          retention-days: 1
+
+  # 统一发布到 Release
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact_pattern }}
+          files: artifacts/**/*
           prerelease: true
           draft: false
         env:
