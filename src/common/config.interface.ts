@@ -10,6 +10,7 @@ export type { SimulcastConfig };
 
 export interface VideoConfig {
   id: string;
+  classId: string;
   name: string;
   width: number;
   height: number;
@@ -20,6 +21,7 @@ export interface VideoConfig {
 
 export interface AudioConfig {
   id: string;
+  classId: string;
   name: string;
   sampleRate: number;
   channelCount: number;
@@ -55,6 +57,7 @@ export interface AppConfigInterface {
 
 export interface UpdateVideoConfigDTO {
   id: string;
+  classId: string;
   name: string;
   width: number;
   height: number;
@@ -65,6 +68,7 @@ export interface UpdateVideoConfigDTO {
 
 export interface UpdateAudioConfigDTO {
   id: string;
+  classId: string;
   name: string;
   sampleRate: number;
   channelCount: number;

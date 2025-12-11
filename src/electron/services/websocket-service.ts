@@ -57,6 +57,12 @@ export class WebSocketService {
         return;
       }
 
+      // 如果之前的 socket 存在，先清理
+      if (this.socket) {
+        this.socket.removeAllListeners();
+        this.socket.disconnect();
+      }
+
       // 创建 socket 连接，使用 auth 进行握手鉴权
       this.socket = io(this.serviceURL, {
         reconnection: true, // 启用自动重连
@@ -72,15 +78,14 @@ export class WebSocketService {
         },
       });
 
+      // 先设置事件处理器
+      this.setupEventHandlers();
+
       // 连接成功
       this.socket.once('connect', () => {
         console.log('连接服务器成功:', this.socket.id);
         this.isConnected = true;
         this.connectionState = 'connected';
-
-        // 设置事件处理器
-        this.setupEventHandlers();
-
         resolve(true);
       });
 
@@ -88,13 +93,17 @@ export class WebSocketService {
       this.socket.once('connect_error', (error: any) => {
         console.log('首次连接失败:', error.message);
 
-        // 握手阶段的错误就是认证失败（token 错误），应该停止重连
-        // Socket.IO 的握手错误会在 error.message 中包含详细信息
-        console.error('认证失败，停止重连:', error.message);
-        this.connectionState = 'disconnected';
-        this.isConnected = false;
-        this.socket.disconnect(); // 停止自动重连
-        resolve(false);
+        // 检查是否是认证失败
+        if (error.message && error.message.includes('认证失败')) {
+          console.error('认证失败，停止重连:', error.message);
+          this.connectionState = 'disconnected';
+          this.isConnected = false;
+          this.socket.disconnect(); // 停止自动重连
+          resolve(false);
+        } else {
+          // 网络问题等，继续重连
+          console.log('网络问题，继续重连');
+        }
       });
     });
   }
@@ -116,6 +125,11 @@ export class WebSocketService {
         // 网络问题等，socket.io 会自动重连，保持 connecting 状态
         this.connectionState = 'connecting';
       }
+
+      // 通知渲染进程连接状态变化
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+      }
     });
 
     // 重新连接成功
@@ -123,6 +137,11 @@ export class WebSocketService {
       console.log('重新连接成功');
       this.isConnected = true;
       this.connectionState = 'connected';
+
+      // 通知渲染进程连接状态变化
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+      }
 
       // 如果之前已就绪，重新上报
       if (this.isReady && this.lastTracks.length > 0) {
@@ -135,6 +154,11 @@ export class WebSocketService {
     this.socket.on('reconnect_attempt', (attempt: number) => {
       console.log(`正在尝试重连... (第 ${attempt} 次)`);
       this.connectionState = 'connecting';
+
+      // 通知渲染进程连接状态变化
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+      }
     });
 
     // 重连错误（每次重连失败都会触发，但会继续尝试）
@@ -148,15 +172,32 @@ export class WebSocketService {
     this.socket.on('reconnect_failed', () => {
       console.log('重连完全失败');
       this.connectionState = 'disconnected';
+
+      // 通知渲染进程连接状态变化
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+      }
     });
 
     // 连接错误（持续监听 - 重连阶段的错误）
     this.socket.on('connect_error', (error: any) => {
-      console.log('重连阶段连接错误:', error.message);
+      console.log('连接错误:', error.message);
 
-      // 重连阶段的错误是网络问题、服务器宕机等，保持 connecting 状态继续重连
-      // Socket.IO 会自动处理重连逻辑
-      this.connectionState = 'connecting';
+      // 检查是否是认证失败（服务器重启后可能 token 失效）
+      if (error.message && error.message.includes('认证失败')) {
+        console.error('认证失败，停止重连:', error.message);
+        this.connectionState = 'disconnected';
+        this.isConnected = false;
+        this.socket.disconnect(); // 停止自动重连
+
+        // 通知渲染进程连接状态变化
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+        }
+      } else {
+        // 网络问题等，保持 connecting 状态继续重连
+        this.connectionState = 'connecting';
+      }
     });
 
     // 请求开始推流

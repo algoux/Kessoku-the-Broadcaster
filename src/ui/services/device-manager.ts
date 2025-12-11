@@ -540,31 +540,39 @@ export class DeviceManager {
 
   openConfigDialog(device: Device) {
     this.currentConfigDevice = device;
-    this.configForm = {
-      width: Math.round(device.settings.width),
-      height: Math.round(device.settings.height),
-      frameRate: Math.round(device.settings.frameRate),
-      channelCount: device.settings.channelCount,
-      sampleRate: device.settings.sampleRate,
-      simulcastConfig: {
-        rid: 'original',
-        scaleResolutionDownBy: 1,
-        maxBitRate: 8000000,
-        maxFramerate: 60,
-      },
-    };
+    
+    // 根据设备类型初始化配置表单
+    if (device.type === 'microphone') {
+      this.configForm = {
+        channelCount: device.settings?.channelCount || 0,
+        sampleRate: device.settings?.sampleRate || 0,
+      } as ConfigForm;
+    } else {
+      // 视频设备（screen 或 camera）
+      this.configForm = {
+        width: Math.round(device.settings?.width || 0),
+        height: Math.round(device.settings?.height || 0),
+        frameRate: Math.round(device.settings?.frameRate || 0),
+        simulcastConfig: {
+          rid: 'original',
+          scaleResolutionDownBy: 1,
+          maxBitRate: 8000000,
+          maxFramerate: 60,
+        },
+      } as ConfigForm;
 
-    // 根据当前设备分辨率匹配预设
-    const currentWidth = Math.round(device.settings.width);
-    const currentHeight = Math.round(device.settings.height);
-    const presets = this.getResolutionPresets();
-    const matchedPreset = presets.find(
-      (p) => p.width === currentWidth && p.height === currentHeight,
-    );
+      // 根据当前设备分辨率匹配预设
+      const currentWidth = Math.round(device.settings?.width || 0);
+      const currentHeight = Math.round(device.settings?.height || 0);
+      const presets = this.getResolutionPresets();
+      const matchedPreset = presets.find(
+        (p) => p.width === currentWidth && p.height === currentHeight,
+      );
 
-    this.selectedPreset = matchedPreset
-      ? JSON.stringify({ width: matchedPreset.width, height: matchedPreset.height })
-      : '';
+      this.selectedPreset = matchedPreset
+        ? JSON.stringify({ width: matchedPreset.width, height: matchedPreset.height })
+        : '';
+    }
 
     return {
       success: true,
@@ -721,6 +729,11 @@ export class DeviceManager {
           } else {
             this.currentConfigDevice.settings = originalSettings;
           }
+          
+          // 恢复 capabilities
+          if (originalCapabilities) {
+            this.currentConfigDevice.capabilities = originalCapabilities;
+          }
         } else {
           const videoTrack = stream.getVideoTracks()[0];
           if (videoTrack) {
@@ -786,13 +799,25 @@ export class DeviceManager {
         for (const screenConfig of devicesConfig.screens) {
           const screen = this.availableScreens.find((s) => s.id === screenConfig.id);
           if (screen) {
+            // 如果配置中有 classId，使用配置中的 classId，否则生成新的
+            const classId = screenConfig.classId || this.getOrCreateClassId(screen.id, 'screen');
+            // 建立 deviceId 到 classId 的映射
+            if (screenConfig.classId) {
+              this.deviceIdToClassIdMap.set(screen.id, screenConfig.classId);
+            }
+
             const device: Device = {
               id: screen.id,
               name: screen.name,
               type: 'screen',
-              classId: this.getOrCreateClassId(screen.id, 'screen'),
+              classId: classId,
               enabled: true,
               isDefault: false,
+              settings: {
+                width: screenConfig.width,
+                height: screenConfig.height,
+                frameRate: screenConfig.frameRate,
+              },
             };
             await this.startDeviceStream(device);
             this.userDevices.push(device);
@@ -806,13 +831,26 @@ export class DeviceManager {
         for (const cameraConfig of devicesConfig.cameras) {
           const camera = this.availableCameras.find((c) => c.deviceId === cameraConfig.id);
           if (camera) {
+            // 如果配置中有 classId，使用配置中的 classId，否则生成新的
+            const classId =
+              cameraConfig.classId || this.getOrCreateClassId(camera.deviceId, 'camera');
+            // 建立 deviceId 到 classId 的映射
+            if (cameraConfig.classId) {
+              this.deviceIdToClassIdMap.set(camera.deviceId, cameraConfig.classId);
+            }
+
             const device: Device = {
               id: camera.deviceId,
               name: camera.label,
               type: 'camera',
-              classId: this.getOrCreateClassId(camera.deviceId, 'camera'),
+              classId: classId,
               enabled: true,
               isDefault: false,
+              settings: {
+                width: cameraConfig.width,
+                height: cameraConfig.height,
+                frameRate: cameraConfig.frameRate,
+              },
             };
             await this.startDeviceStream(device);
             this.userDevices.push(device);
@@ -826,13 +864,25 @@ export class DeviceManager {
         for (const micConfig of devicesConfig.microphones) {
           const mic = this.availableMicrophones.find((m) => m.deviceId === micConfig.id);
           if (mic) {
+            // 如果配置中有 classId，使用配置中的 classId，否则生成新的
+            const classId =
+              micConfig.classId || this.getOrCreateClassId(mic.deviceId, 'microphone');
+            // 建立 deviceId 到 classId 的映射
+            if (micConfig.classId) {
+              this.deviceIdToClassIdMap.set(mic.deviceId, micConfig.classId);
+            }
+
             const device: Device = {
               id: mic.deviceId,
               name: mic.label,
               type: 'microphone',
-              classId: this.getOrCreateClassId(mic.deviceId, 'microphone'),
+              classId: classId,
               enabled: true,
               isDefault: false,
+              settings: {
+                sampleRate: micConfig.sampleRate,
+                channelCount: micConfig.channelCount,
+              },
             };
             await this.startDeviceStream(device);
             this.userDevices.push(device);
@@ -864,6 +914,7 @@ export class DeviceManager {
 
           return {
             id: d.id,
+            classId: d.classId,
             name: d.name,
             width: Math.round(d.settings!.width),
             height: Math.round(d.settings!.height),
@@ -880,6 +931,7 @@ export class DeviceManager {
 
           return {
             id: d.id,
+            classId: d.classId,
             name: d.name,
             width: Math.round(d.settings!.width),
             height: Math.round(d.settings!.height),
@@ -896,6 +948,7 @@ export class DeviceManager {
 
           return {
             id: d.id,
+            classId: d.classId,
             name: d.name,
             sampleRate: d.settings!.sampleRate,
             channelCount: d.settings!.channelCount,

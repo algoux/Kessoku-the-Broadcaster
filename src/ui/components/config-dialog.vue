@@ -95,8 +95,8 @@ export default class ConfigDialog extends Vue {
       <el-form-item label="采样率">
         <el-input-number
           v-model="deviceManager.configForm.sampleRate"
-          :min="deviceManager.currentConfigDevice.capabilities.sampleRate.min"
-          :max="deviceManager.currentConfigDevice.capabilities.sampleRate.max"
+          :min="deviceManager.currentConfigDevice.capabilities?.sampleRate?.min || 8000"
+          :max="deviceManager.currentConfigDevice.capabilities?.sampleRate?.max || 48000"
           :step="1"
           controls-position="right"
         />
@@ -105,8 +105,8 @@ export default class ConfigDialog extends Vue {
       <el-form-item label="声道数">
         <el-input-number
           v-model="deviceManager.configForm.channelCount"
-          :min="deviceManager.currentConfigDevice.capabilities.channelCount.min"
-          :max="deviceManager.currentConfigDevice.capabilities.channelCount.max"
+          :min="deviceManager.currentConfigDevice.capabilities?.channelCount?.min || 1"
+          :max="deviceManager.currentConfigDevice.capabilities?.channelCount?.max || 2"
           :step="1"
           controls-position="right"
         />
