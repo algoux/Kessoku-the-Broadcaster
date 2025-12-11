@@ -50,7 +50,7 @@ async function main() {
   });
   const files = await listFiles(
     baseDir,
-    0,
+    1,
     (file) =>
       file.endsWith('.dmg') ||
       file.endsWith('.exe') ||
