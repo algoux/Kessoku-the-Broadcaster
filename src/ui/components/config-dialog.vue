@@ -1,6 +1,7 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import { DeviceManager } from '@/services/device-manager';
+import { reactive } from 'vue';
 
 import {
   ElDialog,
@@ -11,7 +12,7 @@ import {
   ElOption,
   ElButton,
 } from 'element-plus';
-import { Inject, Prop } from 'vue-property-decorator';
+import { Inject, Prop, Watch } from 'vue-property-decorator';
 @Options({
   components: {
     ElDialog,
@@ -32,6 +33,66 @@ export default class ConfigDialog extends Vue {
 
   @Inject()
   closeConfigDialog: Function;
+
+  // 本地码率配置 - 响应式对象
+  private localSimulcastConfig = reactive({
+    rid: 'original',
+    maxBitrate: 0,
+  });
+
+  // 本地码率选项 - 响应式数组
+  private localSimulcastOptions = reactive<
+    Array<{ rid: string; scaleResolutionDownBy: number; maxBitrate: number }>
+  >([
+    { rid: 'original', scaleResolutionDownBy: 1.0, maxBitrate: 0 },
+    { rid: 'low', scaleResolutionDownBy: 4.0, maxBitrate: 0 },
+  ]);
+
+  // 强制更新的 key
+  private bitrateKey = 0;
+
+  // 获取当前选中的码率配置（用于下拉选项）
+  get currentSimulcastConfig() {
+    const currentRid = this.deviceManager.configForm?.simulcastConfig?.rid || 'original';
+    const matchedOption = this.simulcastOptions.find((option) => option.rid === currentRid);
+    return matchedOption || { rid: 'original', maxBitrate: 0 };
+  }
+
+  // 监听对话框打开
+  @Watch('configDialogVisible')
+  onDialogChange(newVal: boolean) {
+    if (newVal) {
+      this.updateBitrate();
+    }
+  }
+
+  private updateBitrate() {
+    if (!this.deviceManager.configForm) return;
+
+    const { width, height, frameRate } = this.deviceManager.configForm;
+    const currentRid = this.deviceManager.configForm.simulcastConfig?.rid || 'original';
+
+    // 计算原画码率
+    const originalBitrate = Math.round(width * height * frameRate * 0.000078125);
+    // 计算低清码率
+    const lowBitrate = Math.round((width / 4) * (height / 4) * frameRate * 0.000078125);
+
+    // 更新选项列表
+    this.localSimulcastOptions[0].maxBitrate = originalBitrate;
+    this.localSimulcastOptions[1].maxBitrate = lowBitrate;
+
+    // 更新当前选中的配置
+    let maxBitrate = 0;
+    if (currentRid === 'original') {
+      maxBitrate = originalBitrate;
+    } else if (currentRid === 'low') {
+      maxBitrate = lowBitrate;
+    }
+
+    this.localSimulcastConfig.rid = currentRid;
+    this.localSimulcastConfig.maxBitrate = maxBitrate;
+    this.bitrateKey++; // 强制更新
+  }
 
   get frameRateOptions() {
     const maxFrameRate = this.deviceManager.currentConfigDevice?.capabilities?.frameRate?.max;
@@ -69,6 +130,28 @@ export default class ConfigDialog extends Vue {
       default:
         return rid;
     }
+  }
+
+  // 处理码率选择变化
+  private onSimulcastChange(rid: string) {
+    const matchedOption = this.localSimulcastOptions.find((option) => option.rid === rid);
+    if (matchedOption && this.deviceManager.configForm?.simulcastConfig) {
+      this.deviceManager.configForm.simulcastConfig.maxBitRate = matchedOption.maxBitrate;
+      this.deviceManager.configForm.simulcastConfig.scaleResolutionDownBy =
+        matchedOption.scaleResolutionDownBy;
+      this.updateBitrate();
+    }
+  }
+
+  // 处理预设分辨率变化
+  private onPresetChange(presetStr: string) {
+    this.deviceManager.applyPreset(presetStr);
+    this.updateBitrate();
+  }
+
+  // 处理帧率变化
+  private onFrameRateChange(fps: number) {
+    this.updateBitrate();
   }
 
   private formatSimulcastConfig(rid: string, maxBitrate: number) {
@@ -132,7 +215,7 @@ export default class ConfigDialog extends Vue {
         <el-select
           v-model="deviceManager.selectedPreset"
           placeholder="选择预设"
-          @change="deviceManager.applyPreset"
+          @change="onPresetChange"
         >
           <el-option
             v-for="preset in deviceManager.getResolutionPresets()"
@@ -144,7 +227,11 @@ export default class ConfigDialog extends Vue {
       </el-form-item>
 
       <el-form-item label="帧率">
-        <el-select v-model="deviceManager.configForm.frameRate" placeholder="选择帧率">
+        <el-select
+          v-model="deviceManager.configForm.frameRate"
+          placeholder="选择帧率"
+          @change="onFrameRateChange"
+        >
           <el-option
             v-for="fps in frameRateOptions"
             :key="fps"
@@ -155,13 +242,21 @@ export default class ConfigDialog extends Vue {
       </el-form-item>
 
       <el-form-item label="码率">
-        <el-select :placeholder="'选择码率'" v-model="deviceManager.configForm.simulcastConfig.rid">
-          <el-option
-            v-for="option in simulcastOptions"
-            :key="option.rid"
-            :label="formatSimulcastConfig(option.rid, option.maxBitrate)"
-            :value="option.rid"
-          />
+        <el-select
+          :key="bitrateKey"
+          :placeholder="'选择码率'"
+          v-model="deviceManager.configForm.simulcastConfig.rid"
+          @change="onSimulcastChange"
+        >
+          <template #label>
+            <span
+              >{{ convertRidName(localSimulcastConfig.rid) }} @
+              {{ Math.round(localSimulcastConfig.maxBitrate) }} Kbps</span
+            >
+          </template>
+          <el-option v-for="option in localSimulcastOptions" :key="option.rid" :value="option.rid">
+            <span>{{ formatSimulcastConfig(option.rid, option.maxBitrate) }}</span>
+          </el-option>
         </el-select>
       </el-form-item>
 
