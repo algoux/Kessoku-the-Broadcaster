@@ -289,11 +289,13 @@ export class DeviceManager {
       // 查找当前该类型已使用的索引
       const usedIndices = new Set<number>();
       const prefix = `${deviceType}_`;
+      let hasMainDevice = false;
 
       this.deviceIdToClassIdMap.forEach((existingClassId) => {
         if (existingClassId.startsWith(prefix)) {
           const suffix = existingClassId.replace(prefix, '');
           if (suffix === 'main') {
+            hasMainDevice = true;
             usedIndices.add(-1);
           } else {
             const index = parseInt(suffix);
@@ -302,11 +304,15 @@ export class DeviceManager {
         }
       });
 
-      // 找到最小的未使用索引
-      let index = 0;
-      while (usedIndices.has(index)) index++;
-
-      classId = `${deviceType}_${index}`;
+      // 如果该类型还没有 main 设备（即第一次添加该类型设备），使用 main
+      if (!hasMainDevice) {
+        classId = `${deviceType}_main`;
+      } else {
+        // 找到最小的未使用索引
+        let index = 0;
+        while (usedIndices.has(index)) index++;
+        classId = `${deviceType}_${index}`;
+      }
     }
 
     // 保存映射关系

@@ -101,20 +101,44 @@ export default class AddDeviceDialog extends Vue {
   }
 
   generateDefaultId() {
-    const typePrefix = this.deviceType;
-    const existingIndices = this.deviceManager.userDevices
-      .filter((d) => d.type === this.deviceType)
-      .map((d) => {
-        const match = d.classId.match(/\d+$/);
-        return match ? parseInt(match[0]) : 0;
-      });
+    // 检查该类型是否已经有设备
+    const hasDevices = this.deviceManager.userDevices.some((d) => d.type === this.deviceType);
+    
+    if (!hasDevices) {
+      // 如果该类型还没有设备，使用 main
+      this.addDeviceForm.classId = `${this.deviceType}_main`;
+    } else {
+      // 如果已经有设备，查找已使用的索引
+      const existingIndices = new Set<number>();
+      const prefix = `${this.deviceType}_`;
+      let hasMain = false;
 
-    let newIndex = 1;
-    while (existingIndices.includes(newIndex)) {
-      newIndex++;
+      this.deviceManager.userDevices
+        .filter((d) => d.type === this.deviceType)
+        .forEach((d) => {
+          const suffix = d.classId.replace(prefix, '');
+          if (suffix === 'main') {
+            hasMain = true;
+          } else {
+            const index = parseInt(suffix);
+            if (!isNaN(index)) {
+              existingIndices.add(index);
+            }
+          }
+        });
+
+      // 如果没有 main 设备，使用 main
+      if (!hasMain) {
+        this.addDeviceForm.classId = `${this.deviceType}_main`;
+      } else {
+        // 找到最小的未使用索引
+        let newIndex = 0;
+        while (existingIndices.has(newIndex)) {
+          newIndex++;
+        }
+        this.addDeviceForm.classId = `${this.deviceType}_${newIndex}`;
+      }
     }
-
-    this.addDeviceForm.classId = `${typePrefix}_${newIndex}`;
   }
 
   handleClose() {
