@@ -48,6 +48,12 @@ async function main() {
     SecretId: process.env.COS_SECRET_ID,
     SecretKey: process.env.COS_SECRET_KEY,
   });
+  console.log(`Base directory: ${baseDir}`);
+  console.log('Directory contents:');
+  const dirContents = await fs.readdir(baseDir, { withFileTypes: true });
+  for (const item of dirContents) {
+    console.log(`  ${item.isDirectory() ? '[DIR]' : '[FILE]'} ${item.name}`);
+  }
   const files = await listFiles(
     baseDir,
     1,
@@ -58,6 +64,7 @@ async function main() {
       file.endsWith('.deb') ||
       file.endsWith('.AppImage'),
   );
+  console.log(`Found ${files.length} files to upload:`, files);
   for (const file of files) {
     const remotePath = `${REMOTE_PATH}${file}`;
     console.log(`Uploading ${file} -> ${remotePath}`);
