@@ -33,10 +33,32 @@ export default class ConfigDialog extends Vue {
   @Inject()
   closeConfigDialog: Function;
 
-  simulcastOptions = [
-    { rid: 'original', scaleResolutionDownBy: 1.0, maxBitrate: 8000000, maxFramerate: 60 },
-    { rid: 'low', scaleResolutionDownBy: 2.0, maxBitrate: 2000000, maxFramerate: 30 },
-  ];
+  get frameRateOptions() {
+    const maxFrameRate = this.deviceManager.currentConfigDevice?.capabilities?.frameRate?.max;
+
+    if (maxFrameRate >= 60) {
+      return [60, 30];
+    } else {
+      return [30];
+    }
+  }
+
+  get simulcastOptions() {
+    const width = this.deviceManager.configForm?.width;
+    const height = this.deviceManager.configForm?.height;
+    const frameRate = this.deviceManager.configForm?.frameRate;
+
+    // 原画码率：width * height * frameRate * 0.000078125
+    const originalBitrate = Math.round(width * height * frameRate * 0.000078125);
+
+    // 低清码率：(width/4) * (height/4) * frameRate * 0.000078125
+    const lowBitrate = Math.round((width / 4) * (height / 4) * frameRate * 0.000078125);
+
+    return [
+      { rid: 'original', scaleResolutionDownBy: 1.0, maxBitrate: originalBitrate },
+      { rid: 'low', scaleResolutionDownBy: 4.0, maxBitrate: lowBitrate },
+    ];
+  }
 
   private convertRidName(rid: string) {
     switch (rid) {
@@ -49,8 +71,8 @@ export default class ConfigDialog extends Vue {
     }
   }
 
-  private formatSimulcastConfig(rid: string, maxBitrate: number, maxFramerate: number) {
-    return `${this.convertRidName(rid)} - ${maxFramerate} fps @ ${Math.round(maxBitrate / 1000)} Mbps`;
+  private formatSimulcastConfig(rid: string, maxBitrate: number) {
+    return `${this.convertRidName(rid)} @ ${Math.round(maxBitrate)} Kbps`;
   }
 }
 </script>
@@ -122,25 +144,22 @@ export default class ConfigDialog extends Vue {
       </el-form-item>
 
       <el-form-item label="帧率">
-        <el-input-number
-          v-model="deviceManager.configForm.frameRate"
-          :min="deviceManager.currentConfigDevice.capabilities.frameRate.min"
-          :max="deviceManager.currentConfigDevice.capabilities.frameRate.max"
-          :step="1"
-          controls-position="right"
-        />
-        <span style="margin-left: 10px">fps</span>
+        <el-select v-model="deviceManager.configForm.frameRate" placeholder="选择帧率">
+          <el-option
+            v-for="fps in frameRateOptions"
+            :key="fps"
+            :label="`${fps} fps`"
+            :value="fps"
+          />
+        </el-select>
       </el-form-item>
 
-      <el-form-item label="画质档位">
-        <el-select
-          :placeholder="'选择画质档位'"
-          v-model="deviceManager.configForm.simulcastConfig.rid"
-        >
+      <el-form-item label="码率">
+        <el-select :placeholder="'选择码率'" v-model="deviceManager.configForm.simulcastConfig.rid">
           <el-option
             v-for="option in simulcastOptions"
             :key="option.rid"
-            :label="formatSimulcastConfig(option.rid, option.maxBitrate, option.maxFramerate)"
+            :label="formatSimulcastConfig(option.rid, option.maxBitrate)"
             :value="option.rid"
           />
         </el-select>
