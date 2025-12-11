@@ -114,6 +114,14 @@ export class DeviceManager {
       let newDevice = await this.startDeviceStream(device);
       defautDevicesList.push(newDevice);
       this.userDevices.push(device);
+
+      // 添加默认设备后立即保存到配置文件
+      try {
+        await this.saveSingleDeviceToConfig(device);
+        console.log(`已保存默认设备 ${device.name} 到配置文件`);
+      } catch (saveError) {
+        console.error('保存默认设备配置失败:', saveError);
+      }
     };
     if (this.availableScreens.length > 0) {
       const screen = this.availableScreens[0];
@@ -138,6 +146,14 @@ export class DeviceManager {
       let newDevice = await this.startDeviceStream(device);
       defautDevicesList.push(mic);
       this.userDevices.push(newDevice);
+
+      // 添加默认设备后立即保存到配置文件
+      try {
+        await this.saveSingleDeviceToConfig(newDevice);
+        console.log(`已保存默认设备 ${newDevice.name} 到配置文件`);
+      } catch (saveError) {
+        console.error('保存默认设备配置失败:', saveError);
+      }
     }
     return defautDevicesList;
   }
@@ -239,6 +255,15 @@ export class DeviceManager {
       await this.startDeviceStream(device);
       this.userDevices.push(device);
       this.updateCanAddState();
+
+      // 添加设备后立即保存到配置文件
+      try {
+        await this.saveSingleDeviceToConfig(device);
+        console.log(`已保存新添加的设备 ${device.name} 到配置文件`);
+      } catch (saveError) {
+        console.error('保存新设备配置失败:', saveError);
+        // 不抛出错误，保存失败不影响设备添加
+      }
 
       return {
         success: true,
@@ -772,6 +797,15 @@ export class DeviceManager {
 
         this.userDevices.splice(idx, 1, targetDevice);
 
+        // 立即保存单个设备配置到文件
+        try {
+          await this.saveSingleDeviceToConfig(targetDevice);
+          console.log(`已保存设备 ${targetDevice.name} 的配置到文件`);
+        } catch (saveError) {
+          console.error('保存设备配置到文件失败:', saveError);
+          // 不抛出错误，保存失败不影响设备配置的内存更新
+        }
+
         return { updateIndex: idx, updateDevice: targetDevice };
       }
     } catch (error) {
@@ -906,6 +940,104 @@ export class DeviceManager {
 
   /**
    * 保存所有设备到配置文件
+   */
+  /**
+   * 保存单个设备到配置文件
+   */
+  async saveSingleDeviceToConfig(device: Device): Promise<void> {
+    if (!device.settings) {
+      throw new Error(`设备 ${device.name} 缺少 settings 属性`);
+    }
+
+    try {
+      if (device.type === 'screen') {
+        if (!device.settings.width || !device.settings.height || !device.settings.frameRate) {
+          throw new Error(`屏幕设备 ${device.name} 缺少必要的配置参数`);
+        }
+
+        const screenConfig = {
+          id: device.id,
+          classId: device.classId,
+          name: device.name,
+          width: Math.round(device.settings.width),
+          height: Math.round(device.settings.height),
+          frameRate: Math.round(device.settings.frameRate),
+        };
+
+        // 读取现有配置，更新或添加当前设备
+        const existingScreens = this.userDevices
+          .filter((d) => d.type === 'screen' && d.id !== device.id && d.settings)
+          .map((d) => ({
+            id: d.id,
+            classId: d.classId,
+            name: d.name,
+            width: Math.round(d.settings!.width!),
+            height: Math.round(d.settings!.height!),
+            frameRate: Math.round(d.settings!.frameRate!),
+          }));
+
+        await window.electron.updateVideoConfig([...existingScreens, screenConfig], 'screen');
+      } else if (device.type === 'camera') {
+        if (!device.settings.width || !device.settings.height || !device.settings.frameRate) {
+          throw new Error(`摄像头设备 ${device.name} 缺少必要的配置参数`);
+        }
+
+        const cameraConfig = {
+          id: device.id,
+          classId: device.classId,
+          name: device.name,
+          width: Math.round(device.settings.width),
+          height: Math.round(device.settings.height),
+          frameRate: Math.round(device.settings.frameRate),
+        };
+
+        // 读取现有配置，更新或添加当前设备
+        const existingCameras = this.userDevices
+          .filter((d) => d.type === 'camera' && d.id !== device.id && d.settings)
+          .map((d) => ({
+            id: d.id,
+            classId: d.classId,
+            name: d.name,
+            width: Math.round(d.settings!.width!),
+            height: Math.round(d.settings!.height!),
+            frameRate: Math.round(d.settings!.frameRate!),
+          }));
+
+        await window.electron.updateVideoConfig([...existingCameras, cameraConfig], 'camera');
+      } else if (device.type === 'microphone') {
+        if (!device.settings.sampleRate || !device.settings.channelCount) {
+          throw new Error(`麦克风设备 ${device.name} 缺少必要的配置参数`);
+        }
+
+        const micConfig = {
+          id: device.id,
+          classId: device.classId,
+          name: device.name,
+          sampleRate: device.settings.sampleRate,
+          channelCount: device.settings.channelCount,
+        };
+
+        // 读取现有配置，更新或添加当前设备
+        const existingMics = this.userDevices
+          .filter((d) => d.type === 'microphone' && d.id !== device.id && d.settings)
+          .map((d) => ({
+            id: d.id,
+            classId: d.classId,
+            name: d.name,
+            sampleRate: d.settings!.sampleRate!,
+            channelCount: d.settings!.channelCount!,
+          }));
+
+        await window.electron.updateAudioConfig([...existingMics, micConfig]);
+      }
+    } catch (error) {
+      console.error(`保存设备 ${device.name} 配置失败:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 保存所有设备到配置文件（批量保存，用于就绪时或手动触发）
    */
   async saveAllDevicesToConfig(): Promise<void> {
     try {

@@ -71,14 +71,6 @@ export default class HomeView extends Vue {
     this.isReady = !this.isReady;
 
     if (this.isReady) {
-      // 每次准备就绪时保存设备配置（即使设备数量为0也要更新）
-      try {
-        await this.deviceManager.saveAllDevicesToConfig();
-        console.log('已保存设备配置到文件');
-      } catch (error) {
-        console.error('保存设备配置失败:', error);
-      }
-
       // 上报设备信息到服务器
       await this.reportDeviceState();
       window.electron.hasReady();
