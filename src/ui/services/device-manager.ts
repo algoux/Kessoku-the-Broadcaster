@@ -540,7 +540,7 @@ export class DeviceManager {
 
   openConfigDialog(device: Device) {
     this.currentConfigDevice = device;
-    
+
     // 根据设备类型初始化配置表单
     if (device.type === 'microphone') {
       this.configForm = {
@@ -729,7 +729,7 @@ export class DeviceManager {
           } else {
             this.currentConfigDevice.settings = originalSettings;
           }
-          
+
           // 恢复 capabilities
           if (originalCapabilities) {
             this.currentConfigDevice.capabilities = originalCapabilities;

@@ -128,7 +128,11 @@ export class WebSocketService {
 
       // 通知渲染进程连接状态变化
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+        ipcWebContentsSend(
+          'connection-state-changed',
+          this.mainWindow.webContents,
+          this.connectionState,
+        );
       }
     });
 
@@ -140,7 +144,11 @@ export class WebSocketService {
 
       // 通知渲染进程连接状态变化
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+        ipcWebContentsSend(
+          'connection-state-changed',
+          this.mainWindow.webContents,
+          this.connectionState,
+        );
       }
 
       // 如果之前已就绪，重新上报
@@ -157,7 +165,11 @@ export class WebSocketService {
 
       // 通知渲染进程连接状态变化
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+        ipcWebContentsSend(
+          'connection-state-changed',
+          this.mainWindow.webContents,
+          this.connectionState,
+        );
       }
     });
 
@@ -175,7 +187,11 @@ export class WebSocketService {
 
       // 通知渲染进程连接状态变化
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+        ipcWebContentsSend(
+          'connection-state-changed',
+          this.mainWindow.webContents,
+          this.connectionState,
+        );
       }
     });
 
@@ -192,7 +208,11 @@ export class WebSocketService {
 
         // 通知渲染进程连接状态变化
         if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-          ipcWebContentsSend('connection-state-changed', this.mainWindow.webContents, this.connectionState);
+          ipcWebContentsSend(
+            'connection-state-changed',
+            this.mainWindow.webContents,
+            this.connectionState,
+          );
         }
       } else {
         // 网络问题等，保持 connecting 状态继续重连
