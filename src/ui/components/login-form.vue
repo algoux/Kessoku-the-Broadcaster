@@ -82,11 +82,7 @@ export default class LoginForm extends Vue {
       <el-input v-model="form.userId" placeholder="请输入用户 ID" :disabled="isLoading" />
     </el-form-item>
     <el-form-item label="Token">
-      <el-input
-        v-model="form.token"
-        placeholder="请输入 Token"
-        :disabled="isLoading"
-      />
+      <el-input v-model="form.token" placeholder="请输入 Token" :disabled="isLoading" />
     </el-form-item>
     <el-form-item>
       <el-button
@@ -96,7 +92,7 @@ export default class LoginForm extends Vue {
         :disabled="!form.alias.trim() || !form.userId.trim() || !form.token.trim()"
         style="width: 100%"
       >
-        登陆
+        登录
       </el-button>
     </el-form-item>
   </el-form>

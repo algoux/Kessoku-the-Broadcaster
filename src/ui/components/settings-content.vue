@@ -119,7 +119,7 @@ export default class SettingsContent extends Vue {
           >
           <el-input
             v-model="appConfig.serviceURL"
-            placeholder="127.0.0.1:3000"
+            placeholder="http://127.0.0.1:3001"
             @blur="onServiceURLChange"
           />
         </div>
@@ -148,7 +148,7 @@ export default class SettingsContent extends Vue {
         </el-button>
       </div>
       <div class="settings-content-section">
-        <p class="settings-content-section-title">登陆设置</p>
+        <p class="settings-content-section-title">登录设置</p>
         <el-button type="danger" @click="handleLogout" class="option-button">登出</el-button>
       </div>
     </div>

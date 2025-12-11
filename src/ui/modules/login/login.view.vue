@@ -23,7 +23,7 @@ export default class LoginView extends Vue {
 
 <template>
   <div class="login-view">
-    <h1>登陆 Kessoku the Broadcaster</h1>
+    <h1>登录 Kessoku the Broadcaster</h1>
     <div class="login-form-container">
       <LoginForm />
     </div>

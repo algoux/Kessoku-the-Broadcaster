@@ -187,7 +187,7 @@ function setupIpcHandlers() {
         // 重新初始化 WebSocket 服务，确保使用最新的配置
         const config = configManager.getConfigData;
         webSocketService = new WebSocketService(
-          config.serviceURL || '127.0.0.1:3000',
+          config.serviceURL || 'http://127.0.0.1:3001',
           config.servicePath,
         );
 

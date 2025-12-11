@@ -63,8 +63,9 @@ export class WebSocketService {
         this.socket.disconnect();
       }
 
+      const url = `${this.serviceURL}${this.serviceURL.endsWith('/') ? '' : '/'}broadcaster`;
       // 创建 socket 连接，使用 auth 进行握手鉴权
-      this.socket = io(this.serviceURL, {
+      this.socket = io(url, {
         reconnection: true, // 启用自动重连
         reconnectionAttempts: Infinity, // 无限重连尝试
         reconnectionDelay: 1000, // 初始重连延迟 1 秒
@@ -78,32 +79,31 @@ export class WebSocketService {
         },
       });
 
-      // 先设置事件处理器
-      this.setupEventHandlers();
-
       // 连接成功
       this.socket.once('connect', () => {
         console.log('连接服务器成功:', this.socket.id);
         this.isConnected = true;
         this.connectionState = 'connected';
+
+        this.socket.off('connect_error');
+        // 设置事件处理器
+        this.setupEventHandlers();
+
         resolve(true);
       });
 
       // 首次连接失败
       this.socket.once('connect_error', (error: any) => {
-        console.log('首次连接失败:', error.message);
-
-        // 检查是否是认证失败
-        if (error.message && error.message.includes('认证失败')) {
-          console.error('认证失败，停止重连:', error.message);
-          this.connectionState = 'disconnected';
-          this.isConnected = false;
-          this.socket.disconnect(); // 停止自动重连
-          resolve(false);
-        } else {
-          // 网络问题等，继续重连
-          console.log('网络问题，继续重连');
+        console.log('连接错误:', error.message);
+        // 是否是来自服务器的逻辑错误
+        if (error.data && error.data.code) {
+          console.error('认证失败，停止重连:', error.data);
+          this.socket.disconnect();
         }
+
+        this.connectionState = 'disconnected';
+        this.isConnected = false;
+        resolve(false);
       });
     });
   }
@@ -197,14 +197,14 @@ export class WebSocketService {
 
     // 连接错误（持续监听 - 重连阶段的错误）
     this.socket.on('connect_error', (error: any) => {
-      console.log('连接错误:', error.message);
+      console.log('重连错误:', error.message);
 
-      // 检查是否是认证失败（服务器重启后可能 token 失效）
-      if (error.message && error.message.includes('认证失败')) {
-        console.error('认证失败，停止重连:', error.message);
+      // 是否是来自服务器的逻辑错误
+      if (error.data && error.data.code) {
+        console.error('认证失败，停止重连:', error.data);
         this.connectionState = 'disconnected';
         this.isConnected = false;
-        this.socket.disconnect(); // 停止自动重连
+        this.socket.disconnect();
 
         // 通知渲染进程连接状态变化
         if (this.mainWindow && !this.mainWindow.isDestroyed()) {
