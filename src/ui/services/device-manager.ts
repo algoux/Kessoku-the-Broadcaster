@@ -620,31 +620,31 @@ export class DeviceManager {
       // 计算缩放比例
       const scale = maxHeight / targetHeight;
 
-      // 计算对应的宽度
+      // 计算对应的宽度（保持纵横比）
       const calculatedWidth = maxWidth / scale;
+      const width = Math.round(calculatedWidth);
 
-      // 如果宽度是整数，则添加到预设列表
-      if (Number.isInteger(calculatedWidth)) {
-        const width = Math.round(calculatedWidth);
-        const key = `${width}x${targetHeight}`;
+      // 确保宽度合理（至少是偶数，视频编码器通常要求）
+      const adjustedWidth = width % 2 === 0 ? width : width - 1;
 
-        if (!presetSet.has(key)) {
-          let label = `${width} × ${targetHeight}`;
+      const key = `${adjustedWidth}x${targetHeight}`;
 
-          // 添加常见分辨率的标签
-          if (width === 1920 && targetHeight === 1080) {
-            label += ' (Full HD)';
-          } else if (width === 1280 && targetHeight === 720) {
-            label += ' (HD)';
-          } else if (width === 3840 && targetHeight === 2160) {
-            label += ' (4K)';
-          } else if (width === 2560 && targetHeight === 1440) {
-            label += ' (2K)';
-          }
+      if (!presetSet.has(key) && adjustedWidth > 0) {
+        let label = `${adjustedWidth} × ${targetHeight}`;
 
-          presets.push({ width, height: targetHeight, label });
-          presetSet.add(key);
+        // 添加常见分辨率的标签
+        if (adjustedWidth === 1920 && targetHeight === 1080) {
+          label += ' (Full HD)';
+        } else if (adjustedWidth === 1280 && targetHeight === 720) {
+          label += ' (HD)';
+        } else if (adjustedWidth === 3840 && targetHeight === 2160) {
+          label += ' (4K)';
+        } else if (adjustedWidth === 2560 && targetHeight === 1440) {
+          label += ' (2K)';
         }
+
+        presets.push({ width: adjustedWidth, height: targetHeight, label });
+        presetSet.add(key);
       }
     }
 

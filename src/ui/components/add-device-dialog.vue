@@ -19,6 +19,7 @@ interface DeviceSource {
   name: string;
   deviceId?: string;
   label?: string;
+  disabled?: boolean;
 }
 
 @Options({
@@ -53,30 +54,27 @@ export default class AddDeviceDialog extends Vue {
 
   get availableSources(): DeviceSource[] {
     if (this.deviceType === 'screen') {
-      return this.deviceManager.availableScreens
-        .filter((screen) => !this.deviceManager.userDevices.some((d) => d.id === screen.id))
-        .map((screen) => ({
-          id: screen.id,
-          name: screen.name,
-        }));
+      return this.deviceManager.availableScreens.map((screen) => ({
+        id: screen.id,
+        name: screen.name,
+        disabled: this.deviceManager.userDevices.some((d) => d.id === screen.id),
+      }));
     } else if (this.deviceType === 'camera') {
-      return this.deviceManager.availableCameras
-        .filter((camera) => !this.deviceManager.userDevices.some((d) => d.id === camera.deviceId))
-        .map((camera) => ({
-          id: camera.deviceId,
-          name: camera.label,
-          deviceId: camera.deviceId,
-          label: camera.label,
-        }));
+      return this.deviceManager.availableCameras.map((camera) => ({
+        id: camera.deviceId,
+        name: camera.label,
+        deviceId: camera.deviceId,
+        label: camera.label,
+        disabled: this.deviceManager.userDevices.some((d) => d.id === camera.deviceId),
+      }));
     } else if (this.deviceType === 'microphone') {
-      return this.deviceManager.availableMicrophones
-        .filter((mic) => !this.deviceManager.userDevices.some((d) => d.id === mic.deviceId))
-        .map((mic) => ({
-          id: mic.deviceId,
-          name: mic.label,
-          deviceId: mic.deviceId,
-          label: mic.label,
-        }));
+      return this.deviceManager.availableMicrophones.map((mic) => ({
+        id: mic.deviceId,
+        name: mic.label,
+        deviceId: mic.deviceId,
+        label: mic.label,
+        disabled: this.deviceManager.userDevices.some((d) => d.id === mic.deviceId),
+      }));
     }
     return [];
   }
@@ -92,8 +90,9 @@ export default class AddDeviceDialog extends Vue {
 
   mounted() {
     // 默认选择第一个未使用的设备源
-    if (this.availableSources.length > 0) {
-      this.addDeviceForm.deviceId = this.availableSources[0].id;
+    const availableSource = this.availableSources.find((s) => !s.disabled);
+    if (availableSource) {
+      this.addDeviceForm.deviceId = availableSource.id;
     }
 
     // 生成默认 classId
@@ -103,7 +102,7 @@ export default class AddDeviceDialog extends Vue {
   generateDefaultId() {
     // 检查该类型是否已经有设备
     const hasDevices = this.deviceManager.userDevices.some((d) => d.type === this.deviceType);
-    
+
     if (!hasDevices) {
       // 如果该类型还没有设备，使用 main
       this.addDeviceForm.classId = `${this.deviceType}_main`;
@@ -175,6 +174,7 @@ export default class AddDeviceDialog extends Vue {
             :key="source.id"
             :label="source.name"
             :value="source.id"
+            :disabled="source.disabled"
           />
         </el-select>
       </el-form-item>
