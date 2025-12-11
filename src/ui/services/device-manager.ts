@@ -5,6 +5,7 @@ import {
   DeviceCapabilities,
   ConfigForm,
   DeviceSettings,
+  ClassIdPattern,
 } from '@/typings/data';
 import { SimulcastConfig } from 'common/config.interface';
 
@@ -141,57 +142,111 @@ export class DeviceManager {
     return defautDevicesList;
   }
 
-  async addDevice(type: DeviceType): Promise<DeviceAddingRes> {
+  /**
+   * 添加设备
+   * @param type 设备类型
+   * @param deviceId 可选，指定设备的原始 ID（device.id），不指定则自动选择第一个未使用的设备
+   * @param classId 可选，自定义设备 classId（格式：`${type}_${string}`），不指定则自动生成
+   */
+  async addDevice<T extends DeviceType>(
+    type: T,
+    deviceId?: string,
+    classId?: ClassIdPattern<T>,
+  ): Promise<DeviceAddingRes> {
     try {
-      if (!this.canAddState[type]) {
-        return {
-          success: true,
-          code: 0,
-        };
-      }
-      let unUsedDevice: any;
-      if (type === 'screen') {
-        unUsedDevice = this.availableScreens.find(
-          (screen) => !this.userDevices.some((d) => d.id === screen.id && d.type === 'screen'),
-        );
-      } else if (type === 'camera') {
-        unUsedDevice = this.availableCameras.find(
-          (camera) =>
-            !this.userDevices.some((d) => d.id === camera.deviceId && d.type === 'camera'),
-        );
-      } else if (type === 'microphone') {
-        unUsedDevice = this.availableMicrophones.find(
-          (mic) => !this.userDevices.some((d) => d.id === mic.deviceId && d.type === 'microphone'),
-        );
+      let deviceInfo: any;
+      let finalDeviceId: string;
+
+      // 如果指定了 deviceId，使用指定的设备源
+      if (deviceId) {
+        if (type === 'screen') {
+          deviceInfo = this.availableScreens.find((s) => s.id === deviceId);
+          if (
+            !deviceInfo ||
+            this.userDevices.some((d) => d.id === deviceId && d.type === 'screen')
+          ) {
+            throw new Error('设备源不可用');
+          }
+          finalDeviceId = deviceId;
+        } else if (type === 'camera') {
+          deviceInfo = this.availableCameras.find((c) => c.deviceId === deviceId);
+          if (
+            !deviceInfo ||
+            this.userDevices.some((d) => d.id === deviceId && d.type === 'camera')
+          ) {
+            throw new Error('设备源不可用');
+          }
+          finalDeviceId = deviceInfo.deviceId;
+        } else if (type === 'microphone') {
+          deviceInfo = this.availableMicrophones.find((m) => m.deviceId === deviceId);
+          if (
+            !deviceInfo ||
+            this.userDevices.some((d) => d.id === deviceId && d.type === 'microphone')
+          ) {
+            throw new Error('设备源不可用');
+          }
+          finalDeviceId = deviceInfo.deviceId;
+        }
+      } else {
+        // 自动选择第一个未使用的设备
+        if (!this.canAddState[type]) {
+          return {
+            success: true,
+            code: 0,
+          };
+        }
+
+        if (type === 'screen') {
+          deviceInfo = this.availableScreens.find(
+            (screen) => !this.userDevices.some((d) => d.id === screen.id && d.type === 'screen'),
+          );
+        } else if (type === 'camera') {
+          deviceInfo = this.availableCameras.find(
+            (camera) =>
+              !this.userDevices.some((d) => d.id === camera.deviceId && d.type === 'camera'),
+          );
+        } else if (type === 'microphone') {
+          deviceInfo = this.availableMicrophones.find(
+            (mic) =>
+              !this.userDevices.some((d) => d.id === mic.deviceId && d.type === 'microphone'),
+          );
+        }
+
+        if (!deviceInfo) {
+          return {
+            success: true,
+            code: 0,
+          };
+        }
+
+        finalDeviceId = type === 'screen' ? deviceInfo.id : deviceInfo.deviceId;
       }
 
-      if (!unUsedDevice) {
-        return {
-          success: true,
-          code: 0,
-        };
-      }
-
-      const deviceId = type === 'screen' ? unUsedDevice.id : unUsedDevice.deviceId;
-      const device: Device = {
-        id: deviceId,
-        name: unUsedDevice.label,
+      const device: Device<T> = {
+        id: finalDeviceId,
+        name: deviceInfo.label || deviceInfo.name,
         type: type,
-        classId: this.getOrCreateClassId(deviceId, type),
+        classId: (classId || this.getOrCreateClassId(finalDeviceId, type)) as ClassIdPattern<T>,
         enabled: true,
         isDefault: false,
       };
 
+      // 如果使用了自定义 classId，保存映射
+      if (classId) {
+        this.deviceIdToClassIdMap.set(finalDeviceId, classId as any);
+      }
+
       await this.startDeviceStream(device);
       this.userDevices.push(device);
       this.updateCanAddState();
+
       return {
         success: true,
         code: 1,
         device: device,
       };
     } catch (error) {
-      throw new Error('添加设备失败');
+      throw new Error(`添加设备失败: ${(error as Error).message}`);
     }
   }
 
@@ -266,6 +321,7 @@ export class DeviceManager {
   async startDeviceStream(device: Device): Promise<Device> {
     try {
       let stream: MediaStream;
+      const hasPresetSettings = !!device.settings;
 
       if (device.type === 'screen') {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -279,18 +335,49 @@ export class DeviceManager {
           },
         });
       } else if (device.type === 'camera') {
+        const videoConstraints: any = {
+          deviceId: { exact: device.id },
+        };
+
+        // 如果有预设配置，应用它们
+        if (hasPresetSettings) {
+          if (device.settings.width) {
+            videoConstraints.width = { ideal: device.settings.width };
+          }
+          if (device.settings.height) {
+            videoConstraints.height = { ideal: device.settings.height };
+          }
+          if (device.settings.frameRate) {
+            videoConstraints.frameRate = {
+              ideal: device.settings.frameRate,
+              max: device.settings.frameRate,
+            };
+          }
+        } else {
+          videoConstraints.frameRate = { ideal: 60, max: 60 };
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: {
-            deviceId: { exact: device.id },
-            frameRate: { ideal: 60, max: 60 },
-          },
+          video: videoConstraints,
         });
       } else if (device.type == 'microphone') {
+        const audioConstraints: any = {
+          deviceId: device.id,
+        };
+
+        // 如果有预设配置，应用它们
+        if (hasPresetSettings) {
+          if (device.settings.sampleRate) {
+            audioConstraints.sampleRate = { ideal: device.settings.sampleRate };
+          }
+          if (device.settings.channelCount) {
+            audioConstraints.channelCount = { ideal: device.settings.channelCount };
+          }
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            deviceId: device.id,
-          },
+          audio: audioConstraints,
         });
       }
 
@@ -304,10 +391,13 @@ export class DeviceManager {
 
           if (!device.capabilities) device.capabilities = capabilities;
 
-          device.settings = {
-            sampleRate: rawSettings.sampleRate,
-            channelCount: rawSettings.channelCount,
-          };
+          // 如果没有预设配置，使用实际获取的设置
+          if (!hasPresetSettings) {
+            device.settings = {
+              sampleRate: rawSettings.sampleRate,
+              channelCount: rawSettings.channelCount,
+            };
+          }
           device.formatSetting = this.getFormatSettings(device);
         } else {
           const videoTrack = stream.getVideoTracks()[0];
@@ -321,17 +411,33 @@ export class DeviceManager {
             }
           }
 
-          device.settings = {
-            width: capabilities.width.max,
-            height: capabilities.height.max,
-            frameRate: device.type == 'screen' ? this.idealScreenFrameRate : rawSettings.frameRate,
-            aspectRatio: rawSettings.aspectRatio,
-            facingMode: rawSettings.facingMode,
-            maxFrameRate:
-              device.type == 'screen'
-                ? this.screenAvailableMaxFrameRate
-                : capabilities.frameRate.max,
-          };
+          // 如果没有预设配置，使用默认设置
+          if (!hasPresetSettings) {
+            device.settings = {
+              width: capabilities.width.max,
+              height: capabilities.height.max,
+              frameRate:
+                device.type == 'screen' ? this.idealScreenFrameRate : rawSettings.frameRate,
+              aspectRatio: rawSettings.aspectRatio,
+              facingMode: rawSettings.facingMode,
+              maxFrameRate:
+                device.type == 'screen'
+                  ? this.screenAvailableMaxFrameRate
+                  : capabilities.frameRate.max,
+            };
+          } else {
+            // 补充预设配置中缺失的字段
+            device.settings = {
+              ...device.settings,
+              aspectRatio: device.settings.aspectRatio || rawSettings.aspectRatio,
+              facingMode: device.settings.facingMode || rawSettings.facingMode,
+              maxFrameRate:
+                device.settings.maxFrameRate ||
+                (device.type == 'screen'
+                  ? this.screenAvailableMaxFrameRate
+                  : capabilities.frameRate.max),
+            };
+          }
           console.log('Device settings:', device.name, device.settings);
           device.formatSetting = this.getFormatSettings(device);
         }
@@ -447,11 +553,91 @@ export class DeviceManager {
         maxFramerate: 60,
       },
     };
-    this.selectedPreset = '';
+
+    // 根据当前设备分辨率匹配预设
+    const currentWidth = Math.round(device.settings.width);
+    const currentHeight = Math.round(device.settings.height);
+    const presets = this.getResolutionPresets();
+    const matchedPreset = presets.find(
+      (p) => p.width === currentWidth && p.height === currentHeight,
+    );
+
+    this.selectedPreset = matchedPreset
+      ? JSON.stringify({ width: matchedPreset.width, height: matchedPreset.height })
+      : '';
+
     return {
       success: true,
       message: '配置对话框已打开',
     };
+  }
+
+  /**
+   * 生成分辨率预设列表
+   * 基于当前设备的最大分辨率和常用高度列表计算
+   */
+  getResolutionPresets(): Array<{ width: number; height: number; label: string }> {
+    if (!this.currentConfigDevice?.capabilities?.width) {
+      return [];
+    }
+
+    const maxWidth = Math.round(this.currentConfigDevice.capabilities.width.max);
+    const maxHeight = Math.round(this.currentConfigDevice.capabilities.height.max);
+
+    // 常用高度列表（从大到小排序，大多数显示器都是 16:9）
+    const commonHeights = [2160, 1800, 1440, 1200, 1080, 900, 768, 720];
+
+    const presets: Array<{ width: number; height: number; label: string }> = [];
+    const presetSet = new Set<string>(); // 用于去重
+
+    // 添加当前渲染分辨率（最大分辨率）
+    const maxKey = `${maxWidth}x${maxHeight}`;
+    presets.push({
+      width: maxWidth,
+      height: maxHeight,
+      label: `${maxWidth} × ${maxHeight} (最高分辨率)`,
+    });
+    presetSet.add(maxKey);
+
+    // 遍历常用高度列表，计算对应的宽度
+    for (const targetHeight of commonHeights) {
+      if (targetHeight >= maxHeight) continue; // 跳过大于等于最大高度的
+
+      // 计算缩放比例
+      const scale = maxHeight / targetHeight;
+
+      // 计算对应的宽度
+      const calculatedWidth = maxWidth / scale;
+
+      // 如果宽度是整数，则添加到预设列表
+      if (Number.isInteger(calculatedWidth)) {
+        const width = Math.round(calculatedWidth);
+        const key = `${width}x${targetHeight}`;
+
+        if (!presetSet.has(key)) {
+          let label = `${width} × ${targetHeight}`;
+
+          // 添加常见分辨率的标签
+          if (width === 1920 && targetHeight === 1080) {
+            label += ' (Full HD)';
+          } else if (width === 1280 && targetHeight === 720) {
+            label += ' (HD)';
+          } else if (width === 3840 && targetHeight === 2160) {
+            label += ' (4K)';
+          } else if (width === 2560 && targetHeight === 1440) {
+            label += ' (2K)';
+          }
+
+          presets.push({ width, height: targetHeight, label });
+          presetSet.add(key);
+        }
+      }
+    }
+
+    // 按高度从大到小排序
+    presets.sort((a, b) => b.height - a.height);
+
+    return presets;
   }
 
   applyPreset = (presetStr: string) => {

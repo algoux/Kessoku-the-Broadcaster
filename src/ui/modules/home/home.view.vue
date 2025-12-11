@@ -18,6 +18,7 @@ import HomeHeader from '@/components/home-header.vue';
 import SettingsIcon from '@/components/svgs/settings.vue';
 import DeviceCard from '@/components/device-card.vue';
 import ConfigDialog from '@/components/config-dialog.vue';
+import AddDeviceDialog from '@/components/add-device-dialog.vue';
 import SettingsButton from '@/components/settings-button.vue';
 
 @Options({
@@ -31,6 +32,7 @@ import SettingsButton from '@/components/settings-button.vue';
     SettingsIcon,
     DeviceCard,
     ConfigDialog,
+    AddDeviceDialog,
     SettingsButton,
   },
 })
@@ -39,6 +41,12 @@ export default class HomeView extends Vue {
 
   @Provide({ reactive: true })
   configDialogVisible = false;
+
+  @Provide({ reactive: true })
+  addDeviceDialogVisible = false;
+
+  @Provide({ reactive: true })
+  currentAddDeviceType: DeviceType | null = null;
 
   @Provide({ reactive: true })
   deviceManager: DeviceManager = reactive(new DeviceManager()) as DeviceManager;
@@ -206,29 +214,53 @@ export default class HomeView extends Vue {
 
   @Provide()
   async addDevice(type: DeviceType) {
+    this.currentAddDeviceType = type;
+    this.addDeviceDialogVisible = true;
+  }
+
+  @Provide()
+  closeAddDeviceDialog() {
+    this.addDeviceDialogVisible = false;
+    this.currentAddDeviceType = null;
+  }
+
+  async handleConfirmAddDevice(data: { classId: string; deviceId: string }) {
+    if (!this.currentAddDeviceType) return;
+
+    // 保存设备类型，因为 closeAddDeviceDialog 会将其设置为 null
+    const deviceType = this.currentAddDeviceType;
+
     try {
       const loading = ElLoading.service({
         lock: true,
-        text: `正在添加${this.deviceTypeName(type)}..`,
+        text: `正在添加${this.deviceTypeName(deviceType)}..`,
         background: 'rgba(0, 0, 0, 0.7)',
       });
-      let data = await this.deviceManager.addDevice(type);
-      loading.close();
 
-      if (data.code) {
-        this.showMessage(`已添加${this.deviceTypeName(type)}`, 'primary');
-        if (data.device.type == 'camera' || data.device.type == 'screen') {
-          await this.updateVideoElement(data.device);
-          await this.recorderService.startRollingRecord(data.device);
+      const result = await this.deviceManager.addDevice(
+        deviceType,
+        data.deviceId,
+        data.classId as any,
+      );
+
+      loading.close();
+      this.closeAddDeviceDialog();
+
+      if (result.code) {
+        this.showMessage(`已添加${this.deviceTypeName(deviceType)}`, 'primary');
+        if (result.device.type === 'camera' || result.device.type === 'screen') {
+          await this.updateVideoElement(result.device);
+          await this.recorderService.startRollingRecord(result.device);
         }
       } else {
-        this.showMessage(`所有${this.deviceTypeName(type)}已添加`, 'info');
+        this.showMessage(`添加设备失败`, 'error');
       }
     } catch (error) {
       this.showMessage(
-        `添加${this.deviceTypeName(type)}失败: ${(error as Error).message}`,
+        `添加${this.deviceTypeName(deviceType)}失败: ${(error as Error).message}`,
         'error',
       );
+      this.closeAddDeviceDialog();
     }
   }
 
@@ -236,6 +268,11 @@ export default class HomeView extends Vue {
   @Provide()
   removeDevice(device: Device) {
     try {
+      // 如果正在配置这个设备，关闭配置对话框
+      if (this.configDialogVisible && this.deviceManager.currentConfigDevice === device) {
+        this.configDialogVisible = false;
+      }
+
       this.stopDeviceStream(device);
       this.deviceManager.removeDevice(device);
       this.showMessage(`已移除设备 ${device.name}`, 'primary');
@@ -400,6 +437,12 @@ export default class HomeView extends Vue {
       </div>
     </main>
     <config-dialog :device-manager="deviceManager" @save="saveDeviceConfig" />
+    <add-device-dialog
+      v-if="currentAddDeviceType"
+      :device-manager="deviceManager"
+      :device-type="currentAddDeviceType"
+      @confirm="handleConfirmAddDevice"
+    />
   </div>
 </template>
 

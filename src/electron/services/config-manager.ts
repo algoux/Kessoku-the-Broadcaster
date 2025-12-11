@@ -68,7 +68,7 @@ export class ConfigManager {
         JSON.stringify(
           {
             version: app.getVersion(),
-            serviceURL: '127.0.0.1:3000',
+            serviceURL: 'http://127.0.0.1:3001',
             servicePath: undefined,
             appConfig: {
               autoOpenOnLogin: false,
@@ -135,6 +135,11 @@ export class ConfigManager {
       ...this.configData.userConfig,
       ...data,
     };
+    this.saveConfig();
+  }
+
+  clearUserConfig() {
+    this.configData.userConfig = {};
     this.saveConfig();
   }
 

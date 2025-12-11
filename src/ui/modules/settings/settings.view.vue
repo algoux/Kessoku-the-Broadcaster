@@ -26,6 +26,5 @@ export default class SettingsView extends Vue {}
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: var(--bg-secondary-color);
 }
 </style>

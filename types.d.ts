@@ -6,6 +6,7 @@ import {
   VideoConfig,
   AudioConfig,
   RequestStartBroadcast,
+  GetPlatformInfoDTO,
 } from 'common/config.interface';
 
 import { Resp, ContestInfo } from './src/common/types/broadcaster.types';
@@ -20,6 +21,7 @@ declare global {
 
     // WebSocket 相关事件
     login: { success: boolean; error?: string };
+    logout: { success: boolean };
     openSettingsWindow: void;
     'get-connection-status': 'connected' | 'disconnected' | 'connecting';
     'get-contest-info': Resp<ContestInfo>;
@@ -70,11 +72,14 @@ declare global {
     'window-minimize': void;
     'window-maximize': void;
     'window-close': void;
+
+    getPlatformInfo: GetPlatformInfoDTO;
   };
 
   // 扩展 Window 接口
   interface Window {
     electron: {
+      getPlatformInfo: () => Promise<GetPlatformInfoDTO>;
       getSources: () => Promise<Electron.DesktopCapturerSource[]>;
       saveVideo: (arrayBuffer: ArrayBuffer) => Promise<string | null>;
       setWindowTitle: (title: string) => void;
@@ -86,6 +91,7 @@ declare global {
         userId: string,
         token: string,
       ) => Promise<{ success: boolean; error?: string }>;
+      logout: () => Promise<{ success: boolean; error?: string }>;
       getConnectionStatus: () => Promise<'connected' | 'disconnected' | 'connecting'>;
       getContestInfo: () => Promise<Resp<ContestInfo>>;
       connectProducerTransport: (transportId: string | null, dtlsParameters: any) => Promise<void>;

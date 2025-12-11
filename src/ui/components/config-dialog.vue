@@ -112,26 +112,12 @@ export default class ConfigDialog extends Vue {
           placeholder="选择预设"
           @change="deviceManager.applyPreset"
         >
-          <el-option label="自定义" value="" />
           <el-option
-            :label="`${Math.round(deviceManager.currentConfigDevice.capabilities.width.max)} × ${Math.round(deviceManager.currentConfigDevice.capabilities.height.max)} (最高分辨率)`"
-            :value="
-              JSON.stringify({
-                width: Math.round(deviceManager.currentConfigDevice.capabilities.width.max),
-                height: Math.round(deviceManager.currentConfigDevice.capabilities.height.max),
-              })
-            "
+            v-for="preset in deviceManager.getResolutionPresets()"
+            :key="`${preset.width}x${preset.height}`"
+            :label="preset.label"
+            :value="JSON.stringify({ width: preset.width, height: preset.height })"
           />
-          <el-option
-            label="1920 × 1080 (Full HD)"
-            :value="JSON.stringify({ width: 1920, height: 1080 })"
-          />
-          <el-option
-            label="1280 × 720 (HD)"
-            :value="JSON.stringify({ width: 1280, height: 720 })"
-          />
-          <el-option label="854 × 480 (SD)" :value="JSON.stringify({ width: 854, height: 480 })" />
-          <el-option label="640 × 360" :value="JSON.stringify({ width: 640, height: 360 })" />
         </el-select>
       </el-form-item>
 

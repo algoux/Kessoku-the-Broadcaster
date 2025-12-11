@@ -28,6 +28,7 @@ export default class SettingsNav extends Vue {}
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
+  background-color: var(--bg-secondary-color);
   & .settings-button {
     width: 85%;
     height: 40px;

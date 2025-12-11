@@ -15,7 +15,7 @@ export interface DeviceSettings {
 
 export type DeviceType = 'screen' | 'camera' | 'microphone';
 
-type ClassIdPattern<T extends DeviceType> = T extends 'screen'
+export type ClassIdPattern<T extends DeviceType> = T extends 'screen'
   ? `screen_${string}`
   : T extends 'camera'
     ? `camera_${string}`

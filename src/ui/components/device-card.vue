@@ -1,13 +1,10 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import { Inject, Prop, Ref } from 'vue-property-decorator';
-import { DeviceManager } from '@/services/device-manager';
 import { DeviceType, Device } from '@/typings/data';
 
 import SettingsIcon from './svgs/settings.vue';
 import Trash from './svgs/trash.vue';
-import VisibleIcon from './svgs/visible.vue';
-import InvisibleIcon from './svgs/invisible.vue';
 import Mic from './svgs/mic.vue';
 
 import { ElCard, ElButton, ElIcon } from 'element-plus';
@@ -20,8 +17,6 @@ import { Component } from 'vue';
     ElIcon,
     SettingsIcon,
     Trash,
-    VisibleIcon,
-    InvisibleIcon,
     Mic,
   },
 })
@@ -82,10 +77,6 @@ export default class DeviceCard extends Vue {
             <h3>{{ device.classId }}</h3>
             <span class="device-type">{{ device.name }}</span>
           </div>
-        </div>
-        <div class="device-badges">
-          <visible-icon v-if="device.enabled" style="width: 20px" />
-          <invisible-icon v-else style="width: 20px" />
         </div>
       </div>
     </template>
@@ -202,12 +193,6 @@ export default class DeviceCard extends Vue {
           color: var(--font-secondary-color);
         }
       }
-    }
-
-    .device-badges {
-      display: flex;
-      gap: 6px;
-      flex-shrink: 0;
     }
   }
 

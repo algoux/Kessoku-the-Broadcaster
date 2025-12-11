@@ -339,6 +339,27 @@ function setupIpcHandlers() {
     return await videoRecordingService.cutVideo(classId, startTime, endTime);
   });
 
+  // 登出
+  ipcMainHandle('logout', async () => {
+    try {
+      // 1. 向服务端发送 cancelReady 事件
+      if (webSocketService) {
+        await webSocketService.cancelReady();
+      }
+
+      // 2. 清空本地配置文件的 userConfig 字段
+      configManager.clearUserConfig();
+
+      // 3. 退出应用
+      app.quit();
+
+      return { success: true };
+    } catch (error) {
+      log.error('登出失败:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  });
+
   // 读取视频文件
   ipcMainHandle('read-video-file', async (filePath: string) => {
     try {
@@ -411,6 +432,13 @@ function setupIpcHandlers() {
     configManager.updateGlobalConfig(data);
   });
 
+  ipcMainHandle('getPlatformInfo', async () => {
+    return {
+      platform: process.platform,
+      arch: process.arch,
+    };
+  });
+
   // 窗口控制
   ipcMainOn('window-minimize', () => {
     const win = BrowserWindow.getFocusedWindow();
@@ -463,9 +491,6 @@ app.whenReady().then(async () => {
 
   // 尝试自动登录
   const appConfig = configManager.getConfigData;
-  if (!appConfig.servicePath) {
-    configManager.updateGlobalConfig({ serviceURL: '127.0.0.1:3000' });
-  }
   const alias = appConfig?.competitionConfig?.alias;
   const userId = appConfig?.userConfig?.userId;
   const token = appConfig?.userConfig?.broadcasterToken;
@@ -477,7 +502,7 @@ app.whenReady().then(async () => {
     // 初始化 WebSocket 服务
     if (!webSocketService) {
       webSocketService = new WebSocketService(
-        configManager.getConfigData.serviceURL || '127.0.0.1:3000',
+        configManager.getConfigData.serviceURL || 'http://127.0.0.1:3001',
         configManager.getConfigData.servicePath,
       );
     }

@@ -1,6 +1,11 @@
 // 导入 Broadcaster 类型定义
 import type { SimulcastConfig } from './types/broadcaster.types';
 
+export interface GetPlatformInfoDTO {
+  platform: NodeJS.Platform;
+  arch: string;
+}
+
 export type { SimulcastConfig };
 
 export interface VideoConfig {

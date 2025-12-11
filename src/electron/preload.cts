@@ -120,6 +120,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   clearVideoCache: () => {
     return ipcInvoke('clearVideoCache');
   },
+  logout: () => {
+    return ipcInvoke('logout');
+  },
   // 窗口控制
   minimizeWindow: () => {
     ipcSend('window-minimize');
@@ -129,6 +132,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   },
   closeWindow: () => {
     ipcSend('window-close');
+  },
+  getPlatformInfo: () => {
+    return ipcInvoke('getPlatformInfo');
   },
 } satisfies Window['electron']);
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import { ElCheckbox, ElInput, ElButton } from 'element-plus';
+import { GetPlatformInfoDTO } from 'common/config.interface';
 
 @Options({
   components: {
@@ -14,7 +15,7 @@ export default class SettingsContent extends Vue {
     autoOpenOnLogin: false,
     autoReady: false,
     videoCachePath: '',
-    serviceURL: '127.0.0.1:3000',
+    serviceURL: '',
     servicePath: '',
   };
 
@@ -27,9 +28,9 @@ export default class SettingsContent extends Vue {
     this.appConfig = {
       autoOpenOnLogin: config.appConfig?.autoOpenOnLogin ?? false,
       autoReady: config.appConfig?.autoReady ?? false,
-      videoCachePath: config.appConfig?.videoCachePath ?? '',
-      serviceURL: config.serviceURL ?? '127.0.0.1:3000',
-      servicePath: config.servicePath ?? '',
+      videoCachePath: config.appConfig?.videoCachePath,
+      serviceURL: config.serviceURL,
+      servicePath: config.servicePath,
     };
   }
 
@@ -84,6 +85,17 @@ export default class SettingsContent extends Vue {
       alert(`清理失败: ${result.error || '未知错误'}`);
     }
   }
+
+  async handleLogout() {
+    try {
+      const result = await window.electron.logout();
+      if (!result.success) {
+        alert(`登出失败: ${result.error || '未知错误'}`);
+      }
+    } catch (error) {
+      alert(`登出失败: ${(error as Error).message}`);
+    }
+  }
 }
 </script>
 
@@ -102,13 +114,7 @@ export default class SettingsContent extends Vue {
       <div class="settings-content-section">
         <p class="settings-content-section-title">服务配置</p>
         <div class="path-input-wrapper">
-          <label
-            style="
-              display: block;
-              margin-bottom: 5px;
-              font-size: 14px;
-              color: var(--font-secondary-color);
-            "
+          <label style="display: block; font-size: 14px; color: var(--font-secondary-color)"
             >Service URL</label
           >
           <el-input
@@ -117,19 +123,13 @@ export default class SettingsContent extends Vue {
             @blur="onServiceURLChange"
           />
         </div>
-        <div class="path-input-wrapper" style="margin-top: 10px">
-          <label
-            style="
-              display: block;
-              margin-bottom: 5px;
-              font-size: 14px;
-              color: var(--font-secondary-color);
-            "
+        <div class="path-input-wrapper">
+          <label style="display: block; font-size: 14px; color: var(--font-secondary-color)"
             >Service Path (可选)</label
           >
           <el-input
             v-model="appConfig.servicePath"
-            placeholder="例如: /api"
+            placeholder="例如: /path/socket.io"
             @blur="onServicePathChange"
           />
         </div>
@@ -143,33 +143,40 @@ export default class SettingsContent extends Vue {
             @blur="onVideoCachePathChange"
           />
         </div>
-        <el-button type="danger" @click="clearCache" style="width: 200px; margin-top: 10px">
+        <el-button type="danger" @click="clearCache" class="option-button">
           清理本地视频缓存
         </el-button>
+      </div>
+      <div class="settings-content-section">
+        <p class="settings-content-section-title">登陆设置</p>
+        <el-button type="danger" @click="handleLogout" class="option-button">登出</el-button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped lang="less">
+.option-button {
+  width: fit-content;
+  padding: 0 20px;
+}
+
 .settings-content {
   width: 70%;
   height: 100%;
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 5px;
   &-box {
     width: 100%;
     height: 100%;
     margin: auto;
     background-color: var(--bg-primary-color);
-    border-radius: 10px;
     padding-top: 40px;
     padding-left: 20px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 25px;
   }
 
   &-section {
@@ -177,8 +184,13 @@ export default class SettingsContent extends Vue {
     height: auto;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     color: var(--font-primary-color);
+
+    &-title {
+      font-size: 18px;
+      font-weight: bold;
+    }
   }
 
   .path-input-wrapper {
