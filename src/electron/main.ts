@@ -189,6 +189,7 @@ function setupIpcHandlers() {
         webSocketService = new WebSocketService(
           config.serviceURL || 'http://127.0.0.1:3001',
           config.servicePath,
+          config.clientId,
         );
 
         // 使用传入的参数进行连接
@@ -504,6 +505,7 @@ app.whenReady().then(async () => {
       webSocketService = new WebSocketService(
         configManager.getConfigData.serviceURL || 'http://127.0.0.1:3001',
         configManager.getConfigData.servicePath,
+        configManager.getConfigData.clientId,
       );
     }
 

@@ -22,6 +22,7 @@ export class WebSocketService {
   private isConnected: boolean = false;
   private connectionState: 'connected' | 'disconnected' | 'connecting' = 'disconnected';
   private servicePath: string | undefined = undefined;
+  private clientId: string;
 
   // 鉴权信息
   private alias!: string;
@@ -32,9 +33,10 @@ export class WebSocketService {
   private lastTracks: TrackInfo[] = [];
   private isReady: boolean = false;
 
-  constructor(serviceURL: string, servicePath?: string) {
+  constructor(serviceURL: string, servicePath?: string, clientId?: string) {
     this.serviceURL = serviceURL;
     this.servicePath = servicePath;
+    this.clientId = clientId;
   }
 
   setMainWindow(mainWindow: BrowserWindow) {
@@ -73,6 +75,7 @@ export class WebSocketService {
         timeout: 10000, // 连接超时 10 秒
         path: this.servicePath,
         auth: {
+          id: this.clientId,
           alias: this.alias,
           userId: this.userId,
           broadcasterToken: this.token,

@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { app } from 'electron';
+import { v4 as uuidv4 } from 'uuid';
 
 export class ConfigManager {
   protected configPath: string = os.homedir() + '/.Kessoku-the-Broadcaster/config.json';
@@ -70,6 +71,7 @@ export class ConfigManager {
             version: app.getVersion(),
             serviceURL: 'http://127.0.0.1:3001',
             servicePath: undefined,
+            clientId: uuidv4().substring(0, 18),
             appConfig: {
               autoOpenOnLogin: false,
               autoReady: false,

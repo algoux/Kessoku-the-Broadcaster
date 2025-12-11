@@ -29,6 +29,7 @@ export interface AudioConfig {
 
 export interface AppConfigInterface {
   version: string;
+  clientId: string;
   serviceURL: string | undefined;
   servicePath: string | undefined;
   appConfig: {
