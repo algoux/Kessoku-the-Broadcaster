@@ -225,7 +225,7 @@ export class WebSocketService {
 
     // 请求开始推流
     this.socket.on('requestStartBroadcast', (data: RequestStartBroadcast) => {
-      console.log('收到推流请求:', data.trackIds);
+      console.log('收到推流请求:', data);
       // 将完整的数据发送到渲染进程
       ipcWebContentsSend('start-streaming-request', this.mainWindow.webContents, {
         classIds: data.trackIds, // trackIds 作为 classIds 传递，保持兼容
@@ -342,7 +342,9 @@ export class WebSocketService {
         return;
       }
 
+      console.log('completeConnectTransport params:', params);
       this.socket.emit('completeConnectTransport', params, (resp: Resp) => {
+        console.log('completeConnectTransport resp:', resp);
         resolve(resp);
       });
     });
@@ -361,7 +363,9 @@ export class WebSocketService {
         return;
       }
 
+      console.log('produce params:', params);
       this.socket.emit('produce', params, (resp: Resp<ProduceResponse>) => {
+        console.log('produce resp:', resp);
         resolve(resp);
       });
     });

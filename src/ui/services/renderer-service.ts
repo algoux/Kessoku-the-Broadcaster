@@ -82,6 +82,7 @@ export class RendererService {
 
       // 推送所有流
       for (const data of streamData) {
+        console.log('produce stream data:', data);
         await this.mediasoupClient.produceStream(data.stream, data.classId, data.simulcastConfigs);
       }
     } catch (error) {
