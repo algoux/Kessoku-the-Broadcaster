@@ -355,14 +355,32 @@ export class DeviceManager {
       const hasPresetSettings = !!device.settings;
 
       if (device.type === 'screen') {
+        const mandatory: any = {
+          chromeMediaSource: 'desktop',
+          chromeMediaSourceId: device.id,
+        };
+
+        // 如果有预设配置，应用它们
+        if (hasPresetSettings) {
+          if (device.settings.width) {
+            mandatory.minWidth = device.settings.width;
+            mandatory.maxWidth = device.settings.width;
+          }
+          if (device.settings.height) {
+            mandatory.minHeight = device.settings.height;
+            mandatory.maxHeight = device.settings.height;
+          }
+          if (device.settings.frameRate) {
+            mandatory.minFrameRate = device.settings.frameRate;
+            mandatory.maxFrameRate = device.settings.frameRate;
+          }
+        }
+
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
           video: {
             // @ts-ignore
-            mandatory: {
-              chromeMediaSource: 'desktop',
-              chromeMediaSourceId: device.id,
-            },
+            mandatory,
           },
         });
       } else if (device.type === 'camera') {
