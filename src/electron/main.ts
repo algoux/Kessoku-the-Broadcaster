@@ -187,7 +187,7 @@ function setupIpcHandlers() {
         // 重新初始化 WebSocket 服务，确保使用最新的配置
         const config = configManager.getConfigData;
         webSocketService = new WebSocketService(
-          config.serviceURL || 'https://rl-broadcaster-hub.algoux.cn',
+          config.serviceURL || 'https://rl-broadcast-hub.algoux.cn',
           config.servicePath,
           config.clientId,
         );
@@ -508,7 +508,7 @@ app.whenReady().then(async () => {
     // 初始化 WebSocket 服务
     if (!webSocketService) {
       webSocketService = new WebSocketService(
-        configManager.getConfigData.serviceURL || 'https://rl-broadcaster-hub.algoux.cn',
+        configManager.getConfigData.serviceURL || 'https://rl-broadcast-hub.algoux.cn',
         configManager.getConfigData.servicePath,
         configManager.getConfigData.clientId,
       );

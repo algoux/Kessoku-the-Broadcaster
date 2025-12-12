@@ -119,7 +119,7 @@ export default class SettingsContent extends Vue {
           >
           <el-input
             v-model="appConfig.serviceURL"
-            placeholder="https://rl-broadcaster-hub.algoux.cn"
+            placeholder="https://rl-broadcast-hub.algoux.cn"
             @blur="onServiceURLChange"
           />
         </div>

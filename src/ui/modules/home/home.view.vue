@@ -119,7 +119,9 @@ export default class HomeView extends Vue {
 
       // 设置推流请求回调（支持按 classId 选择设备）
       this.rendererService.onStreamingRequest = async (data) => {
+        console.log('onStreamingRequest:', data);
         const mediastreamings = await this.deviceManager.getEnableStreams(data.classIds);
+        console.log('mediastreamings:', mediastreamings);
         // 将 transport 和 rtpCapabilities 传递给 startStreaming
         await this.rendererService.startStreaming(mediastreamings, {
           transport: data.transport,
