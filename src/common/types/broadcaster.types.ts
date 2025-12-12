@@ -200,6 +200,7 @@ export interface ProduceParams {
   kind: 'audio' | 'video';
   rtpParameters: any;
   appData?: any;
+  trackId: string; // 设备的 classId，用于标识推流来源
 }
 
 /**

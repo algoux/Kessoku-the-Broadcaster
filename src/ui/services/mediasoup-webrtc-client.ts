@@ -76,7 +76,11 @@ export class MediasoupClient {
   }
 
   // 推送视频流
-  async produceVideo(track: MediaStreamTrack, simulcastConfigs?: SimulcastConfig[]): Promise<void> {
+  async produceVideo(
+    track: MediaStreamTrack,
+    classId: string,
+    simulcastConfigs?: SimulcastConfig[],
+  ): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
 
     try {
@@ -111,6 +115,7 @@ export class MediasoupClient {
         codecOptions: {
           videoGoogleStartBitrate: 8000,
         },
+        appData: { classId }, // 传递 classId
       });
 
       // 将 producer 存储到 Map 中
@@ -124,10 +129,10 @@ export class MediasoupClient {
   }
 
   // 推送音频流
-  async produceAudio(track: MediaStreamTrack): Promise<void> {
+  async produceAudio(track: MediaStreamTrack, classId: string): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
     try {
-      const producer = await this.producerTransport.produce({ track });
+      const producer = await this.producerTransport.produce({ track, appData: { classId } });
       // 将 producer 存储到 Map 中
       this.producers.set(producer.id, producer);
       console.log(`音频推流成功: producerId=${producer.id}`);
@@ -138,14 +143,18 @@ export class MediasoupClient {
   }
 
   // 推送整个 MediaStream
-  async produceStream(stream: MediaStream, simulcastConfigs?: SimulcastConfig[]): Promise<void> {
+  async produceStream(
+    stream: MediaStream,
+    classId: string,
+    simulcastConfigs?: SimulcastConfig[],
+  ): Promise<void> {
     const videoTrack = stream.getVideoTracks()[0];
     const audioTrack = stream.getAudioTracks()[0];
     if (videoTrack) {
-      await this.produceVideo(videoTrack, simulcastConfigs);
+      await this.produceVideo(videoTrack, classId, simulcastConfigs);
     }
     if (audioTrack) {
-      await this.produceAudio(audioTrack);
+      await this.produceAudio(audioTrack, classId);
     }
   }
 

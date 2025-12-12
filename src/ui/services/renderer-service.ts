@@ -66,7 +66,7 @@ export class RendererService {
 
   // 开始推流
   async startStreaming(
-    streamData: Array<{ stream: MediaStream; simulcastConfigs?: any[] }>,
+    streamData: Array<{ stream: MediaStream; classId: string; simulcastConfigs?: any[] }>,
     broadcasterData: { transport: any; routerRtpCapabilities: any },
   ) {
     if (!this.mediasoupClient) {
@@ -82,7 +82,7 @@ export class RendererService {
 
       // 推送所有流
       for (const data of streamData) {
-        await this.mediasoupClient.produceStream(data.stream, data.simulcastConfigs);
+        await this.mediasoupClient.produceStream(data.stream, data.classId, data.simulcastConfigs);
       }
     } catch (error) {
       throw error;

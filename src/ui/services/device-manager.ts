@@ -527,12 +527,16 @@ export class DeviceManager {
         }
       }
 
-      const enabledStreams: Array<{ stream: MediaStream; simulcastConfigs?: SimulcastConfig[] }> =
-        [];
+      const enabledStreams: Array<{
+        stream: MediaStream;
+        classId: string;
+        simulcastConfigs?: SimulcastConfig[];
+      }> = [];
       for (const device of devicesToStream) {
         if (device.stream) {
           enabledStreams.push({
             stream: device.stream,
+            classId: device.classId,
             simulcastConfigs:
               device.type !== 'microphone' ? device.settings?.simulcastConfigs : undefined,
           });
