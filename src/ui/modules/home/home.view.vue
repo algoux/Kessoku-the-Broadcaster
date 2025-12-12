@@ -300,22 +300,22 @@ export default class HomeView extends Vue {
         text: '保存设备配置中...',
         background: 'rgba(0, 0, 0, 0.7)',
       });
-      
+
       // 检查设备是否正在录制
       const device = this.deviceManager.currentConfigDevice;
       const isRecording = this.recorderService.rollingRecordsMap.has(device.classId);
-      
+
       const { updateDevice, updateIndex } = await this.deviceManager.saveDeviceConfig();
       this.configDialogVisible = false;
       this.deviceCards[updateIndex].updateFormatSetting();
       this.updateVideoElement(updateDevice);
-      
+
       // 如果设备之前正在录制，使用新的流重新启动录制
       if (isRecording) {
         console.log(`设备 ${updateDevice.name} 配置已更新，重新启动录制`);
         await this.recorderService.startRollingRecord(updateDevice);
       }
-      
+
       loading.close();
 
       this.showMessage('设备配置已更新', 'primary');
