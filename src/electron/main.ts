@@ -267,7 +267,10 @@ function setupIpcHandlers() {
       throw new Error('WebSocket 服务未初始化');
     }
     // 从 appData 中提取 classId 作为 trackId
-    const trackId = appData?.classId || '';
+    const trackId = appData.classId;
+    if (!trackId) {
+      throw new Error('缺少 trackId（classId）');
+    }
     const resp = await webSocketService.produce({ kind, rtpParameters, appData, trackId });
     if (!resp.success) {
       throw new Error((resp as any).msg || '推流失败');
