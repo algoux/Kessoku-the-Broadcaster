@@ -187,7 +187,7 @@ function setupIpcHandlers() {
         // 重新初始化 WebSocket 服务，确保使用最新的配置
         const config = configManager.getConfigData;
         webSocketService = new WebSocketService(
-          config.serviceURL || 'http://127.0.0.1:3001',
+          config.serviceURL || 'https://rl-broadcaster-hub.algoux.cn',
           config.servicePath,
           config.clientId,
         );
@@ -508,7 +508,7 @@ app.whenReady().then(async () => {
     // 初始化 WebSocket 服务
     if (!webSocketService) {
       webSocketService = new WebSocketService(
-        configManager.getConfigData.serviceURL || 'http://127.0.0.1:3001',
+        configManager.getConfigData.serviceURL || 'https://rl-broadcaster-hub.algoux.cn',
         configManager.getConfigData.servicePath,
         configManager.getConfigData.clientId,
       );

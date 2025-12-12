@@ -69,7 +69,7 @@ export class ConfigManager {
         JSON.stringify(
           {
             version: app.getVersion(),
-            serviceURL: 'http://127.0.0.1:3001',
+            serviceURL: 'https://rl-broadcaster-hub.algoux.cn',
             servicePath: undefined,
             clientId: uuidv4().substring(0, 18),
             appConfig: {
