@@ -87,10 +87,8 @@ export class MediasoupClient {
 
     // 检查该 classId 是否已有活跃的视频 producer
     const existingProducers = this.producersByClassId.get(classId) || [];
-    const hasActiveVideoProducer = existingProducers.some(
-      (p) => p.kind === 'video' && !p.closed
-    );
-    
+    const hasActiveVideoProducer = existingProducers.some((p) => p.kind === 'video' && !p.closed);
+
     if (hasActiveVideoProducer) {
       console.log(`classId=${classId} 已存在活跃的视频 producer，跳过重复推流`);
       return;
@@ -112,7 +110,7 @@ export class MediasoupClient {
       });
 
       this.producers.set(producer.id, producer);
-      
+
       // 将 producer 添加到 classId 映射中
       const classProducers = this.producersByClassId.get(classId) || [];
       classProducers.push(producer);
@@ -128,28 +126,26 @@ export class MediasoupClient {
   // 推送音频流
   async produceAudio(track: MediaStreamTrack, classId: string): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
-    
+
     // 检查该 classId 是否已有活跃的音频 producer
     const existingProducers = this.producersByClassId.get(classId) || [];
-    const hasActiveAudioProducer = existingProducers.some(
-      (p) => p.kind === 'audio' && !p.closed
-    );
-    
+    const hasActiveAudioProducer = existingProducers.some((p) => p.kind === 'audio' && !p.closed);
+
     if (hasActiveAudioProducer) {
       console.log(`classId=${classId} 已存在活跃的音频 producer，跳过重复推流`);
       return;
     }
-    
+
     try {
       const producer = await this.producerTransport.produce({ track, appData: { classId } });
       // 将 producer 存储到 Map 中
       this.producers.set(producer.id, producer);
-      
+
       // 将 producer 添加到 classId 映射中
       const classProducers = this.producersByClassId.get(classId) || [];
       classProducers.push(producer);
       this.producersByClassId.set(classId, classProducers);
-      
+
       console.log(`音频推流成功: producerId=${producer.id}, classId=${classId}`);
     } catch (error) {
       console.error('音频流推送失败:', error);
