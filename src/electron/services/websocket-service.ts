@@ -75,7 +75,7 @@ export class WebSocketService {
         timeout: 10000, // 连接超时 10 秒
         path: this.servicePath,
         auth: {
-          id: this.clientId,
+          id: `b-${this.clientId}`,
           alias: this.alias,
           userId: this.userId,
           broadcasterToken: this.token,
