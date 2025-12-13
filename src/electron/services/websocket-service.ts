@@ -227,12 +227,24 @@ export class WebSocketService {
     // 请求开始推流
     this.socket.on('requestStartBroadcast', (data: RequestStartBroadcast) => {
       console.log('收到推流请求:', data);
-      // 将完整的数据发送到渲染进程
-      ipcWebContentsSend('start-streaming-request', this.mainWindow.webContents, {
-        classIds: data.trackIds, // trackIds 作为 classIds 传递，保持兼容
-        transport: data.transport,
-        routerRtpCapabilities: data.routerRtpCapabilities,
+      console.log('mainWindow 状态:', {
+        exists: !!this.mainWindow,
+        isDestroyed: this.mainWindow ? this.mainWindow.isDestroyed() : 'N/A',
+        webContents: this.mainWindow ? !!this.mainWindow.webContents : 'N/A'
       });
+      
+      // 将完整的数据发送到渲染进程
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        console.log('准备发送 IPC 消息到渲染进程');
+        ipcWebContentsSend('start-streaming-request', this.mainWindow.webContents, {
+          classIds: data.trackIds, // trackIds 作为 classIds 传递，保持兼容
+          transport: data.transport,
+          routerRtpCapabilities: data.routerRtpCapabilities,
+        });
+        console.log('IPC 消息已发送');
+      } else {
+        console.error('mainWindow 不可用，无法发送 IPC 消息');
+      }
     });
 
     // 请求停止推流

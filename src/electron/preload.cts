@@ -149,7 +149,11 @@ function ipcOn<Key extends keyof EventPayloadMapping>(
   key: Key,
   callback: (payload: EventPayloadMapping[Key]) => void,
 ) {
-  const cb = (_: Electron.IpcRendererEvent, payload: any) => callback(payload);
+  console.log('[Preload] 设置 IPC 监听器:', key);
+  const cb = (_: Electron.IpcRendererEvent, payload: any) => {
+    console.log('[Preload] 收到 IPC 消息:', key, payload);
+    callback(payload);
+  };
   electron.ipcRenderer.on(key, cb);
   return () => {
     electron.ipcRenderer.off(key, cb);
