@@ -16,7 +16,6 @@ declare global {
     getSources: Electron.DesktopCapturerSource[];
     saveVideo: string | null;
     hasReady: void;
-    setWindowTitle: string;
     loginSuccess: void;
 
     // WebSocket 相关事件
@@ -36,6 +35,7 @@ declare global {
       routerRtpCapabilities?: any;
     };
     'stop-streaming-request': Record<string, never>;
+    'cleanup-media-resources': Record<string, never>;
     'replay-request': {
       classId: string;
       startTime: string;
@@ -82,7 +82,6 @@ declare global {
       getPlatformInfo: () => Promise<GetPlatformInfoDTO>;
       getSources: () => Promise<Electron.DesktopCapturerSource[]>;
       saveVideo: (arrayBuffer: ArrayBuffer) => Promise<string | null>;
-      setWindowTitle: (title: string) => void;
       loginSuccess: () => void;
       hasReady: () => void;
       // WebSocket 相关方法
@@ -105,6 +104,7 @@ declare global {
       // IPC 监听器方法
       onStreamingRequest: (callback: (data: RequestStartBroadcast) => void) => void;
       onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => void;
+      onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => void;
       onReplayRequest: (
         callback: (data: { classId: string; startTime: string; endTime: string }) => void,
       ) => void;

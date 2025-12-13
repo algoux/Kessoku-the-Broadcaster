@@ -9,9 +9,6 @@ import {
 electron.contextBridge.exposeInMainWorld('electron', {
   getSources: () => ipcInvoke('getSources'),
   saveVideo: (arrayBuffer) => ipcInvoke('saveVideo', arrayBuffer),
-  setWindowTitle: (title: string) => {
-    ipcSend('setWindowTitle', title);
-  },
   loginSuccess: () => {
     ipcSend('loginSuccess');
   },
@@ -46,6 +43,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   },
   onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => {
     return ipcOn('stop-streaming-request', callback);
+  },
+  onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => {
+    return ipcOn('cleanup-media-resources', callback);
   },
   onReplayRequest: (
     callback: (data: { classId: string; startTime: string; endTime: string }) => void,

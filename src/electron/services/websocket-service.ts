@@ -120,6 +120,9 @@ export class WebSocketService {
       console.log('断开连接:', reason);
       this.isConnected = false;
 
+      // 断开连接时，清理所有 producer 和 transport
+      ipcWebContentsSend('cleanup-media-resources', this.mainWindow.webContents, {});
+
       // 如果是服务端主动断开或 io client disconnect，则为真正的断开
       // 其他情况（如网络问题）保持 connecting 状态
       if (reason === 'io server disconnect' || reason === 'io client disconnect') {
@@ -130,13 +133,11 @@ export class WebSocketService {
       }
 
       // 通知渲染进程连接状态变化
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        ipcWebContentsSend(
-          'connection-state-changed',
-          this.mainWindow.webContents,
-          this.connectionState,
-        );
-      }
+      ipcWebContentsSend(
+        'connection-state-changed',
+        this.mainWindow.webContents,
+        this.connectionState,
+      );
     });
 
     // 重新连接成功

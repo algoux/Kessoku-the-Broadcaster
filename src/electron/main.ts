@@ -1,5 +1,5 @@
 import { app, BrowserWindow, desktopCapturer } from 'electron';
-import { isDevelopment, ipcMainHandle, ipcMainOn } from './utils/index';
+import { isDevelopment, ipcMainHandle, ipcMainOn, ipcWebContentsSend } from './utils/index';
 import { getPreloadPath, getUIPath } from './utils/path-resolver';
 import { WebSocketService } from './services/websocket-service';
 import { VideoRecordingService } from './services/video-recording-service';
@@ -311,6 +311,8 @@ function setupIpcHandlers() {
       const resp = await webSocketService.confirmReady(tracks);
       return { success: resp.success };
     } else {
+      // 取消就绪前，先清理所有 producer 和 transport
+        ipcWebContentsSend('cleanup-media-resources', mainWindow.webContents, {});
       const resp = await webSocketService.cancelReady();
       return { success: resp.success };
     }

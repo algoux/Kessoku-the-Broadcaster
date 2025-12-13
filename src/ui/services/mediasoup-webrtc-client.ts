@@ -5,6 +5,8 @@ export class MediasoupClient {
   private device!: mediasoupClient.Device;
   private producerTransport!: mediasoupClient.types.Transport;
   private producers: Map<string, mediasoupClient.types.Producer> = new Map();
+  // 通过 classId 映射到 producer 列表（一个 classId 可能有多个 producer，如音视频）
+  private producersByClassId: Map<string, mediasoupClient.types.Producer[]> = new Map();
 
   constructor() {
     this.device = new mediasoupClient.Device();
@@ -83,45 +85,40 @@ export class MediasoupClient {
   ): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
 
+    // 检查该 classId 是否已有活跃的视频 producer
+    const existingProducers = this.producersByClassId.get(classId) || [];
+    const hasActiveVideoProducer = existingProducers.some(
+      (p) => p.kind === 'video' && !p.closed
+    );
+    
+    if (hasActiveVideoProducer) {
+      console.log(`classId=${classId} 已存在活跃的视频 producer，跳过重复推流`);
+      return;
+    }
+
     try {
       // 如果提供了 simulcastConfigs，使用它；否则使用默认配置
-      const encodings =
-        simulcastConfigs && simulcastConfigs.length > 0
-          ? simulcastConfigs.map((config) => ({
-              rid: config.rid,
-              scaleResolutionDownBy: config.scaleResolutionDownBy,
-              maxBitrate: config.maxBitRate,
-              maxFramerate: config.maxFramerate,
-            }))
-          : [
-              {
-                rid: 'original',
-                scaleResolutionDownBy: 1, // 不缩放 - 原始分辨率
-                maxBitrate: 8000000, // 8Mbps
-                maxFramerate: 60,
-              },
-              {
-                rid: 'low',
-                scaleResolutionDownBy: 2, // 分辨率缩小一半
-                maxBitrate: 2000000, // 2Mbps
-                maxFramerate: 30,
-              },
-            ];
+      const encodings = simulcastConfigs.map((config) => ({
+        rid: config.rid,
+        scaleResolutionDownBy: config.scaleResolutionDownBy,
+        maxBitrate: config.maxBitRate,
+        maxFramerate: config.maxFramerate,
+      }));
 
       const producer = await this.producerTransport.produce({
         track,
         encodings,
-        // 可选，让编码器更快进入目标码率
-        codecOptions: {
-          videoGoogleStartBitrate: 8000,
-        },
         appData: { classId }, // 传递 classId
       });
 
-      // 将 producer 存储到 Map 中
       this.producers.set(producer.id, producer);
+      
+      // 将 producer 添加到 classId 映射中
+      const classProducers = this.producersByClassId.get(classId) || [];
+      classProducers.push(producer);
+      this.producersByClassId.set(classId, classProducers);
 
-      console.log(`视频推流成功: producerId=${producer.id}`);
+      console.log(`视频推流成功: producerId=${producer.id}, classId=${classId}`);
     } catch (error) {
       console.error('视频流推送失败:', error);
       throw error;
@@ -131,11 +128,29 @@ export class MediasoupClient {
   // 推送音频流
   async produceAudio(track: MediaStreamTrack, classId: string): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
+    
+    // 检查该 classId 是否已有活跃的音频 producer
+    const existingProducers = this.producersByClassId.get(classId) || [];
+    const hasActiveAudioProducer = existingProducers.some(
+      (p) => p.kind === 'audio' && !p.closed
+    );
+    
+    if (hasActiveAudioProducer) {
+      console.log(`classId=${classId} 已存在活跃的音频 producer，跳过重复推流`);
+      return;
+    }
+    
     try {
       const producer = await this.producerTransport.produce({ track, appData: { classId } });
       // 将 producer 存储到 Map 中
       this.producers.set(producer.id, producer);
-      console.log(`音频推流成功: producerId=${producer.id}`);
+      
+      // 将 producer 添加到 classId 映射中
+      const classProducers = this.producersByClassId.get(classId) || [];
+      classProducers.push(producer);
+      this.producersByClassId.set(classId, classProducers);
+      
+      console.log(`音频推流成功: producerId=${producer.id}, classId=${classId}`);
     } catch (error) {
       console.error('音频流推送失败:', error);
       throw error;
@@ -166,6 +181,7 @@ export class MediasoupClient {
       }
     }
     this.producers.clear();
+    this.producersByClassId.clear();
   }
 
   // 获取 Producer 状态
@@ -192,6 +208,7 @@ export class MediasoupClient {
       this.producerTransport = null;
     }
     this.device = null;
+    // producersByClassId 已在 stopProducing 中清理
   }
 
   // 连接传输通道

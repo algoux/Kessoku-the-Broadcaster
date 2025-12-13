@@ -53,6 +53,13 @@ export class RendererService {
         await this.onStopStreamingRequest();
       }
     });
+
+    // 监听清理媒体资源的请求（cancelReady 或 disconnect 时触发）
+    window.electron.onCleanupMediaResources(() => {
+      if (this.mediasoupClient) {
+        this.mediasoupClient.disconnect();
+      }
+    });
   }
 
   // 上报设备状态到服务器
@@ -125,6 +132,7 @@ export class RendererService {
     // 移除 IPC 监听器
     window.electron.removeAllListeners('start-streaming-request');
     window.electron.removeAllListeners('stop-streaming-request');
+    window.electron.removeAllListeners('cleanup-media-resources');
 
     this.isInitialized = false;
   }
