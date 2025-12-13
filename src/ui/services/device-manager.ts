@@ -879,6 +879,7 @@ export class DeviceManager {
                 width: screenConfig.width,
                 height: screenConfig.height,
                 frameRate: screenConfig.frameRate,
+                simulcastConfigs: screenConfig.simulcastConfigs,
               },
             };
             await this.startDeviceStream(device);
@@ -912,6 +913,7 @@ export class DeviceManager {
                 width: cameraConfig.width,
                 height: cameraConfig.height,
                 frameRate: cameraConfig.frameRate,
+                simulcastConfigs: cameraConfig.simulcastConfigs,
               },
             };
             await this.startDeviceStream(device);

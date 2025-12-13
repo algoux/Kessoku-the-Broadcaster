@@ -97,8 +97,8 @@ export class MediasoupClient {
     }
 
     try {
-      // 如果提供了 simulcastConfigs，使用它；否则使用默认配置
-      const encodings = simulcastConfigs.map((config) => ({
+      // 如果提供了 simulcastConfigs，使用它；否则不设置 encodings
+      const encodings = simulcastConfigs?.map((config) => ({
         rid: config.rid,
         scaleResolutionDownBy: config.scaleResolutionDownBy,
         maxBitrate: config.maxBitRate,
@@ -107,7 +107,7 @@ export class MediasoupClient {
 
       const producer = await this.producerTransport.produce({
         track,
-        encodings,
+        ...(encodings && encodings.length > 0 ? { encodings } : {}),
         appData: { classId }, // 传递 classId
       });
 

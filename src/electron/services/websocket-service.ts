@@ -230,9 +230,9 @@ export class WebSocketService {
       console.log('mainWindow 状态:', {
         exists: !!this.mainWindow,
         isDestroyed: this.mainWindow ? this.mainWindow.isDestroyed() : 'N/A',
-        webContents: this.mainWindow ? !!this.mainWindow.webContents : 'N/A'
+        webContents: this.mainWindow ? !!this.mainWindow.webContents : 'N/A',
       });
-      
+
       // 将完整的数据发送到渲染进程
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         console.log('准备发送 IPC 消息到渲染进程');
