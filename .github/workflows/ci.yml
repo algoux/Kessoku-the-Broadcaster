@@ -85,7 +85,7 @@ jobs:
       - name: Setup Node for upload
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install COS SDK
         run: npm install cos-nodejs-sdk-v5
