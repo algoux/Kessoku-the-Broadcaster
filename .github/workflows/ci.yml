@@ -112,7 +112,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
-          prerelease: true
+          prerelease: false
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.ATRIOR_TOKEN }}
