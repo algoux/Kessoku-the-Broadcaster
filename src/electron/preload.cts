@@ -8,16 +8,15 @@ import {
 
 electron.contextBridge.exposeInMainWorld('electron', {
   getSources: () => ipcInvoke('getSources'),
-  saveVideo: (arrayBuffer) => ipcInvoke('saveVideo', arrayBuffer),
-  loginSuccess: () => {
-    ipcSend('loginSuccess');
-  },
   hasReady: () => {
     ipcSend('hasReady');
   },
   // WebSocket 相关方法
   login: (alias: string, userId: string, token: string) => {
     return ipcInvoke('login', { alias, userId, token });
+  },
+  logout: () => {
+    return ipcInvoke('logout');
   },
   getConnectionStatus: () => {
     return ipcInvoke('get-connection-status');
@@ -120,9 +119,7 @@ electron.contextBridge.exposeInMainWorld('electron', {
   clearVideoCache: () => {
     return ipcInvoke('clearVideoCache');
   },
-  logout: () => {
-    return ipcInvoke('logout');
-  },
+
   // 窗口控制
   minimizeWindow: () => {
     ipcSend('window-minimize');

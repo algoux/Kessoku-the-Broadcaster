@@ -1,12 +1,20 @@
-// 导入 Broadcaster 类型定义
-import type { SimulcastConfig } from './types/broadcaster.types';
+
+
+/**
+ * 配置文件类型
+ */
+
+export interface SimulcastConfig {
+  rid: string;
+  scaleResolutionDownBy: number;
+  maxBitRate: number;
+  maxFramerate: number;
+}
 
 export interface GetPlatformInfoDTO {
   platform: NodeJS.Platform;
   arch: string;
 }
-
-export type { SimulcastConfig };
 
 export interface VideoConfig {
   id: string;

@@ -4,14 +4,7 @@ import os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
 import { getFFmpegpath } from '../utils/path-resolver';
 import log from 'electron-log';
-
-interface RecordingData {
-  classId: string;
-  filePath: string;
-  writeStream: fs.WriteStream;
-  startTime: number;
-  chunks: Buffer[];
-}
+import { RecordingData } from './../typings/data';
 
 export class VideoRecordingService {
   private recordingFiles: Map<string, RecordingData> = new Map();

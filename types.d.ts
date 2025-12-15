@@ -9,14 +9,12 @@ import {
   GetPlatformInfoDTO,
 } from 'common/config.interface';
 
-import { Resp, ContestInfo } from './src/common/types/broadcaster.types';
+import { Resp, ContestInfo } from './src/common/typings/broadcaster.types';
 
 declare global {
   type EventPayloadMapping = {
     getSources: Electron.DesktopCapturerSource[];
-    saveVideo: string | null;
     hasReady: void;
-    loginSuccess: void;
 
     // WebSocket 相关事件
     login: { success: boolean; error?: string };
@@ -81,8 +79,6 @@ declare global {
     electron: {
       getPlatformInfo: () => Promise<GetPlatformInfoDTO>;
       getSources: () => Promise<Electron.DesktopCapturerSource[]>;
-      saveVideo: (arrayBuffer: ArrayBuffer) => Promise<string | null>;
-      loginSuccess: () => void;
       hasReady: () => void;
       // WebSocket 相关方法
       login: (
