@@ -1,6 +1,9 @@
 # Kessoku the Broadcaster 🎈
 > 专注于算法竞赛的直播推流客户端
 
+## 🤨 配套使用
+该软件为选手端推流程序，需要结合导播端程序 [Kessoku the Overlay](https://github.com/algoux/Kessoku-the-Overlay) 使用。
+
 ## 🛠️ 技术栈
 - typescript
 - vue 3.2
@@ -68,3 +71,29 @@ $ pnpm dev
 └── pnpm-lock.yaml
 
 ```
+
+## 📄 开源协议
+本项目使用 [GPL License v3.0](./LICENSE) 协议
+
+## 📧 联系我们
+发送邮箱至 <algoux.org@gmail.com> 或直接在仓库提交 **issue** 以联系我们。
+
+## 🔗 相关链接
+algoux 官网：<https://algoux.org>
+
+## 👥 致谢
+- 所有贡献者 - 感谢每一位为项目贡献代码的开发者
+- Electron 社区 - 提供优秀的跨平台应用开发框架
+- 所有该产品的使用者 - 你们的支持是我们开发下去最大的动力
+
+## 📊 项目统计
+
+- ⭐ **Star 数量**: ![GitHub stars](https://img.shields.io/github/stars/algoux/Kessoku-the-Broadcaster)
+- 📥 **下载次数**: ![GitHub downloads](https://img.shields.io/github/downloads/algoux/Kessoku-the-Broadcaster/total)
+- 🐛 **问题追踪**: ![GitHub issues](https://img.shields.io/github/issues/algoux/Kessoku-the-Broadcaster)
+- 🔄 **版本信息**: ![GitHub release](https://img.shields.io/github/v/release/algoux/Kessoku-the-Broadcaster)
+
+
+🏆 **让每一场算竞直播都更简洁、高效。**
+
+*© 2019-present algoUX. All Rights Reserved.*
