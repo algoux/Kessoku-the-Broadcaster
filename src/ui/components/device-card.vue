@@ -161,6 +161,7 @@ export default class DeviceCard extends Vue {
     justify-content: space-between;
     align-items: center;
     gap: 10px;
+    user-select: none;
 
     .device-info {
       display: flex;
@@ -252,6 +253,7 @@ export default class DeviceCard extends Vue {
       display: flex;
       align-items: center;
       justify-content: flex-start;
+      user-select: none;
 
       .settings-label {
         font-size: 12px;

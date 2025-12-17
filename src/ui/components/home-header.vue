@@ -2,7 +2,8 @@
 import { Vue, Options } from 'vue-class-component';
 import { Inject } from 'vue-property-decorator';
 import { DeviceType, ConnectState } from '@/typings/data';
-import type { ContestInfo, Text } from '../../common/types/broadcaster.types';
+import type { Text } from '../../common/typings/srk.types';
+import { ContestInfo } from '../../electron/typings/data';
 
 import {
   ElDescriptions,
@@ -258,6 +259,7 @@ export default class HomeHeader extends Vue {
   align-items: center;
   padding: 0 30px;
   padding-top: 40px;
+  user-select: none;
 
   & .user-sec {
     display: flex;
@@ -308,6 +310,7 @@ export default class HomeHeader extends Vue {
 
         & .connect-info {
           font-size: 12px;
+          white-space: nowrap;
           color: var(--font-secondary-color);
         }
       }

@@ -237,19 +237,6 @@ function setupIpcHandlers() {
     return await webSocketService.getContestInfo();
   });
 
-  // 延迟启动连接状态检查定时器，确保init完成
-  setTimeout(() => {
-    const checkConnectionState = () => {
-      if (webSocketService) {
-        const state = webSocketService.getConnectionStatus();
-        mainWindow?.webContents.send('connection-state-changed', state);
-      }
-    };
-
-    // 定期检查连接状态
-    setInterval(checkConnectionState, 1000);
-  }, 2000);
-
   // 连接推流传输通道
   ipcMainHandle('connect-producer-transport', async ({ transportId, dtlsParameters }) => {
     if (!webSocketService) {
