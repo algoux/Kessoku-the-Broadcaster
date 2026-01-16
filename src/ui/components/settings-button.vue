@@ -35,7 +35,6 @@ export default class SettingsButton extends Vue {
   align-items: center;
   border-radius: 50%;
   background-color: var(--bg-secondary-color);
-//   box-shadow: 0 0 6px rgba(0, 0, 0, 0.3);
   border: 1px solid var(--border-color);
   cursor: pointer;
   transition: all 0.3s ease;

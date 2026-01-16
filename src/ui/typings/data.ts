@@ -1,4 +1,5 @@
 import { SimulcastConfig } from 'common/config.interface';
+import { DeviceManager } from '@/services/device-manager';
 
 export interface DeviceSettings {
   width?: number;
@@ -81,3 +82,55 @@ export enum ConnectState {
   DISCONNECTED = 'disconnected',
   CONNECTING = 'connecting',
 }
+
+export interface DeviceAddingRes {
+  success: boolean;
+  code: number;
+  device?: Device;
+}
+
+export interface ConfigSaveRes {
+  updateIndex: number;
+  updateDevice: Device;
+}
+
+/**
+ * 设备源信息类型
+ */
+export type DeviceSourceInfo =
+  | { id: string; name: string } // Screen
+  | MediaDeviceInfo; // Camera or Microphone
+
+/**
+ * 设备类型配置
+ */
+export interface DeviceTypeConfig {
+  availableDevicesKey: 'availableScreens' | 'availableCameras' | 'availableMicrophones';
+  getDeviceId: (info: DeviceSourceInfo) => string;
+  getDeviceName: (info: DeviceSourceInfo) => string;
+  findDeviceInfo: (manager: DeviceManager, id: string) => DeviceSourceInfo | undefined;
+}
+
+ /**
+ * 设备类型配置映射 - 统一不同设备类型的操作
+ */
+export const DEVICE_TYPE_CONFIG: Record<DeviceType, DeviceTypeConfig> = {
+  screen: {
+    availableDevicesKey: 'availableScreens',
+    getDeviceId: (info) => (info as { id: string }).id,
+    getDeviceName: (info) => (info as { name: string }).name,
+    findDeviceInfo: (manager, id) => manager.availableScreens.find((s) => s.id === id),
+  },
+  camera: {
+    availableDevicesKey: 'availableCameras',
+    getDeviceId: (info) => (info as MediaDeviceInfo).deviceId,
+    getDeviceName: (info) => (info as MediaDeviceInfo).label,
+    findDeviceInfo: (manager, id) => manager.availableCameras.find((c) => c.deviceId === id),
+  },
+  microphone: {
+    availableDevicesKey: 'availableMicrophones',
+    getDeviceId: (info) => (info as MediaDeviceInfo).deviceId,
+    getDeviceName: (info) => (info as MediaDeviceInfo).label || '默认麦克风',
+    findDeviceInfo: (manager, id) => manager.availableMicrophones.find((m) => m.deviceId === id),
+  },
+};

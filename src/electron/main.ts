@@ -299,7 +299,7 @@ function setupIpcHandlers() {
       return { success: resp.success };
     } else {
       // 取消就绪前，先清理所有 producer 和 transport
-        ipcWebContentsSend('cleanup-media-resources', mainWindow.webContents, {});
+      ipcWebContentsSend('cleanup-media-resources', mainWindow.webContents, {});
       const resp = await webSocketService.cancelReady();
       return { success: resp.success };
     }
@@ -505,21 +505,15 @@ app.whenReady().then(async () => {
 
     try {
       const success = await webSocketService.connect(alias, userId, token);
+      mainWindow = createMainWindow();
 
-      if (success) {
-        log.info('自动登录成功');
-        console.log('自动登录成功，创建主窗口');
-        mainWindow = createMainWindow();
-        webSocketService.setMainWindow(mainWindow);
-        showWindow(mainWindow);
-        return; // 成功则不显示登录窗口
-      } else {
-        log.warn('自动登录失败，显示登录窗口');
-        console.log('自动登录失败，显示登录窗口');
-      }
+      log.info('自动登录成功');
+      webSocketService.setMainWindow(mainWindow);
+      showWindow(mainWindow);
     } catch (error) {
       log.error('自动登录出错', error);
       console.error('自动登录出错:', error);
+      showWindow(mainWindow);
     }
   }
 
