@@ -20,7 +20,7 @@
   "generateUpdatesFilesForAllChannels": false,
   "mac": {
     "target": "dmg",
-    "icon": "resources/icon/icon.icns"
+    "icon": "resources/icon/icon.icon"
   },
   "linux": {
     "target": ["AppImage", "deb"],

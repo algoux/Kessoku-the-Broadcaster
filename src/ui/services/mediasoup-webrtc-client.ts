@@ -95,7 +95,6 @@ export class MediasoupClient {
     }
 
     try {
-      // 如果提供了 simulcastConfigs，使用它；否则不设置 encodings
       const encodings = simulcastConfigs?.map((config) => ({
         rid: config.rid,
         scaleResolutionDownBy: config.scaleResolutionDownBy,
@@ -204,7 +203,6 @@ export class MediasoupClient {
       this.producerTransport = null;
     }
     this.device = null;
-    // producersByClassId 已在 stopProducing 中清理
   }
 
   // 连接传输通道

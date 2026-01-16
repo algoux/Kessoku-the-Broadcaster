@@ -1,4 +1,4 @@
-import { ipcMain, WebContents, WebFrameMain } from 'electron';
+import { ipcMain, WebContents, WebFrameMain} from 'electron';
 
 export function isDevelopment() {
   return process.env.NODE_ENV === 'development';
@@ -29,3 +29,4 @@ export function ipcWebContentsSend<Key extends keyof EventPayloadMapping>(
 ) {
   webContents.send(key, payload);
 }
+

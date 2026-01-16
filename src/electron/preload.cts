@@ -157,7 +157,8 @@ function ipcOn<Key extends keyof EventPayloadMapping>(
   };
 }
 
-function ipcSend<Key extends keyof EventPayloadMapping>(
+
+export function ipcSend<Key extends keyof EventPayloadMapping>(
   key: Key,
   payload?: EventPayloadMapping[Key],
 ) {

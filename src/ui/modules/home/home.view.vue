@@ -6,7 +6,7 @@ import { Provide, Ref } from 'vue-property-decorator';
 import { RendererService } from '@/services/renderer-service';
 import { DeviceManager } from '@/services/device-manager';
 import { RecorderService } from '@/services/media-recorder';
-import { getScreenActualRefreshRate } from '@/utils/getFrameRate';
+import { getScreenActualRefreshRate } from '@/utils/get-framerate';
 
 import { ElIcon, ElMessage, ElLoading } from 'element-plus';
 
@@ -62,9 +62,6 @@ export default class HomeView extends Vue {
 
   // 渲染进程服务
   private rendererService: RendererService | null = null;
-
-  @Provide({ reactive: true })
-  connectState: ConnectState = ConnectState.CONNECTING;
 
   @Provide()
   public async changeReadyState() {
@@ -138,7 +135,6 @@ export default class HomeView extends Vue {
         }
       };
 
-      // 初始化服务
       await this.rendererService.initialize();
 
       // 检查连接状态
@@ -179,7 +175,6 @@ export default class HomeView extends Vue {
     }
   }
 
-  // 更新视频元素
   @Provide()
   async updateVideoElement(device: Device) {
     try {
@@ -198,7 +193,6 @@ export default class HomeView extends Vue {
     }
   }
 
-  // 停止设备流
   stopDeviceStream(device: Device) {
     const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
     const card = this.deviceCards[idx];

@@ -31,8 +31,7 @@ export default class App extends Vue {
 </script>
 
 <template>
-  <div class="window-drag">
-  </div>
+  <div class="window-drag"></div>
   <WindowControls />
   <router-view />
 </template>

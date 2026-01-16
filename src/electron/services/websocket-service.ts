@@ -18,7 +18,6 @@ export class WebSocketService {
   private serviceURL: string;
   private socket!: Socket;
   private mainWindow!: BrowserWindow;
-  private isConnected: boolean = false;
   private connectionState: 'connected' | 'disconnected' | 'connecting' = 'disconnected';
   private servicePath: string | undefined = undefined;
   private clientId: string;
@@ -65,6 +64,13 @@ export class WebSocketService {
       }
 
       const url = `${this.serviceURL}${this.serviceURL.endsWith('/') ? '' : '/'}broadcaster`;
+      console.log({
+        url: url,
+        servicepath: this.servicePath,
+        alias: this.alias,
+        userId: this.userId,
+        token: this.token,
+      });
       // 创建 socket 连接，使用 auth 进行握手鉴权
       this.socket = io(url, {
         reconnection: true, // 启用自动重连
@@ -84,7 +90,6 @@ export class WebSocketService {
       // 连接成功
       this.socket.once('connect', () => {
         console.log('连接服务器成功:', this.socket.id);
-        this.isConnected = true;
         this.connectionState = 'connected';
 
         this.socket.off('connect_error');
@@ -96,7 +101,7 @@ export class WebSocketService {
 
       // 首次连接失败
       this.socket.once('connect_error', (error: any) => {
-        console.log('连接错误:', error.message);
+        console.log('连接错误:', error);
         // 是否是来自服务器的逻辑错误
         if (error.data && error.data.code) {
           console.error('认证失败，停止重连:', error.data);
@@ -104,7 +109,6 @@ export class WebSocketService {
         }
 
         this.connectionState = 'disconnected';
-        this.isConnected = false;
         resolve(false);
       });
     });
@@ -117,21 +121,9 @@ export class WebSocketService {
     // 断开连接（socket.io 会自动尝试重连）
     this.socket.on('disconnect', (reason: string) => {
       console.log('断开连接:', reason);
-      this.isConnected = false;
 
-      // 断开连接时，清理所有 producer 和 transport
       ipcWebContentsSend('cleanup-media-resources', this.mainWindow.webContents, {});
 
-      // 如果是服务端主动断开或 io client disconnect，则为真正的断开
-      // 其他情况（如网络问题）保持 connecting 状态
-      if (reason === 'io server disconnect' || reason === 'io client disconnect') {
-        this.connectionState = 'disconnected';
-      } else {
-        // 网络问题等，socket.io 会自动重连，保持 connecting 状态
-        this.connectionState = 'connecting';
-      }
-
-      // 通知渲染进程连接状态变化
       ipcWebContentsSend(
         'connection-state-changed',
         this.mainWindow.webContents,
@@ -142,7 +134,6 @@ export class WebSocketService {
     // 重新连接成功
     this.socket.on('connect', () => {
       console.log('重新连接成功');
-      this.isConnected = true;
       this.connectionState = 'connected';
 
       // 通知渲染进程连接状态变化
@@ -161,41 +152,16 @@ export class WebSocketService {
       }
     });
 
-    // 重连尝试
-    this.socket.on('reconnect_attempt', (attempt: number) => {
-      console.log(`正在尝试重连... (第 ${attempt} 次)`);
-      this.connectionState = 'connecting';
-
-      // 通知渲染进程连接状态变化
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        ipcWebContentsSend(
-          'connection-state-changed',
-          this.mainWindow.webContents,
-          this.connectionState,
-        );
-      }
-    });
-
     // 重连错误（每次重连失败都会触发，但会继续尝试）
     this.socket.on('reconnect_error', (error: any) => {
       console.log('重连失败，继续尝试:', error.message);
       // 保持 connecting 状态，因为还会继续重连
       this.connectionState = 'connecting';
-    });
-
-    // 重连完全失败（达到最大重连次数，但我们设置了 Infinity）
-    this.socket.on('reconnect_failed', () => {
-      console.log('重连完全失败');
-      this.connectionState = 'disconnected';
-
-      // 通知渲染进程连接状态变化
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        ipcWebContentsSend(
-          'connection-state-changed',
-          this.mainWindow.webContents,
-          this.connectionState,
-        );
-      }
+      ipcWebContentsSend(
+        'connection-state-changed',
+        this.mainWindow.webContents,
+        this.connectionState,
+      );
     });
 
     // 连接错误（持续监听 - 重连阶段的错误）
@@ -206,7 +172,6 @@ export class WebSocketService {
       if (error.data && error.data.code) {
         console.error('认证失败，停止重连:', error.data);
         this.connectionState = 'disconnected';
-        this.isConnected = false;
         this.socket.disconnect();
 
         // 通知渲染进程连接状态变化
@@ -226,24 +191,12 @@ export class WebSocketService {
     // 请求开始推流
     this.socket.on('requestStartBroadcast', (data: RequestStartBroadcast) => {
       console.log('收到推流请求:', data);
-      console.log('mainWindow 状态:', {
-        exists: !!this.mainWindow,
-        isDestroyed: this.mainWindow ? this.mainWindow.isDestroyed() : 'N/A',
-        webContents: this.mainWindow ? !!this.mainWindow.webContents : 'N/A',
-      });
-
       // 将完整的数据发送到渲染进程
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        console.log('准备发送 IPC 消息到渲染进程');
-        ipcWebContentsSend('start-streaming-request', this.mainWindow.webContents, {
-          classIds: data.trackIds, // trackIds 作为 classIds 传递，保持兼容
-          transport: data.transport,
-          routerRtpCapabilities: data.routerRtpCapabilities,
-        });
-        console.log('IPC 消息已发送');
-      } else {
-        console.error('mainWindow 不可用，无法发送 IPC 消息');
-      }
+      ipcWebContentsSend('start-streaming-request', this.mainWindow.webContents, {
+        classIds: data.trackIds,
+        transport: data.transport,
+        routerRtpCapabilities: data.routerRtpCapabilities,
+      });
     });
 
     // 请求停止推流
@@ -391,8 +344,6 @@ export class WebSocketService {
       this.socket.removeAllListeners();
       this.socket.disconnect();
     }
-
-    this.isConnected = false;
     this.connectionState = 'disconnected';
   }
 

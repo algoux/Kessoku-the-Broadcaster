@@ -172,7 +172,6 @@ export default class DeviceCard extends Vue {
 
       .device-icon {
         flex-shrink: 0;
-        color: var(--el-color-primary);
       }
 
       .device-title {
@@ -264,7 +263,6 @@ export default class DeviceCard extends Vue {
       .settings-value {
         font-size: 13px;
         font-weight: 600;
-        color: var(--el-color-primary);
       }
     }
 

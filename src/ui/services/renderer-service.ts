@@ -1,10 +1,12 @@
 // 渲染进程服务 - 处理主进程的 IPC 通信和 MediaSoup 推流
 import { MediasoupClient } from './mediasoup-webrtc-client';
 import { DeviceInfo } from '@/typings/data';
+import { ConnectState } from '@/typings/data';
 
 export class RendererService {
   public mediasoupClient: MediasoupClient | null = null;
   private isInitialized: boolean = false;
+  connectState: ConnectState = ConnectState.CONNECTED;
 
   // 推流请求回调（支持 classIds 参数）
   public onStreamingRequest:
