@@ -37,6 +37,45 @@ export class DeviceManager {
   }
 
   /**
+   * 判断设备是否为视频设备（屏幕或摄像头）
+   */
+  isVideoDevice(device: Device): boolean {
+    return device.type === 'screen' || device.type === 'camera';
+  }
+
+  /**
+   * 获取所有视频设备
+   */
+  getVideoDevices(): Device[] {
+    return this.userDevices.filter((d) => this.isVideoDevice(d));
+  }
+
+  /**
+   * 获取启用设备的信息（用于上报）
+   */
+  getEnabledDevicesInfo() {
+    return this.userDevices
+      .filter((device) => device.enabled)
+      .map((device) => ({
+        classId: device.classId,
+        type: device.type,
+        name: device.name,
+        enabled: device.enabled,
+        settings: device.settings
+          ? {
+              width: device.settings.width,
+              height: device.settings.height,
+              frameRate: device.settings.frameRate,
+              aspectRatio: device.settings.aspectRatio,
+              facingMode: device.settings.facingMode,
+              sampleRate: device.settings.sampleRate,
+              channelCount: device.settings.channelCount,
+            }
+          : undefined,
+      }));
+  }
+
+  /**
    * 获取所有可用设备
    */
   async refreshAllDevices(): Promise<Device[] | void> {
@@ -523,12 +562,26 @@ export class DeviceManager {
         simulcastConfigs?: SimulcastConfig[];
       }> = devicesToStream
         .filter((device) => device.stream)
-        .map((device) => ({
-          stream: device.stream!,
-          classId: device.classId,
-          simulcastConfigs:
-            device.type !== 'microphone' ? device.settings?.simulcastConfigs : undefined,
-        }));
+        .map((device) => {
+          let simulcastConfigs: SimulcastConfig[] | undefined;
+
+          // 对于视频设备，添加 simulcastConfigs 并动态注入 maxFramerate
+          if (device.type !== 'microphone' && device.settings?.simulcastConfigs) {
+            const frameRate = device.settings.frameRate || 30;
+            simulcastConfigs = device.settings.simulcastConfigs.map((cfg) => ({
+              rid: cfg.rid,
+              scaleResolutionDownBy: cfg.scaleResolutionDownBy,
+              maxBitRate: cfg.maxBitRate,
+              maxFramerate: frameRate, // 动态注入当前设备的帧率
+            }));
+          }
+
+          return {
+            stream: device.stream!,
+            classId: device.classId,
+            simulcastConfigs,
+          };
+        });
 
       this.isStreaming = true;
       return enabledStreams;
@@ -579,25 +632,44 @@ export class DeviceManager {
       } as ConfigForm;
     } else {
       // 视频设备
+      const width = Math.round(device.settings?.width || 0);
+      const height = Math.round(device.settings?.height || 0);
+      const frameRate = Math.round(device.settings?.frameRate || 0);
+
+      // 如果设备已有 simulcastConfigs，使用它；否则创建默认配置
+      let simulcastConfigs: SimulcastConfig[];
+      if (device.settings?.simulcastConfigs && device.settings.simulcastConfigs.length > 0) {
+        // 使用已保存的配置
+        simulcastConfigs = [...device.settings.simulcastConfigs];
+      } else {
+        // 默认配置：原画在前，低清在后
+        simulcastConfigs = [
+          {
+            rid: 'original',
+            scaleResolutionDownBy: 1,
+            maxBitRate: 0, // 将在 updateSimulcastBitrates 中计算
+          },
+          {
+            rid: 'low',
+            scaleResolutionDownBy: 4,
+            maxBitRate: 0,
+          },
+        ];
+      }
+
       this.configForm = {
-        width: Math.round(device.settings?.width || 0),
-        height: Math.round(device.settings?.height || 0),
-        frameRate: Math.round(device.settings?.frameRate || 0),
-        simulcastConfig: {
-          rid: 'original',
-          scaleResolutionDownBy: 1,
-          maxBitRate: 8000000,
-          maxFramerate: 60,
-        },
-      } as ConfigForm;
+        width,
+        height,
+        frameRate,
+        simulcastConfigs, // 保存完整的数组
+      } as any;
+
+      // 计算并更新所有通道的码率
+      this.updateSimulcastBitrates();
 
       // 匹配当前分辨率的预设
       const presets = this.getResolutionPresets();
-      const matchedPreset = presets.find(
-        (p) =>
-          p.width === Math.round(device.settings?.width || 0) &&
-          p.height === Math.round(device.settings?.height || 0),
-      );
+      const matchedPreset = presets.find((p) => p.width === width && p.height === height);
 
       this.selectedPreset = matchedPreset
         ? JSON.stringify({ width: matchedPreset.width, height: matchedPreset.height })
@@ -608,6 +680,56 @@ export class DeviceManager {
       success: true,
       message: '配置对话框已打开',
     };
+  }
+
+  /**
+   * 更新 simulcast 配置的码率
+   * 根据当前分辨率和帧率动态计算每个通道的码率
+   */
+  updateSimulcastBitrates() {
+    if (!this.configForm || this.currentConfigDevice?.type === 'microphone') return;
+
+    const configForm = this.configForm as any;
+    const { width, height, frameRate } = configForm;
+    const simulcastConfigs = configForm.simulcastConfigs || [];
+
+    // 为每个通道计算码率
+    simulcastConfigs.forEach((config: SimulcastConfig) => {
+      const scale = config.scaleResolutionDownBy || 1;
+      const scaledWidth = width / scale;
+      const scaledHeight = height / scale;
+      // 码率公式: width * height * frameRate * 0.000078125 (Kbps)
+      config.maxBitRate = Math.round(scaledWidth * scaledHeight * frameRate * 0.000078125);
+    });
+  }
+
+  /**
+   * 选择 simulcast 通道（将选中的移到第一位）
+   */
+  selectSimulcastChannel(rid: string) {
+    if (!this.configForm || this.currentConfigDevice?.type === 'microphone') return;
+
+    const configForm = this.configForm as any;
+    const simulcastConfigs = configForm.simulcastConfigs || [];
+
+    // 找到选中的配置
+    const selectedIndex = simulcastConfigs.findIndex((cfg: SimulcastConfig) => cfg.rid === rid);
+    if (selectedIndex === -1 || selectedIndex === 0) return;
+
+    // 将选中的配置移到第一位
+    const selectedConfig = simulcastConfigs.splice(selectedIndex, 1)[0];
+    simulcastConfigs.unshift(selectedConfig);
+  }
+
+  /**
+   * 获取当前选中的 simulcast 通道
+   */
+  getSelectedSimulcastChannel(): SimulcastConfig | null {
+    if (!this.configForm || this.currentConfigDevice?.type === 'microphone') return null;
+
+    const configForm = this.configForm as any;
+    const simulcastConfigs = configForm.simulcastConfigs || [];
+    return simulcastConfigs[0] || null;
   }
 
   /**
@@ -708,8 +830,18 @@ export class DeviceManager {
       const stream = await this.getNewStreamForConfig();
       this.currentConfigDevice.stream = stream;
 
-      // 更新设置和能力
+      // 更新设备配置后的设置
       this.updateDeviceAfterConfigChange(originalCapabilities, originalSettings);
+
+      // 对于视频设备，保存 simulcastConfigs
+      if (
+        this.currentConfigDevice.type !== 'microphone' &&
+        (this.configForm as any).simulcastConfigs
+      ) {
+        this.currentConfigDevice.settings!.simulcastConfigs = (
+          this.configForm as any
+        ).simulcastConfigs;
+      }
 
       // 更新用户设备列表
       const idx = this.userDevices.findIndex((d) => d.id === this.currentConfigDevice.id);
@@ -952,11 +1084,20 @@ export class DeviceManager {
       if (!device.settings!.width || !device.settings!.height || !device.settings!.frameRate) {
         throw new Error(`视频设备 ${device.name} 缺少必要的配置参数`);
       }
+
+      // 清理 simulcastConfigs，只保留必要的字段
+      const simulcastConfigs = (device.settings!.simulcastConfigs || []).map((cfg) => ({
+        rid: cfg.rid,
+        scaleResolutionDownBy: cfg.scaleResolutionDownBy,
+        maxBitRate: cfg.maxBitRate,
+      }));
+
       return {
         ...baseConfig,
         width: Math.round(device.settings!.width),
         height: Math.round(device.settings!.height),
         frameRate: Math.round(device.settings!.frameRate),
+        simulcastConfigs,
       };
     }
   }

@@ -179,7 +179,6 @@ function createSettingsWindow() {
 
 // 设置 IPC 处理器
 function setupIpcHandlers() {
-  // 登录并连接到服务器
   ipcMainHandle(
     'login',
     async ({ alias, userId, token }: { alias: string; userId: string; token: string }) => {
@@ -192,23 +191,24 @@ function setupIpcHandlers() {
           config.clientId,
         );
 
-        // 使用传入的参数进行连接
-        const success = await webSocketService.connect(alias, userId, token);
-
-        if (success) {
-          // 登录成功，保存到配置文件
-          configManager.updateUserConfig({ userId, broadcasterToken: token });
-          configManager.updateCompetitionConfig({ alias });
-
-          if (loginWindow) {
-            loginWindow.close();
-            loginWindow = null;
-          }
-          mainWindow = createMainWindow();
-          webSocketService.setMainWindow(mainWindow);
-          showWindow(mainWindow);
+        const connected = await webSocketService.connect(alias, userId, token);
+        
+        if (!connected) {
+          return { success: false, error: '连接服务器失败' };
         }
-        return { success };
+
+        configManager.updateUserConfig({ userId, broadcasterToken: token });
+        configManager.updateCompetitionConfig({ alias });
+
+        if (loginWindow) {
+          loginWindow.close();
+          loginWindow = null;
+        }
+        mainWindow = createMainWindow();
+        webSocketService.setMainWindow(mainWindow);
+        showWindow(mainWindow);
+        
+        return { success: true };
       } catch (error) {
         console.error('登录失败:', error);
         return { success: false, error: (error as Error).message };
@@ -337,17 +337,11 @@ function setupIpcHandlers() {
   // 登出
   ipcMainHandle('logout', async () => {
     try {
-      // 1. 向服务端发送 cancelReady 事件
       if (webSocketService) {
         await webSocketService.cancelReady();
       }
-
-      // 2. 清空本地配置文件的 userConfig 字段
       configManager.clearUserConfig();
-
-      // 3. 退出应用
       app.quit();
-
       return { success: true };
     } catch (error) {
       log.error('登出失败:', error);
@@ -484,7 +478,6 @@ app.whenReady().then(async () => {
   log.info('Electron 应用就绪');
   setupIpcHandlers();
 
-  // 尝试自动登录
   const appConfig = configManager.getConfigData;
   const alias = appConfig?.competitionConfig?.alias;
   const userId = appConfig?.userConfig?.userId;
@@ -492,31 +485,31 @@ app.whenReady().then(async () => {
 
   if (alias && userId && token) {
     log.info('检测到配置文件，尝试自动登录', { alias, userId });
-    console.log('检测到配置文件，尝试自动登录...');
-
-    // 初始化 WebSocket 服务
-    if (!webSocketService) {
-      webSocketService = new WebSocketService(
-        configManager.getConfigData.serviceURL || 'https://rl-broadcast-hub.algoux.cn',
-        configManager.getConfigData.servicePath,
-        configManager.getConfigData.clientId,
-      );
-    }
 
     try {
-      const success = await webSocketService.connect(alias, userId, token);
-      mainWindow = createMainWindow();
-
-      log.info('自动登录成功');
-      webSocketService.setMainWindow(mainWindow);
-      showWindow(mainWindow);
+      if (!webSocketService) {
+        webSocketService = new WebSocketService(
+          configManager.getConfigData.serviceURL || 'https://rl-broadcast-hub.algoux.cn',
+          configManager.getConfigData.servicePath,
+          configManager.getConfigData.clientId,
+        );
+      }
+      const connected = await webSocketService.connect(alias, userId, token);
+      
+      if (connected) {
+        mainWindow = createMainWindow();
+        log.info('自动登录成功');
+        webSocketService.setMainWindow(mainWindow);
+        showWindow(mainWindow);
+        return; // 自动登录成功，不显示登录窗口
+      } else {
+        log.info('自动登录失败，显示登录窗口');
+      }
     } catch (error) {
       log.error('自动登录出错', error);
       console.error('自动登录出错:', error);
-      showWindow(mainWindow);
     }
   }
-
   // 自动登录失败或没有配置，显示登录窗口
   log.info('显示登录窗口');
   createLoginWindow();

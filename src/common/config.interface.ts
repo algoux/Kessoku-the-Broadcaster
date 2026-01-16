@@ -1,14 +1,12 @@
-
-
 /**
  * 配置文件类型
  */
 
 export interface SimulcastConfig {
-  rid: string;
-  scaleResolutionDownBy: number;
-  maxBitRate: number;
-  maxFramerate: number;
+  rid: string; // 通道标识符（original, low, medium, high 等）
+  scaleResolutionDownBy: number; // 分辨率缩放比率
+  maxBitRate: number; // 最大码率 (Kbps)
+  maxFramerate?: number; // 最大帧率（动态注入，不保存到配置文件）
 }
 
 export interface GetPlatformInfoDTO {

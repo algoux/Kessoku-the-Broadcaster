@@ -9,6 +9,7 @@ import { RecorderService } from '@/services/media-recorder';
 import { getScreenActualRefreshRate } from '@/utils/get-framerate';
 
 import { ElIcon, ElMessage, ElLoading } from 'element-plus';
+import type { LoadingInstance } from 'element-plus/es/components/loading/src/loading';
 
 import { Monitor } from '@element-plus/icons-vue';
 import ScreenShare from '@/components/svgs/screen-share.vue';
@@ -20,6 +21,33 @@ import DeviceCard from '@/components/device-card.vue';
 import ConfigDialog from '@/components/config-dialog.vue';
 import AddDeviceDialog from '@/components/add-device-dialog.vue';
 import SettingsButton from '@/components/settings-button.vue';
+
+/**
+ * 设备类型配置映射
+ */
+const DEVICE_TYPE_MAP = {
+  screen: {
+    name: '屏幕共享',
+    icon: ScreenShare,
+  },
+  camera: {
+    name: '摄像头',
+    icon: WebCamera,
+  },
+  microphone: {
+    name: '麦克风',
+    icon: Mic,
+  },
+} as const;
+
+/**
+ * 连接状态映射
+ */
+const CONNECTION_STATE_MAP: Record<string, ConnectState> = {
+  connected: ConnectState.CONNECTED,
+  connecting: ConnectState.CONNECTING,
+  disconnected: ConnectState.DISCONNECTED,
+};
 
 @Options({
   components: {
@@ -60,20 +88,68 @@ export default class HomeView extends Vue {
   @Provide({ reactive: true })
   public connectionState: ConnectState = ConnectState.DISCONNECTED;
 
-  // 渲染进程服务
   private rendererService: RendererService | null = null;
+
+  private createLoading(text: string): LoadingInstance {
+    return ElLoading.service({
+      lock: true,
+      text,
+      background: 'rgba(0, 0, 0, 0.7)',
+    });
+  }
+
+  private showMessage(message: string, type: 'primary' | 'info' | 'error') {
+    ElMessage({
+      message,
+      type,
+    });
+  }
+
+  private deviceTypeName(type: DeviceType): string {
+    return DEVICE_TYPE_MAP[type]?.name || '未知设备';
+  }
+
+  private updateConnectionState(state: string) {
+    this.connectionState = CONNECTION_STATE_MAP[state] || ConnectState.DISCONNECTED;
+  }
+
+  private findDeviceCardIndex(device: Device): number {
+    return this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
+  }
+
+  /**
+   * 执行异步操作并处理 loading 和错误
+   */
+  private async executeWithLoading<T>(
+    text: string,
+    task: () => Promise<T>,
+    onSuccess?: (result: T) => void | Promise<void>,
+    onError?: (error: Error) => void,
+  ): Promise<T | null> {
+    const loading = this.createLoading(text);
+    try {
+      const result = await task();
+      if (onSuccess) await onSuccess(result);
+      return result;
+    } catch (error) {
+      if (onError) {
+        onError(error as Error);
+      } else {
+        this.showMessage(`${text}失败: ${(error as Error).message}`, 'error');
+      }
+      console.error(`${text}失败:`, error);
+      return null;
+    } finally {
+      loading.close();
+    }
+  }
 
   @Provide()
   public async changeReadyState() {
     this.isReady = !this.isReady;
-
+    await this.reportDeviceState();
     if (this.isReady) {
-      // 上报设备信息到服务器
-      await this.reportDeviceState();
       window.electron.hasReady();
-    } else {
-      // 取消准备状态
-      await this.reportDeviceState();
     }
   }
 
@@ -81,27 +157,8 @@ export default class HomeView extends Vue {
   private async reportDeviceState() {
     if (!this.rendererService) return;
 
-    const deviceInfos = this.deviceManager.userDevices
-      .filter((device) => device.enabled)
-      .map((device) => ({
-        classId: device.classId,
-        type: device.type,
-        name: device.name,
-        enabled: device.enabled,
-        settings: device.settings
-          ? {
-              width: device.settings.width,
-              height: device.settings.height,
-              frameRate: device.settings.frameRate,
-              aspectRatio: device.settings.aspectRatio,
-              facingMode: device.settings.facingMode,
-              sampleRate: device.settings.sampleRate,
-              channelCount: device.settings.channelCount,
-            }
-          : undefined,
-      }));
-
     try {
+      const deviceInfos = this.deviceManager.getEnabledDevicesInfo();
       await this.rendererService.reportDeviceState(deviceInfos, this.isReady);
     } catch (error) {
       console.error('上报设备状态失败:', error);
@@ -114,13 +171,12 @@ export default class HomeView extends Vue {
       // 创建渲染进程服务
       this.rendererService = new RendererService();
 
-      // 设置推流请求回调（支持按 classId 选择设备）
+      // 设置推流请求回调
       this.rendererService.onStreamingRequest = async (data) => {
         console.log('onStreamingRequest:', data);
         const mediastreamings = await this.deviceManager.getEnableStreams(data.classIds);
         console.log('mediastreamings:', mediastreamings);
-        // 将 transport 和 rtpCapabilities 传递给 startStreaming
-        await this.rendererService.startStreaming(mediastreamings, {
+        await this.rendererService!.startStreaming(mediastreamings, {
           transport: data.transport,
           routerRtpCapabilities: data.routerRtpCapabilities,
         });
@@ -128,16 +184,14 @@ export default class HomeView extends Vue {
 
       // 设置停止推流请求回调
       this.rendererService.onStopStreamingRequest = async () => {
-        await this.rendererService.stopStreaming();
+        await this.rendererService!.stopStreaming();
         await this.deviceManager.resetDeviceStreaming();
-        for (const device of this.deviceManager.userDevices) {
-          this.updateVideoElement(device);
-        }
+        await this.updateAllVideoElements();
       };
 
       await this.rendererService.initialize();
 
-      // 检查连接状态
+      // 更新连接状态
       const loginStatus = await this.rendererService.getConnectionStatus();
       this.deviceManager.streamStatus =
         loginStatus === 'connected' ? '已连接，等待推流请求' : '未连接';
@@ -146,56 +200,72 @@ export default class HomeView extends Vue {
     }
   }
 
+  /**
+   * 更新所有视频设备的视频元素
+   */
+  private async updateAllVideoElements() {
+    const videoDevices = this.deviceManager.getVideoDevices();
+    for (const device of videoDevices) {
+      await this.updateVideoElement(device);
+    }
+  }
+
   // 获取所有可用设备
   async refreshAllDevices() {
-    const loading = ElLoading.service({
-      lock: true,
-      text: '加载设备中...',
-      background: 'rgba(0, 0, 0, 0.7)',
-    });
-
-    try {
-      const deviceRes = await this.deviceManager.refreshAllDevices();
-      if (deviceRes) {
-        console.log(deviceRes);
-        for (const device of deviceRes) {
-          if (device.type === 'microphone') {
-            continue;
+    await this.executeWithLoading(
+      '加载设备中',
+      async () => {
+        const deviceRes = await this.deviceManager.refreshAllDevices();
+        if (deviceRes) {
+          console.log('已加载设备:', deviceRes);
+          // 更新视频元素并启动录制（仅视频设备）
+          const videoDevices = deviceRes.filter((d) => this.deviceManager.isVideoDevice(d));
+          for (const device of videoDevices) {
+            await this.updateVideoElement(device);
+            await this.recorderService.startRollingRecord(device);
           }
-          await this.updateVideoElement(device);
-          await this.recorderService.startRollingRecord(device);
         }
-      }
-      this.showMessage('设备列表已更新', 'primary');
-    } catch (error) {
-      this.showMessage('刷新设备失败', 'error');
-      console.error('刷新设备失败:', error);
-    } finally {
-      loading.close();
-    }
+        return deviceRes;
+      },
+      () => this.showMessage('设备列表已更新', 'primary'),
+      () => this.showMessage('刷新设备失败', 'error'),
+    );
   }
 
   @Provide()
   async updateVideoElement(device: Device) {
     try {
       if (!device.stream) return;
-      const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
-      const card = this.deviceCards[idx];
-      const videoEl = card.getVideoEl();
 
+      const idx = this.findDeviceCardIndex(device);
+      if (idx === -1) {
+        console.warn(`未找到设备 ${device.name} 的卡片`);
+        return;
+      }
+
+      const card = this.deviceCards[idx];
+      if (!card) {
+        console.warn(`设备卡片 ${idx} 未就绪`);
+        return;
+      }
+
+      const videoEl = card.getVideoEl();
       if (videoEl && device.stream) {
         videoEl.srcObject = device.stream;
         await videoEl.play();
       }
     } catch (err) {
-      console.warn(device.type);
-      console.error('更新视频元素失败:', err);
+      console.error(`更新设备 ${device.name} 视频元素失败:`, err);
     }
   }
 
-  stopDeviceStream(device: Device) {
-    const idx = this.deviceManager.userDevices.findIndex((d) => d.id === device.id);
+  private stopDeviceStream(device: Device) {
+    const idx = this.findDeviceCardIndex(device);
+    if (idx === -1) return;
+
     const card = this.deviceCards[idx];
+    if (!card) return;
+
     const videoEl = card.getVideoEl();
     this.deviceManager.stopDeviceStream(device, videoEl);
   }
@@ -215,41 +285,39 @@ export default class HomeView extends Vue {
   async handleConfirmAddDevice(data: { classId: string; deviceId: string }) {
     if (!this.currentAddDeviceType) return;
 
-    // 保存设备类型，因为 closeAddDeviceDialog 会将其设置为 null
     const deviceType = this.currentAddDeviceType;
 
-    try {
-      const loading = ElLoading.service({
-        lock: true,
-        text: `正在添加${this.deviceTypeName(deviceType)}..`,
-        background: 'rgba(0, 0, 0, 0.7)',
-      });
+    await this.executeWithLoading(
+      `正在添加${this.deviceTypeName(deviceType)}`,
+      async () => {
+        const result = await this.deviceManager.addDevice(
+          deviceType,
+          data.deviceId,
+          data.classId as any,
+        );
 
-      const result = await this.deviceManager.addDevice(
-        deviceType,
-        data.deviceId,
-        data.classId as any,
-      );
+        this.closeAddDeviceDialog();
 
-      loading.close();
-      this.closeAddDeviceDialog();
+        if (result.code && result.device) {
+          this.showMessage(`已添加${this.deviceTypeName(deviceType)}`, 'primary');
 
-      if (result.code) {
-        this.showMessage(`已添加${this.deviceTypeName(deviceType)}`, 'primary');
-        if (result.device.type === 'camera' || result.device.type === 'screen') {
-          await this.updateVideoElement(result.device);
-          await this.recorderService.startRollingRecord(result.device);
+          // 视频设备需要更新视频元素和启动录制
+          if (this.deviceManager.isVideoDevice(result.device)) {
+            await this.updateVideoElement(result.device);
+            await this.recorderService.startRollingRecord(result.device);
+          }
+        } else {
+          this.showMessage('添加设备失败', 'error');
         }
-      } else {
-        this.showMessage(`添加设备失败`, 'error');
-      }
-    } catch (error) {
-      this.showMessage(
-        `添加${this.deviceTypeName(deviceType)}失败: ${(error as Error).message}`,
-        'error',
-      );
-      this.closeAddDeviceDialog();
-    }
+
+        return result;
+      },
+      undefined,
+      (error) => {
+        this.showMessage(`添加${this.deviceTypeName(deviceType)}失败: ${error.message}`, 'error');
+        this.closeAddDeviceDialog();
+      },
+    );
   }
 
   // 移除设备
@@ -288,115 +356,58 @@ export default class HomeView extends Vue {
   // 保存设备配置
   @Provide()
   async saveDeviceConfig() {
-    try {
-      const loading = ElLoading.service({
-        lock: true,
-        text: '保存设备配置中...',
-        background: 'rgba(0, 0, 0, 0.7)',
-      });
+    const device = this.deviceManager.currentConfigDevice;
+    const isRecording = this.recorderService.rollingRecordsMap.has(device.classId);
 
-      // 检查设备是否正在录制
-      const device = this.deviceManager.currentConfigDevice;
-      const isRecording = this.recorderService.rollingRecordsMap.has(device.classId);
+    await this.executeWithLoading(
+      '保存设备配置中',
+      async () => {
+        const { updateDevice, updateIndex } = await this.deviceManager.saveDeviceConfig();
 
-      const { updateDevice, updateIndex } = await this.deviceManager.saveDeviceConfig();
-      this.configDialogVisible = false;
-      this.deviceCards[updateIndex].updateFormatSetting();
-      this.updateVideoElement(updateDevice);
+        this.configDialogVisible = false;
+        this.deviceCards[updateIndex].updateFormatSetting();
+        await this.updateVideoElement(updateDevice);
 
-      // 如果设备之前正在录制，使用新的流重新启动录制
-      if (isRecording) {
-        console.log(`设备 ${updateDevice.name} 配置已更新，重新启动录制`);
-        await this.recorderService.startRollingRecord(updateDevice);
-      }
+        // 如果设备之前正在录制，重新启动录制
+        if (isRecording) {
+          console.log(`设备 ${updateDevice.name} 配置已更新，重新启动录制`);
+          await this.recorderService.startRollingRecord(updateDevice);
+        }
 
-      loading.close();
-
-      this.showMessage('设备配置已更新', 'primary');
-    } catch (error) {
-      this.showMessage(`保存设备配置失败: ${(error as Error).message}`, 'error');
-    }
+        return updateDevice;
+      },
+      () => this.showMessage('设备配置已更新', 'primary'),
+      (error) => this.showMessage(`保存设备配置失败: ${error.message}`, 'error'),
+    );
   }
 
   // 获取设备类型图标
   @Provide()
   getDeviceIcon(type: DeviceType) {
-    switch (type) {
-      case 'screen':
-        return ScreenShare;
-      case 'camera':
-        return WebCamera;
-      case 'microphone':
-        return Mic;
-      default:
-        return ScreenShare;
-    }
-  }
-
-  deviceTypeName(type: DeviceType): string {
-    switch (type) {
-      case 'screen':
-        return '屏幕共享';
-      case 'camera':
-        return '摄像头';
-      case 'microphone':
-        return '麦克风';
-      default:
-        return '未知设备';
-    }
+    return DEVICE_TYPE_MAP[type]?.icon || ScreenShare;
   }
 
   async startDeviceStream(device: Device) {
     try {
-      this.deviceManager.startDeviceStream(device);
-      this.updateVideoElement(device);
+      await this.deviceManager.startDeviceStream(device);
+      await this.updateVideoElement(device);
     } catch (error) {
       this.showMessage(`启动 ${device.name} 失败: ${(error as Error).message}`, 'error');
     }
   }
 
-  showMessage(message: string, type: 'primary' | 'info' | 'error') {
-    ElMessage({
-      message,
-      type,
-      customClass: 'my-message',
-    });
-  }
-
   async mounted() {
     await this.initializeService();
 
-    // 立即获取初始连接状态
     const initialState = await window.electron.getConnectionStatus();
-    switch (initialState) {
-      case 'connected':
-        this.connectionState = ConnectState.CONNECTED;
-        break;
-      case 'connecting':
-        this.connectionState = ConnectState.CONNECTING;
-        break;
-      case 'disconnected':
-        this.connectionState = ConnectState.DISCONNECTED;
-        break;
-    }
+    this.updateConnectionState(initialState);
 
-    // 监听连接状态变化
     window.electron.onConnectionStateChanged((state) => {
-      switch (state) {
-        case 'connected':
-          this.connectionState = ConnectState.CONNECTED;
-          break;
-        case 'connecting':
-          this.connectionState = ConnectState.CONNECTING;
-          break;
-        case 'disconnected':
-          this.connectionState = ConnectState.DISCONNECTED;
-          break;
-      }
+      this.updateConnectionState(state);
     });
 
+    // 设置屏幕最大帧率
     const fps = await getScreenActualRefreshRate(60);
-
     this.deviceManager.setScreenAvailableMaxFrameRate = fps;
 
     await this.refreshAllDevices();
