@@ -31,6 +31,7 @@ export interface AudioConfig {
   name: string;
   sampleRate: number;
   channelCount: number;
+  channelMode?: 'mono' | 'stereo'; // 通道模式：单声道或立体声
 }
 
 export interface AppConfigInterface {
@@ -79,6 +80,7 @@ export interface UpdateAudioConfigDTO {
   name: string;
   sampleRate: number;
   channelCount: number;
+  channelMode?: 'mono' | 'stereo'; // 通道模式：单声道或立体声
 }
 
 export interface UpdateAppConfigDTO {

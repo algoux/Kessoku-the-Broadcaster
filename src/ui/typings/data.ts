@@ -10,6 +10,7 @@ export interface DeviceSettings {
   facingMode?: string;
   sampleRate?: number;
   channelCount?: number;
+  channelMode?: 'mono' | 'stereo'; // 麦克风通道模式：单声道或立体声
   formatSetting?: string;
   simulcastConfigs?: SimulcastConfig[]; // Simulcast 编码配置
 }
@@ -52,6 +53,7 @@ export interface ConfigForm {
   frameRate: number;
   sampleRate?: number;
   channelCount?: number;
+  channelMode?: 'mono' | 'stereo'; // 麦克风通道模式
   simulcastConfig: SimulcastConfig;
 }
 
@@ -111,7 +113,7 @@ export interface DeviceTypeConfig {
   findDeviceInfo: (manager: DeviceManager, id: string) => DeviceSourceInfo | undefined;
 }
 
- /**
+/**
  * 设备类型配置映射 - 统一不同设备类型的操作
  */
 export const DEVICE_TYPE_CONFIG: Record<DeviceType, DeviceTypeConfig> = {

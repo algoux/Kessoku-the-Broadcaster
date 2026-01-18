@@ -30,86 +30,82 @@ export class DeviceManager {
   screenAvailableMaxFrameRate: number;
   public isStreaming: boolean = false;
   public streamStatus: string = '未连接';
-  private hasLoadedFromConfig: boolean = false;
 
   set setScreenAvailableMaxFrameRate(fps: number) {
     this.screenAvailableMaxFrameRate = fps;
   }
 
-  /**
-   * 判断设备是否为视频设备（屏幕或摄像头）
-   */
   isVideoDevice(device: Device): boolean {
     return device.type === 'screen' || device.type === 'camera';
   }
 
-  /**
-   * 获取所有视频设备
-   */
   getVideoDevices(): Device[] {
     return this.userDevices.filter((d) => this.isVideoDevice(d));
   }
 
   /**
    * 获取启用设备的信息（用于上报）
+   * @returns {DeviceSettings[]}
    */
   getEnabledDevicesInfo() {
-    return this.userDevices
-      .filter((device) => device.enabled)
-      .map((device) => ({
-        classId: device.classId,
-        type: device.type,
-        name: device.name,
-        enabled: device.enabled,
-        settings: device.settings
-          ? {
-              width: device.settings.width,
-              height: device.settings.height,
-              frameRate: device.settings.frameRate,
-              aspectRatio: device.settings.aspectRatio,
-              facingMode: device.settings.facingMode,
-              sampleRate: device.settings.sampleRate,
-              channelCount: device.settings.channelCount,
-            }
-          : undefined,
-      }));
+    return this.userDevices.map((device) => ({
+      classId: device.classId,
+      type: device.type,
+      name: device.name,
+      enabled: device.enabled,
+      settings: device.settings,
+    }));
   }
 
   /**
-   * 获取所有可用设备
+   * 合并同一物理麦克风的多个通道
+   * 通过 groupId 识别同一个物理设备
    */
+  private mergeMicrophoneChannels(audioDevices: MediaDeviceInfo[]): MediaDeviceInfo[] {
+    const deviceMap = new Map<string, MediaDeviceInfo>();
+
+    audioDevices.forEach((device) => {
+      const groupId = device.groupId;
+
+      // 如果已经有同一 groupId 的设备，跳过（保留第一个）
+      if (!deviceMap.has(groupId)) {
+        deviceMap.set(groupId, device);
+      }
+    });
+
+    return Array.from(deviceMap.values());
+  }
+
   async refreshAllDevices(): Promise<Device[] | void> {
     try {
       const sources = await window.electron.getSources();
       this.availableScreens = sources.map((s: any) => ({ id: s.id, name: s.name }));
 
-      // 请求媒体权限以获取设备标签
+      // 请求权限以获取设备列表
       await navigator.mediaDevices
         .getUserMedia({ video: true, audio: true })
         .then((s) => s.getTracks().forEach((t) => t.stop()))
-        .catch(() => {});
 
-      // 获取摄像头和麦克风设备
       const devices = await navigator.mediaDevices.enumerateDevices();
+
       this.availableCameras = devices.filter((d) => d.kind === 'videoinput');
-      this.availableMicrophones = devices.filter((d) => d.kind === 'audioinput');
+      const audioInputDevices = devices.filter((d) => d.kind === 'audioinput');
+      this.availableMicrophones = this.mergeMicrophoneChannels(audioInputDevices);
 
       // 检查是否已有配置
       const hasConfig = await window.electron.hasDevicesConfig();
 
-      if (hasConfig && !this.hasLoadedFromConfig) {
+      if (hasConfig) {
         const devicesConfig = await window.electron.getDevicesConfig();
         const loadedDevices = await this.loadDevicesFromConfig(devicesConfig);
-        this.hasLoadedFromConfig = true;
         this.updateCanAddState();
         return loadedDevices;
       }
 
-      // 如果用户设备列表为空，添加默认设备
       if (this.userDevices.length === 0) {
-        const defautDevices = await this.addDefaultDevices();
+        const defaultDevices = await this.addDefaultDevices();
         this.updateCanAddState();
-        return defautDevices;
+        return defaultDevices;
       }
 
       this.updateCanAddState();
@@ -155,9 +151,6 @@ export class DeviceManager {
     return defaultDevicesList;
   }
 
-  /**
-   * 创建并启动设备
-   */
   private async createAndStartDevice(
     type: DeviceType,
     deviceInfo: DeviceSourceInfo,
@@ -349,108 +342,92 @@ export class DeviceManager {
 
   /**
    * 获取设备流
+   * @param device 设备对象
+   * @param constraints 可选的约束对象，如果不提供则使用 device.settings
    */
-  private async getDeviceStream(device: Device): Promise<MediaStream> {
-    const hasPresetSettings = !!device.settings;
+  private async getDeviceStream(
+    device: Device,
+    constraints?: { width?: number; height?: number; frameRate?: number; sampleRate?: number; channelCount?: number }
+  ): Promise<MediaStream> {
+    const settings = constraints || device.settings;
+    const hasSettings = !!settings;
 
     if (device.type === 'screen') {
-      return this.getScreenStream(device, hasPresetSettings);
+      const mandatory: any = {
+        chromeMediaSource: 'desktop',
+        chromeMediaSourceId: device.id,
+      };
+
+      if (hasSettings) {
+        if (settings.width) {
+          mandatory.minWidth = settings.width;
+          mandatory.maxWidth = settings.width;
+        }
+        if (settings.height) {
+          mandatory.minHeight = settings.height;
+          mandatory.maxHeight = settings.height;
+        }
+        if (settings.frameRate) {
+          mandatory.minFrameRate = settings.frameRate;
+          mandatory.maxFrameRate = settings.frameRate;
+        }
+      }
+
+      return navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { mandatory } as any,
+      });
     } else if (device.type === 'camera') {
-      return this.getCameraStream(device, hasPresetSettings);
+      const videoConstraints: any = {
+        deviceId: { exact: device.id },
+      };
+
+      if (hasSettings) {
+        if (settings.width) {
+          videoConstraints.width = { ideal: settings.width };
+        }
+        if (settings.height) {
+          videoConstraints.height = { ideal: settings.height };
+        }
+        if (settings.frameRate) {
+          videoConstraints.frameRate = {
+            ideal: settings.frameRate,
+            max: settings.frameRate,
+          };
+        }
+      } else {
+        videoConstraints.frameRate = { ideal: 60, max: 60 };
+      }
+
+      return navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: videoConstraints,
+      });
     } else {
-      return this.getMicrophoneStream(device, hasPresetSettings);
+      // microphone
+      const audioConstraints: any = {
+        deviceId: device.id,
+      };
+
+      if (hasSettings) {
+        if (settings.sampleRate) {
+          audioConstraints.sampleRate = { ideal: settings.sampleRate };
+        }
+        // 根据 channelMode 设置 channelCount
+        if ((device.settings as any)?.channelMode) {
+          const channelCount = (device.settings as any).channelMode === 'stereo' ? 2 : 1;
+          audioConstraints.channelCount = { ideal: channelCount };
+        } else if (settings.channelCount) {
+          audioConstraints.channelCount = { ideal: settings.channelCount };
+        }
+      }
+
+      return navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+      });
     }
   }
 
-  /**
-   * 获取屏幕共享流
-   */
-  private async getScreenStream(device: Device, hasPresetSettings: boolean): Promise<MediaStream> {
-    const mandatory: any = {
-      chromeMediaSource: 'desktop',
-      chromeMediaSourceId: device.id,
-    };
-
-    if (hasPresetSettings && device.settings) {
-      if (device.settings.width) {
-        mandatory.minWidth = device.settings.width;
-        mandatory.maxWidth = device.settings.width;
-      }
-      if (device.settings.height) {
-        mandatory.minHeight = device.settings.height;
-        mandatory.maxHeight = device.settings.height;
-      }
-      if (device.settings.frameRate) {
-        mandatory.minFrameRate = device.settings.frameRate;
-        mandatory.maxFrameRate = device.settings.frameRate;
-      }
-    }
-
-    return navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { mandatory } as any,
-    });
-  }
-
-  /**
-   * 获取摄像头流
-   */
-  private async getCameraStream(device: Device, hasPresetSettings: boolean): Promise<MediaStream> {
-    const videoConstraints: any = {
-      deviceId: { exact: device.id },
-    };
-
-    if (hasPresetSettings && device.settings) {
-      if (device.settings.width) {
-        videoConstraints.width = { ideal: device.settings.width };
-      }
-      if (device.settings.height) {
-        videoConstraints.height = { ideal: device.settings.height };
-      }
-      if (device.settings.frameRate) {
-        videoConstraints.frameRate = {
-          ideal: device.settings.frameRate,
-          max: device.settings.frameRate,
-        };
-      }
-    } else {
-      videoConstraints.frameRate = { ideal: 60, max: 60 };
-    }
-
-    return navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: videoConstraints,
-    });
-  }
-
-  /**
-   * 获取麦克风流
-   */
-  private async getMicrophoneStream(
-    device: Device,
-    hasPresetSettings: boolean,
-  ): Promise<MediaStream> {
-    const audioConstraints: any = {
-      deviceId: device.id,
-    };
-
-    if (hasPresetSettings && device.settings) {
-      if (device.settings.sampleRate) {
-        audioConstraints.sampleRate = { ideal: device.settings.sampleRate };
-      }
-      if (device.settings.channelCount) {
-        audioConstraints.channelCount = { ideal: device.settings.channelCount };
-      }
-    }
-
-    return navigator.mediaDevices.getUserMedia({
-      audio: audioConstraints,
-    });
-  }
-
-  /**
-   * 处理音频轨道
-   */
   private processAudioTrack(device: Device) {
     const audioTrack = device.stream!.getAudioTracks()[0];
     const capabilities = audioTrack.getCapabilities() as DeviceCapabilities;
@@ -459,17 +436,17 @@ export class DeviceManager {
     if (!device.capabilities) device.capabilities = capabilities;
 
     if (!device.settings) {
+      // 根据实际通道数设置默认 channelMode
+      const channelMode = rawSettings.channelCount === 2 ? 'stereo' : 'mono';
       device.settings = {
         sampleRate: rawSettings.sampleRate,
         channelCount: rawSettings.channelCount,
+        channelMode: channelMode,
       };
     }
     device.formatSetting = this.getFormatSettings(device);
   }
 
-  /**
-   * 处理视频轨道
-   */
   private processVideoTrack(device: Device) {
     const videoTrack = device.stream!.getVideoTracks()[0];
     const capabilities = videoTrack.getCapabilities() as DeviceCapabilities;
@@ -503,7 +480,6 @@ export class DeviceManager {
         maxFrameRate: device.settings.maxFrameRate || maxFrameRate,
       };
     }
-
     console.log('Device settings:', device.name, device.settings);
     device.formatSetting = this.getFormatSettings(device);
   }
@@ -514,8 +490,6 @@ export class DeviceManager {
   async resetDeviceStreaming() {
     try {
       this.isStreaming = false;
-
-      // 检查并重新启动受影响的设备流
       for (const device of this.userDevices) {
         if (device.stream && device.stream.getVideoTracks().length > 0) {
           const track = device.stream.getVideoTracks()[0];
@@ -572,7 +546,7 @@ export class DeviceManager {
               rid: cfg.rid,
               scaleResolutionDownBy: cfg.scaleResolutionDownBy,
               maxBitRate: cfg.maxBitRate,
-              maxFramerate: frameRate, // 动态注入当前设备的帧率
+              maxFramerate: frameRate,
             }));
           }
 
@@ -591,9 +565,6 @@ export class DeviceManager {
     }
   }
 
-  /**
-   * 移除设备
-   */
   removeDevice(device: Device) {
     const index = this.userDevices.indexOf(device);
     if (index > -1) {
@@ -603,9 +574,6 @@ export class DeviceManager {
     }
   }
 
-  /**
-   * 停止设备流
-   */
   stopDeviceStream(device: Device, videoEl?: HTMLVideoElement) {
     if (device.stream) {
       device.stream.getTracks().forEach((track) => track.stop());
@@ -627,7 +595,8 @@ export class DeviceManager {
 
     if (device.type === 'microphone') {
       this.configForm = {
-        channelCount: device.settings?.channelCount || 0,
+        channelCount: device.settings?.channelCount || 1,
+        channelMode: device.settings?.channelMode || 'mono',
         sampleRate: device.settings?.sampleRate || 0,
       } as ConfigForm;
     } else {
@@ -661,7 +630,7 @@ export class DeviceManager {
         width,
         height,
         frameRate,
-        simulcastConfigs, // 保存完整的数组
+        simulcastConfigs,
       } as any;
 
       // 计算并更新所有通道的码率
@@ -693,12 +662,11 @@ export class DeviceManager {
     const { width, height, frameRate } = configForm;
     const simulcastConfigs = configForm.simulcastConfigs || [];
 
-    // 为每个通道计算码率
     simulcastConfigs.forEach((config: SimulcastConfig) => {
       const scale = config.scaleResolutionDownBy || 1;
       const scaledWidth = width / scale;
       const scaledHeight = height / scale;
-      // 码率公式: width * height * frameRate * 0.000078125 (Kbps)
+      // width * height * frameRate * 0.000078125 (Kbps)
       config.maxBitRate = Math.round(scaledWidth * scaledHeight * frameRate * 0.000078125);
     });
   }
@@ -712,11 +680,9 @@ export class DeviceManager {
     const configForm = this.configForm as any;
     const simulcastConfigs = configForm.simulcastConfigs || [];
 
-    // 找到选中的配置
     const selectedIndex = simulcastConfigs.findIndex((cfg: SimulcastConfig) => cfg.rid === rid);
     if (selectedIndex === -1 || selectedIndex === 0) return;
 
-    // 将选中的配置移到第一位
     const selectedConfig = simulcastConfigs.splice(selectedIndex, 1)[0];
     simulcastConfigs.unshift(selectedConfig);
   }
@@ -873,41 +839,13 @@ export class DeviceManager {
    * 获取新的配置流
    */
   private async getNewStreamForConfig(): Promise<MediaStream> {
-    if (this.currentConfigDevice.type === 'screen') {
-      return (navigator.mediaDevices.getUserMedia as any)({
-        audio: false,
-        video: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: this.currentConfigDevice.id,
-            minWidth: this.configForm.width,
-            maxWidth: this.configForm.width,
-            minHeight: this.configForm.height,
-            maxHeight: this.configForm.height,
-            minFrameRate: this.configForm.frameRate,
-            maxFrameRate: this.configForm.frameRate,
-          },
-        },
-      });
-    } else if (this.currentConfigDevice.type === 'camera') {
-      return navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          deviceId: { exact: this.currentConfigDevice.id },
-          width: { ideal: this.configForm.width },
-          height: { ideal: this.configForm.height },
-          frameRate: { ideal: this.configForm.frameRate },
-        },
-      });
-    } else {
-      return navigator.mediaDevices.getUserMedia({
-        audio: {
-          deviceId: { exact: this.currentConfigDevice.id },
-          sampleRate: this.configForm.sampleRate,
-          channelCount: this.configForm.channelCount,
-        },
-      });
-    }
+    return this.getDeviceStream(this.currentConfigDevice, {
+      width: this.configForm.width,
+      height: this.configForm.height,
+      frameRate: this.configForm.frameRate,
+      sampleRate: this.configForm.sampleRate,
+      channelCount: this.configForm.channelCount,
+    });
   }
 
   /**
@@ -922,6 +860,10 @@ export class DeviceManager {
       this.currentConfigDevice.settings = audioTrack
         ? (audioTrack.getSettings() as DeviceSettings)
         : originalSettings;
+      // 保存用户选择的 channelMode
+      if (this.configForm.channelMode) {
+        this.currentConfigDevice.settings!.channelMode = this.configForm.channelMode;
+      }
       if (originalCapabilities) {
         this.currentConfigDevice.capabilities = originalCapabilities;
       }
@@ -945,14 +887,12 @@ export class DeviceManager {
 
     const s = device.settings;
     if (device.type === 'microphone') {
-      return `${s.sampleRate || 'N/A'} Hz @ ${s.channelCount || 'N/A'}`;
+      return `${s.sampleRate || 'N/A'} Hz @ ${s.channelMode || 'N/A'}`;
     }
 
     const fps = s.frameRate ? s.frameRate.toFixed(1) : 'N/A';
     return `${s.width || 'N/A'}x${s.height || 'N/A'} @ ${fps} fps`;
   };
-
-  setScreenMaxFrameRate = (fps: number) => {};
 
   /**
    * 从配置文件加载设备
@@ -1024,6 +964,7 @@ export class DeviceManager {
       return {
         sampleRate: config.sampleRate,
         channelCount: config.channelCount,
+        channelMode: config.channelMode || 'mono',
       };
     } else {
       return {
@@ -1079,6 +1020,7 @@ export class DeviceManager {
         ...baseConfig,
         sampleRate: device.settings!.sampleRate,
         channelCount: device.settings!.channelCount,
+        channelMode: device.settings!.channelMode || 'mono',
       };
     } else {
       if (!device.settings!.width || !device.settings!.height || !device.settings!.frameRate) {

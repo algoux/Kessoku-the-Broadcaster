@@ -16,10 +16,6 @@ export class MediasoupClient {
   async loadDeviceWithCapabilities(rtpCapabilities: any) {
     if (!this.device || !this.device.loaded) {
       try {
-        if (!this.device) {
-          this.device = new mediasoupClient.Device();
-        }
-
         // 通过 JSON 序列化/反序列化来清理对象，移除不可克隆的属性
         const cleanRtpCapabilities = JSON.parse(JSON.stringify(rtpCapabilities));
 
@@ -32,9 +28,7 @@ export class MediasoupClient {
     }
   }
 
-  // 使用服务端创建的 transport
   async createProducerTransportFromServer(transportInfo: any): Promise<void> {
-    if (!this.device) throw new Error('Device 未加载');
     if (this.producerTransport) {
       return;
     }

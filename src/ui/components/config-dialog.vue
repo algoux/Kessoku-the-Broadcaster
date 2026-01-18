@@ -132,6 +132,15 @@ export default class ConfigDialog extends Vue {
   }
 
   /**
+   * 处理通道模式变化
+   */
+  private onChannelModeChange(mode: 'mono' | 'stereo') {
+    // 根据通道模式自动设置声道数
+    this.deviceManager.configForm.channelCount = mode === 'stereo' ? 2 : 1;
+    this.forceUpdate();
+  }
+
+  /**
    * 强制组件更新
    */
   private forceUpdate() {
@@ -155,21 +164,22 @@ export default class ConfigDialog extends Vue {
       label-width="100px"
       style="margin-top: 15px"
     >
+      <el-form-item label="通道模式">
+        <el-select
+          v-model="deviceManager.configForm.channelMode"
+          placeholder="选择通道模式"
+          @change="onChannelModeChange"
+        >
+          <el-option label="单声道 (Mono)" value="mono" />
+          <el-option label="立体声 (Stereo)" value="stereo" />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="采样率">
         <el-input-number
           v-model="deviceManager.configForm.sampleRate"
           :min="deviceManager.currentConfigDevice.capabilities?.sampleRate?.min || 8000"
           :max="deviceManager.currentConfigDevice.capabilities?.sampleRate?.max || 48000"
-          :step="1"
-          controls-position="right"
-        />
-      </el-form-item>
-
-      <el-form-item label="声道数">
-        <el-input-number
-          v-model="deviceManager.configForm.channelCount"
-          :min="deviceManager.currentConfigDevice.capabilities?.channelCount?.min || 1"
-          :max="deviceManager.currentConfigDevice.capabilities?.channelCount?.max || 2"
           :step="1"
           controls-position="right"
         />
@@ -181,10 +191,7 @@ export default class ConfigDialog extends Vue {
             采样率:
             {{ Math.round(deviceManager.currentConfigDevice.capabilities.sampleRate.min) }} -
             {{ Math.round(deviceManager.currentConfigDevice.capabilities.sampleRate.max) }}
-            Hz<br />
-            声道数:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.channelCount.min) }} -
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.channelCount.max) }}<br />
+            Hz
           </p>
           <p v-else>待获取设备参数信息</p>
         </div>
