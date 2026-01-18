@@ -351,6 +351,8 @@ export default class HomeView extends Vue {
   @Provide()
   closeConfigDialog() {
     this.configDialogVisible = false;
+    // 清理 currentConfigDevice，避免影响后续操作
+    // 注意：不清空引用，只是标记对话框已关闭
   }
 
   // 保存设备配置
@@ -377,7 +379,11 @@ export default class HomeView extends Vue {
         return updateDevice;
       },
       () => this.showMessage('设备配置已更新', 'primary'),
-      (error) => this.showMessage(`保存设备配置失败: ${error.message}`, 'error'),
+      (error) => {
+        // 保存失败时不关闭对话框，让用户可以重试或取消
+        console.error('保存设备配置失败:', error);
+        this.showMessage(`保存设备配置失败: ${error.message}`, 'error');
+      },
     );
   }
 

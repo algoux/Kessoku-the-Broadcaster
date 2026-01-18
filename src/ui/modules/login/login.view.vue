@@ -29,10 +29,18 @@ export default class LoginView extends Vue {
       <LoginForm />
     </div>
     <settings-button />
+    <p class="copyright">© 2019-present algoUX. All Rights Reserved.</p>
   </div>
 </template>
 
 <style scoped lang="less">
+.copyright {
+  position: absolute;
+  bottom: 10px;
+  font-size: 12px;
+  color: var(--font-secondary-color);
+}
+
 .login-view {
   width: 100%;
   height: 100vh;
@@ -42,6 +50,8 @@ export default class LoginView extends Vue {
   align-items: center;
   gap: 20px;
   background-color: var(--bg-secondary-color);
+  position: relative;
+  user-select: none;
 
   & h1 {
     color: var(--font-primary-color);

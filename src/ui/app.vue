@@ -16,16 +16,16 @@ import WindowControls from './components/window-controls.vue';
 })
 export default class App extends Vue {
   mounted() {
-    window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && ['=', '-', '0'].includes(e.key)) {
-        e.preventDefault();
-      }
+    // window.addEventListener('keydown', (e) => {
+    //   if ((e.ctrlKey || e.metaKey) && ['=', '-', '0'].includes(e.key)) {
+    //     e.preventDefault();
+    //   }
 
-      if (e.metaKey && e.key == ',') {
-        e.preventDefault();
-        window.electron.openSettingsWindow();
-      }
-    });
+    //   if (e.metaKey && e.key == ',') {
+    //     e.preventDefault();
+    //     window.electron.openSettingsWindow();
+    //   }
+    // });
   }
 }
 </script>

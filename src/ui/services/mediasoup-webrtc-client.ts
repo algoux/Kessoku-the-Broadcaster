@@ -20,7 +20,6 @@ export class MediasoupClient {
         const cleanRtpCapabilities = JSON.parse(JSON.stringify(rtpCapabilities));
 
         await this.device.load({ routerRtpCapabilities: cleanRtpCapabilities });
-        console.log('Device 加载成功（使用服务端 rtpCapabilities）');
       } catch (error) {
         console.error('Device 加载失败:', error);
         throw error;
@@ -40,8 +39,6 @@ export class MediasoupClient {
         iceCandidates: transportInfo.iceCandidates,
         dtlsParameters: transportInfo.dtlsParameters,
       });
-
-      console.log('使用服务端 transport 创建成功');
 
       // 监听连接事件（新协议）
       this.producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
@@ -84,7 +81,6 @@ export class MediasoupClient {
     const hasActiveVideoProducer = existingProducers.some((p) => p.kind === 'video' && !p.closed);
 
     if (hasActiveVideoProducer) {
-      console.log(`classId=${classId} 已存在活跃的视频 producer，跳过重复推流`);
       return;
     }
 
@@ -108,8 +104,6 @@ export class MediasoupClient {
       const classProducers = this.producersByClassId.get(classId) || [];
       classProducers.push(producer);
       this.producersByClassId.set(classId, classProducers);
-
-      console.log(`视频推流成功: producerId=${producer.id}, classId=${classId}`);
     } catch (error) {
       console.error('视频流推送失败:', error);
       throw error;
@@ -125,7 +119,6 @@ export class MediasoupClient {
     const hasActiveAudioProducer = existingProducers.some((p) => p.kind === 'audio' && !p.closed);
 
     if (hasActiveAudioProducer) {
-      console.log(`classId=${classId} 已存在活跃的音频 producer，跳过重复推流`);
       return;
     }
 
@@ -138,8 +131,6 @@ export class MediasoupClient {
       const classProducers = this.producersByClassId.get(classId) || [];
       classProducers.push(producer);
       this.producersByClassId.set(classId, classProducers);
-
-      console.log(`音频推流成功: producerId=${producer.id}, classId=${classId}`);
     } catch (error) {
       console.error('音频流推送失败:', error);
       throw error;

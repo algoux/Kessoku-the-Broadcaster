@@ -4,7 +4,7 @@ const COS = require('cos-nodejs-sdk-v5');
 
 const args = process.argv.slice(2);
 const releaseVersion = args[0];
-const artifactsDir = args[1] || 'dist'; // 支持传入自定义目录，默认为 dist
+const artifactsDir = args[1] || 'dist';
 const baseDir = path.join(__dirname, '..', artifactsDir);
 
 const REMOTE_PATH =

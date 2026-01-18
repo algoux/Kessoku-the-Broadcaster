@@ -54,7 +54,7 @@ export interface ConfigForm {
   sampleRate?: number;
   channelCount?: number;
   channelMode?: 'mono' | 'stereo'; // 麦克风通道模式
-  simulcastConfig: SimulcastConfig;
+  simulcastConfigs?: SimulcastConfig[];
 }
 
 // 设备信息上报接口（发送给服务器）

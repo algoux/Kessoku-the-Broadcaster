@@ -84,6 +84,30 @@ export default class ConfigDialog extends Vue {
   }
 
   /**
+   * 判断采样率是否固定（立体声模式下固定）
+   */
+  get isSampleRateFixed(): boolean {
+    // 立体声模式使用 AudioContext，采样率固定
+    // 单声道模式使用原始流，采样率可调整
+    const channelMode = this.deviceManager.currentConfigDevice?.settings?.channelMode;
+    return channelMode === 'stereo';
+  }
+
+  /**
+   * 获取采样率的最小值
+   */
+  get sampleRateMin(): number {
+    return this.deviceManager.currentConfigDevice?.capabilities?.sampleRate?.min || 8000;
+  }
+
+  /**
+   * 获取采样率的最大值
+   */
+  get sampleRateMax(): number {
+    return this.deviceManager.currentConfigDevice?.capabilities?.sampleRate?.max || 48000;
+  }
+
+  /**
    * 转换 rid 名称
    */
   private convertRidName(rid: string): string {
@@ -178,20 +202,30 @@ export default class ConfigDialog extends Vue {
       <el-form-item label="采样率">
         <el-input-number
           v-model="deviceManager.configForm.sampleRate"
-          :min="deviceManager.currentConfigDevice.capabilities?.sampleRate?.min || 8000"
-          :max="deviceManager.currentConfigDevice.capabilities?.sampleRate?.max || 48000"
+          :min="sampleRateMin"
+          :max="sampleRateMax"
           :step="1"
+          :disabled="isSampleRateFixed"
           controls-position="right"
         />
+        <span
+          v-if="isSampleRateFixed"
+          style="margin-left: 10px; color: var(--font-secondary-color); font-size: 12px"
+        >
+          立体声模式采样率固定
+        </span>
       </el-form-item>
 
       <el-form-item label="支持范围">
         <div class="capabilities-info">
-          <p v-if="deviceManager.currentConfigDevice?.capabilities">
+          <p v-if="deviceManager.currentConfigDevice?.capabilities?.sampleRate">
             采样率:
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.sampleRate.min) }} -
-            {{ Math.round(deviceManager.currentConfigDevice.capabilities.sampleRate.max) }}
+            {{ Math.round(sampleRateMin) }}
+            <span v-if="!isSampleRateFixed"> - {{ Math.round(sampleRateMax) }} </span>
             Hz
+            <span v-if="isSampleRateFixed" style="color: var(--font-secondary-color)">
+              (固定)
+            </span>
           </p>
           <p v-else>待获取设备参数信息</p>
         </div>

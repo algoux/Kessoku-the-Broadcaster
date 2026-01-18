@@ -75,14 +75,14 @@ export default class LoginForm extends Vue {
 
 <template>
   <el-form v-model="form" label-width="auto" style="max-width: 400px; width: 100%">
-    <el-form-item label="Alias">
+    <el-form-item label="alias">
       <el-input v-model="form.alias" placeholder="请输入比赛 alias" :disabled="isLoading" />
     </el-form-item>
-    <el-form-item label="UserID">
-      <el-input v-model="form.userId" placeholder="请输入用户 ID" :disabled="isLoading" />
+    <el-form-item label="userId">
+      <el-input v-model="form.userId" placeholder="请输入用户 id" :disabled="isLoading" />
     </el-form-item>
-    <el-form-item label="Token">
-      <el-input v-model="form.token" placeholder="请输入 Token" :disabled="isLoading" />
+    <el-form-item label="token">
+      <el-input v-model="form.token" placeholder="请输入推流 token" :disabled="isLoading" />
     </el-form-item>
     <el-form-item>
       <el-button

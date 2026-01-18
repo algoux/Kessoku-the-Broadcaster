@@ -37,18 +37,12 @@ export class RendererService {
   private setupIpcListeners() {
     // 监听主进程的推流请求（携带 transport 和 rtpCapabilities）
     window.electron.onStreamingRequest(async (data) => {
-      console.log('收到推流请求, classIds:', data.classIds);
-      console.log('完整数据:', data);
-      console.log('onStreamingRequest 回调是否存在:', !!this.onStreamingRequest);
-
       if (this.onStreamingRequest) {
-        console.log('准备调用 onStreamingRequest 回调');
         await this.onStreamingRequest({
           classIds: data.classIds || [],
           transport: (data as any).transport,
           routerRtpCapabilities: (data as any).routerRtpCapabilities,
         });
-        console.log('onStreamingRequest 回调执行完成');
       } else {
         console.error('onStreamingRequest 回调未设置！');
       }
@@ -56,7 +50,6 @@ export class RendererService {
 
     // 监听主进程的停止推流请求
     window.electron.onStopStreamingRequest(async () => {
-      console.log('收到停止推流请求');
       if (this.onStopStreamingRequest) {
         await this.onStopStreamingRequest();
       }
@@ -97,7 +90,6 @@ export class RendererService {
 
       // 推送所有流
       for (const data of streamData) {
-        console.log('produce stream data:', data);
         await this.mediasoupClient.produceStream(data.stream, data.classId, data.simulcastConfigs);
       }
     } catch (error) {
