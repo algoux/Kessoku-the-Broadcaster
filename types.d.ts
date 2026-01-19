@@ -1,8 +1,8 @@
 import {
   AppConfigInterface,
-  UpdateAppConfigDTO,
+  UpdateConfigDTO,
   UpdateAudioConfigDTO,
-  UpdateGlobalConfigDTO,
+  UpdateVideoConfigDTO,
   VideoConfig,
   AudioConfig,
   RequestStartBroadcast,
@@ -62,8 +62,7 @@ declare global {
     hasDevicesConfig: boolean;
     updateVideoConfig: void;
     updateAudioConfig: void;
-    updateAppConfig: void;
-    updateGlobalConfig: void;
+    updateConfig: void;
     clearVideoCache: { success: boolean; deletedCount?: number; error?: string };
 
     // 窗口控制
@@ -143,8 +142,7 @@ declare global {
       hasDevicesConfig: () => Promise<boolean>;
       updateVideoConfig: (data: UpdateVideoConfigDTO[], type: 'camera' | 'screen') => Promise<void>;
       updateAudioConfig: (data: UpdateAudioConfigDTO[]) => Promise<void>;
-      updateAppConfig: (data: UpdateAppConfigDTO) => Promise<void>;
-      updateGlobalConfig: (data: UpdateGlobalConfigDTO) => Promise<void>;
+      updateConfig: (data: UpdateConfigDTO) => Promise<void>;
       clearVideoCache: () => Promise<{ success: boolean; deletedCount?: number; error?: string }>;
       // 窗口控制
       minimizeWindow: () => void;

@@ -39,7 +39,6 @@ export interface Device<T extends DeviceType = DeviceType> {
   name: string;
   type: T;
   classId: ClassIdPattern<T>;
-  enabled: boolean;
   isDefault?: boolean;
   stream?: MediaStream;
   settings?: DeviceSettings;
@@ -47,22 +46,11 @@ export interface Device<T extends DeviceType = DeviceType> {
   formatSetting?: string;
 }
 
-export interface ConfigForm {
-  width: number;
-  height: number;
-  frameRate: number;
-  sampleRate?: number;
-  channelCount?: number;
-  channelMode?: 'mono' | 'stereo'; // 麦克风通道模式
-  simulcastConfigs?: SimulcastConfig[];
-}
-
 // 设备信息上报接口（发送给服务器）
 export interface DeviceInfo {
   classId: string;
   type: DeviceType;
   name: string;
-  enabled: boolean;
   settings?: DeviceSettings;
 }
 

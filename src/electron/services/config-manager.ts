@@ -1,9 +1,8 @@
 import {
   AppConfigInterface,
-  UpdateAppConfigDTO,
+  UpdateConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
-  UpdateGlobalConfigDTO,
   VideoConfig,
   AudioConfig,
 } from 'common/config.interface';
@@ -46,6 +45,14 @@ export class ConfigManager {
         !fs.existsSync(this.configData.appConfig.videoCachePath)
       ) {
         fs.mkdirSync(this.configData.appConfig.videoCachePath, { recursive: true });
+      }
+
+      // 同步开机自启动设置（仅生产环境）
+      if (app.isPackaged && this.configData.appConfig.autoOpenOnLogin !== undefined) {
+        app.setLoginItemSettings({
+          openAtLogin: this.configData.appConfig.autoOpenOnLogin,
+          openAsHidden: false,
+        });
       }
 
       // 保存更新后的配置
@@ -118,15 +125,51 @@ export class ConfigManager {
     fs.writeFileSync(this.configPath, JSON.stringify(this.configData, null, 2));
   }
 
-  updateAppConfig(data: UpdateAppConfigDTO) {
-    this.configData.appConfig = {
-      ...this.configData.appConfig,
-      ...data,
-    };
+  updateConfig(data: UpdateConfigDTO) {
+    // 更新顶层配置
+    if ('version' in data) {
+      this.configData.version = data.version;
+    }
+    if ('serviceURL' in data) {
+      this.configData.serviceURL = data.serviceURL;
+    }
+    if ('servicePath' in data) {
+      this.configData.servicePath = data.servicePath;
+    }
 
-    // 如果更新了 videoCachePath，确保目录存在
-    if (data.videoCachePath && !fs.existsSync(data.videoCachePath)) {
-      fs.mkdirSync(data.videoCachePath, { recursive: true });
+    // 更新 appConfig 配置
+    const appConfigKeys: (keyof UpdateConfigDTO)[] = [
+      'autoOpenOnLogin',
+      'autoReady',
+      'videoCachePath',
+    ];
+    const appConfigUpdates = Object.fromEntries(
+      appConfigKeys.filter((key) => key in data).map((key) => [key, data[key]]),
+    );
+
+    if (Object.keys(appConfigUpdates).length > 0) {
+      this.configData.appConfig = {
+        ...this.configData.appConfig,
+        ...appConfigUpdates,
+      };
+
+      // 如果更新了 videoCachePath，确保目录存在
+      if (data.videoCachePath && !fs.existsSync(data.videoCachePath)) {
+        fs.mkdirSync(data.videoCachePath, { recursive: true });
+      }
+
+      // 如果更新了 autoOpenOnLogin，在生产环境设置开机自启动
+      if ('autoOpenOnLogin' in data && !app.isPackaged) {
+        // 开发环境不设置开机自启动
+        console.log('开发环境，跳过开机自启动设置');
+      } else if ('autoOpenOnLogin' in data) {
+        // 生产环境设置开机自启动
+        app.setLoginItemSettings({
+          openAtLogin: data.autoOpenOnLogin ?? false,
+          openAsHidden: false,
+        });
+        console.log('开机自启动已设置为:', data.autoOpenOnLogin);
+      }
     }
 
     this.saveConfig();
@@ -164,19 +207,6 @@ export class ConfigManager {
 
   updateAudioConfig(data: UpdateAudioConfigDTO[]) {
     this.configData.devicesConfig.microphones = data;
-    this.saveConfig();
-  }
-
-  updateGlobalConfig(data: UpdateGlobalConfigDTO) {
-    if ('version' in data) {
-      this.configData.version = data.version;
-    }
-    if ('serviceURL' in data) {
-      this.configData.serviceURL = data.serviceURL;
-    }
-    if ('servicePath' in data) {
-      this.configData.servicePath = data.servicePath;
-    }
     this.saveConfig();
   }
 }

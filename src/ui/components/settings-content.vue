@@ -36,42 +36,36 @@ export default class SettingsContent extends Vue {
 
   async onAutoOpenOnLoginChange(value: boolean) {
     this.appConfig.autoOpenOnLogin = value;
-    await window.electron.updateAppConfig({
+    await window.electron.updateConfig({
       autoOpenOnLogin: value,
-      autoReady: this.appConfig.autoReady,
-      videoCachePath: this.appConfig.videoCachePath,
     });
     console.log('开机自启动设置已保存:', value);
   }
 
   async onAutoReadyChange(value: boolean) {
     this.appConfig.autoReady = value;
-    await window.electron.updateAppConfig({
-      autoOpenOnLogin: this.appConfig.autoOpenOnLogin,
+    await window.electron.updateConfig({
       autoReady: value,
-      videoCachePath: this.appConfig.videoCachePath,
     });
     console.log('启动时自动准备设置已保存:', value);
   }
 
   async onVideoCachePathChange() {
-    await window.electron.updateAppConfig({
-      autoOpenOnLogin: this.appConfig.autoOpenOnLogin,
-      autoReady: this.appConfig.autoReady,
+    await window.electron.updateConfig({
       videoCachePath: this.appConfig.videoCachePath,
     });
     console.log('视频缓存路径已保存:', this.appConfig.videoCachePath);
   }
 
   async onServiceURLChange() {
-    await window.electron.updateGlobalConfig({
+    await window.electron.updateConfig({
       serviceURL: this.appConfig.serviceURL,
     });
     console.log('Service URL 已保存:', this.appConfig.serviceURL);
   }
 
   async onServicePathChange() {
-    await window.electron.updateGlobalConfig({
+    await window.electron.updateConfig({
       servicePath: this.appConfig.servicePath || undefined,
     });
     console.log('Service Path 已保存:', this.appConfig.servicePath);

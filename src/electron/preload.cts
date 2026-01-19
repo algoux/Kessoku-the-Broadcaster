@@ -1,9 +1,8 @@
 const electron = require('electron');
 import {
-  UpdateAppConfigDTO,
+  UpdateConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
-  UpdateGlobalConfigDTO,
 } from 'common/config.interface';
 
 electron.contextBridge.exposeInMainWorld('electron', {
@@ -110,11 +109,8 @@ electron.contextBridge.exposeInMainWorld('electron', {
   updateAudioConfig: (data: UpdateAudioConfigDTO[]) => {
     return ipcInvoke('updateAudioConfig', data);
   },
-  updateAppConfig: (data: UpdateAppConfigDTO) => {
-    return ipcInvoke('updateAppConfig', data);
-  },
-  updateGlobalConfig: (data: UpdateGlobalConfigDTO) => {
-    return ipcInvoke('updateGlobalConfig', data);
+  updateConfig: (data: UpdateConfigDTO) => {
+    return ipcInvoke('updateConfig', data);
   },
   clearVideoCache: () => {
     return ipcInvoke('clearVideoCache');
@@ -156,7 +152,6 @@ function ipcOn<Key extends keyof EventPayloadMapping>(
     electron.ipcRenderer.off(key, cb);
   };
 }
-
 
 export function ipcSend<Key extends keyof EventPayloadMapping>(
   key: Key,

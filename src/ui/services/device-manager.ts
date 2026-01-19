@@ -3,13 +3,12 @@ import {
   Device,
   CanAddState,
   DeviceCapabilities,
-  ConfigForm,
   DeviceSettings,
+  DeviceSourceInfo,
   ClassIdPattern,
   DeviceAddingRes,
   ConfigSaveRes,
   DEVICE_TYPE_CONFIG,
-  DeviceSourceInfo,
 } from '@/typings/data';
 import { SimulcastConfig } from 'common/config.interface';
 
@@ -27,7 +26,7 @@ export class DeviceManager {
     camera: 0,
     microphone: 0,
   };
-  configForm: ConfigForm;
+  configForm: DeviceSettings;
   screenAvailableMaxFrameRate: number;
   public isStreaming: boolean = false;
   public streamStatus: string = '未连接';
@@ -45,15 +44,14 @@ export class DeviceManager {
   }
 
   /**
-   * 获取启用设备的信息（用于上报）
-   * @returns {DeviceSettings[]}
+   * 获取设备信息（用于上报）
+   * @returns {DeviceInfo[]}
    */
-  getEnabledDevicesInfo() {
+  getDevicesInfo() {
     return this.userDevices.map((device) => ({
       classId: device.classId,
       type: device.type,
       name: device.name,
-      enabled: device.enabled,
       // 将 Proxy 对象转换为普通对象，避免 IPC 序列化错误
       settings: device.settings ? JSON.parse(JSON.stringify(device.settings)) : undefined,
     }));
@@ -176,7 +174,6 @@ export class DeviceManager {
       name: deviceName,
       type: type,
       classId: (classId || this.getOrCreateClassId(deviceId, type, isDefault)) as any,
-      enabled: true,
       isDefault,
     };
 
@@ -629,11 +626,11 @@ export class DeviceManager {
   }
 
   /**
-   * 获取已启用的设备流
+   * 获取设备流
    */
   async getEnableStreams(classIds: string[] = []) {
     try {
-      let devicesToStream = this.userDevices.filter((device) => device.enabled);
+      let devicesToStream = this.userDevices;
 
       if (classIds && classIds.length > 0) {
         devicesToStream = devicesToStream.filter((device) => classIds.includes(device.classId));
@@ -719,7 +716,7 @@ export class DeviceManager {
         channelCount: device.settings?.channelCount || 1,
         channelMode: device.settings?.channelMode || 'mono',
         sampleRate: device.settings?.sampleRate || 0,
-      } as ConfigForm;
+      };
     } else {
       const width = Math.round(device.settings?.width || 0);
       const height = Math.round(device.settings?.height || 0);
@@ -1080,7 +1077,6 @@ export class DeviceManager {
         name: typeConfig.getDeviceName(deviceInfo),
         type,
         classId,
-        enabled: true,
         isDefault: false,
         settings: this.extractSettingsFromConfig(type, config),
       };

@@ -170,9 +170,8 @@ export class MediasoupClient {
     this.stopProducing();
     if (this.producerTransport) {
       this.producerTransport.close();
-      this.producerTransport = null;
+      this.producerTransport = null!;
     }
-    this.device = null;
   }
 
   // 连接传输通道

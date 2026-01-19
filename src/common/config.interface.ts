@@ -14,23 +14,24 @@ export interface GetPlatformInfoDTO {
   arch: string;
 }
 
+// 视频设备配置（用于保存到配置文件）
 export interface VideoConfig {
   id: string;
   classId: string;
   name: string;
-  width: number;
-  height: number;
-  frameRate: number;
-  sampleRate: number;
-  simulcastConfigs: SimulcastConfig[];
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  simulcastConfigs?: SimulcastConfig[];
 }
 
+// 音频设备配置（用于保存到配置文件）
 export interface AudioConfig {
   id: string;
   classId: string;
   name: string;
-  sampleRate: number;
-  channelCount: number;
+  sampleRate?: number;
+  channelCount?: number;
   channelMode?: 'mono' | 'stereo'; // 通道模式：单声道或立体声
 }
 
@@ -67,26 +68,30 @@ export interface UpdateVideoConfigDTO {
   id: string;
   classId: string;
   name: string;
-  width: number;
-  height: number;
-  frameRate: number;
-  sampleRate: number;
-  simulcastConfigs: SimulcastConfig[];
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  simulcastConfigs?: SimulcastConfig[];
 }
 
 export interface UpdateAudioConfigDTO {
   id: string;
   classId: string;
   name: string;
-  sampleRate: number;
-  channelCount: number;
+  sampleRate?: number;
+  channelCount?: number;
   channelMode?: 'mono' | 'stereo'; // 通道模式：单声道或立体声
 }
 
-export interface UpdateAppConfigDTO {
-  autoOpenOnLogin?: boolean; // 开机自启动
-  autoReady?: boolean; // 启动时自动准备
-  videoCachePath: string; // 视频缓存路径
+export interface UpdateConfigDTO {
+  // 顶层配置
+  version?: string;
+  serviceURL?: string;
+  servicePath?: string;
+  // appConfig 配置
+  autoOpenOnLogin?: boolean;
+  autoReady?: boolean;
+  videoCachePath?: string;
 }
 
 export interface UpdateUserConfigDTO {
@@ -101,10 +106,4 @@ export interface UpdateCompetitionConfigDTO {
   competitionId?: number;
   competitionName?: string;
   alias?: string;
-}
-
-export interface UpdateGlobalConfigDTO {
-  version?: string;
-  serviceURL?: string;
-  servicePath?: string;
 }

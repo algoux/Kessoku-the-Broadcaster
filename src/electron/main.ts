@@ -9,10 +9,9 @@ import path from 'path';
 import os from 'os';
 import { ConfigManager } from './services/config-manager';
 import {
-  UpdateAppConfigDTO,
+  UpdateConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
-  UpdateGlobalConfigDTO,
 } from 'common/config.interface';
 import log from 'electron-log';
 
@@ -192,7 +191,7 @@ function setupIpcHandlers() {
         );
 
         const connected = await webSocketService.connect(alias, userId, token);
-        
+
         if (!connected) {
           return { success: false, error: '连接服务器失败' };
         }
@@ -207,7 +206,7 @@ function setupIpcHandlers() {
         mainWindow = createMainWindow();
         webSocketService.setMainWindow(mainWindow);
         showWindow(mainWindow);
-        
+
         return { success: true };
       } catch (error) {
         console.error('登录失败:', error);
@@ -372,8 +371,8 @@ function setupIpcHandlers() {
     return configManager.hasDevicesConfig();
   });
 
-  ipcMainHandle('updateAppConfig', async (data: UpdateAppConfigDTO) => {
-    configManager.updateAppConfig(data);
+  ipcMainHandle('updateConfig', async (data: UpdateConfigDTO) => {
+    configManager.updateConfig(data);
   });
 
   ipcMainHandle('clearVideoCache', async () => {
@@ -416,10 +415,6 @@ function setupIpcHandlers() {
       configManager.updateVideoConfig(data, type);
     },
   );
-
-  ipcMainHandle('updateGlobalConfig', async (data: UpdateGlobalConfigDTO) => {
-    configManager.updateGlobalConfig(data);
-  });
 
   ipcMainHandle('getPlatformInfo', async () => {
     return {
@@ -495,7 +490,7 @@ app.whenReady().then(async () => {
         );
       }
       const connected = await webSocketService.connect(alias, userId, token);
-      
+
       if (connected) {
         mainWindow = createMainWindow();
         log.info('自动登录成功');
