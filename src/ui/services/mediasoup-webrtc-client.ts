@@ -12,7 +12,7 @@ export class MediasoupClient {
     this.device = new mediasoupClient.Device();
   }
 
-  async loadDeviceWithCapabilities(rtpCapabilities: any) {
+  async loadDeviceWithCapabilities(rtpCapabilities: mediasoupClient.types.RtpCapabilities) {
     const cleanRtpCapabilities = JSON.parse(JSON.stringify(rtpCapabilities));
     await this.device.load({ routerRtpCapabilities: cleanRtpCapabilities });
   }
@@ -32,8 +32,7 @@ export class MediasoupClient {
     // 监听连接事件（新协议）
     this.producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
       try {
-        // 调用新协议的 completeConnectTransport
-        await window.electron.connectProducerTransport(null, dtlsParameters);
+        await window.electron.connectProducerTransport( dtlsParameters);
         callback();
       } catch (error) {
         errback(error as Error);
@@ -174,11 +173,6 @@ export class MediasoupClient {
     }
   }
 
-  // 连接传输通道
-  private async connectTransport(transportId: string, dtlsParameters: any): Promise<void> {
-    return await window.electron.connectProducerTransport(transportId, dtlsParameters);
-  }
-
   // 创建推流生产者
   private async createProducer(
     kind: string,
@@ -187,4 +181,5 @@ export class MediasoupClient {
   ): Promise<{ id: string }> {
     return await window.electron.createProducer({ kind, rtpParameters, appData });
   }
+
 }

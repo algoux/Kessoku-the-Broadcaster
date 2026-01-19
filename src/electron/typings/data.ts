@@ -69,11 +69,10 @@ export interface TransportInfo {
 
 /**
  * 开始推流请求
+ * 服务端要求选手端开始推流指定的轨道
  */
 export interface RequestStartBroadcast {
   trackIds: string[];
-  transport: TransportInfo;
-  routerRtpCapabilities: any;
 }
 
 /**
@@ -98,6 +97,14 @@ export interface ProduceResponse {
  */
 export interface CompleteConnectTransportParams {
   dtlsParameters: any;
+}
+
+/**
+ * 确认就绪响应数据
+ */
+export interface ConfirmReadyResponse {
+  transport: TransportInfo;
+  routerRtpCapabilities: any;
 }
 
 export interface RecordingData {

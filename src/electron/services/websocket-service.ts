@@ -9,6 +9,7 @@ import type {
   ProduceParams,
   ProduceResponse,
   CompleteConnectTransportParams,
+  ConfirmReadyResponse,
 } from '../typings/data';
 
 /**
@@ -64,13 +65,6 @@ export class WebSocketService {
       }
 
       const url = `${this.serviceURL}${this.serviceURL.endsWith('/') ? '' : '/'}broadcaster`;
-      console.log({
-        url: url,
-        servicepath: this.servicePath,
-        alias: this.alias,
-        userId: this.userId,
-        token: this.token,
-      });
       // 创建 socket 连接，使用 auth 进行握手鉴权
       this.socket = io(url, {
         reconnection: true, // 启用自动重连
@@ -81,9 +75,11 @@ export class WebSocketService {
         path: this.servicePath,
         auth: {
           id: `b-${this.clientId}`,
-          alias: this.alias,
-          userId: this.userId,
           broadcasterToken: this.token,
+        },
+        extraHeaders: {
+          'X-UCA': this.alias,
+          'X-User-Id': this.userId,
         },
       });
 
@@ -191,11 +187,9 @@ export class WebSocketService {
     // 请求开始推流
     this.socket.on('requestStartBroadcast', (data: RequestStartBroadcast) => {
       console.log('收到推流请求:', data);
-      // 将完整的数据发送到渲染进程
+      // 发送 trackIds 到渲染进程，transport 已在 confirmReady 时初始化
       ipcWebContentsSend('start-streaming-request', this.mainWindow.webContents, {
         classIds: data.trackIds,
-        transport: data.transport,
-        routerRtpCapabilities: data.routerRtpCapabilities,
       });
     });
 
@@ -249,7 +243,7 @@ export class WebSocketService {
   /**
    * 确认就绪
    */
-  confirmReady(tracks: TrackInfo[]): Promise<Resp> {
+  confirmReady(tracks: TrackInfo[]): Promise<Resp<ConfirmReadyResponse>> {
     return new Promise((resolve) => {
       if (!this.socket?.connected) {
         resolve({
@@ -259,11 +253,11 @@ export class WebSocketService {
         return;
       }
 
-      this.socket.emit('confirmReady', { tracks }, (resp: Resp) => {
+      this.socket.emit('confirmReady', { tracks }, (resp: Resp<ConfirmReadyResponse>) => {
         if (resp.success) {
           this.isReady = true;
           this.lastTracks = tracks;
-          console.log('就绪确认成功');
+          console.log('就绪确认成功', resp.data);
         }
         resolve(resp);
       });

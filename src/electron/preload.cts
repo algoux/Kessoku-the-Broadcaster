@@ -23,8 +23,8 @@ electron.contextBridge.exposeInMainWorld('electron', {
   getContestInfo: () => {
     return ipcInvoke('get-contest-info');
   },
-  connectProducerTransport: (transportId: string | null, dtlsParameters: any) => {
-    return ipcInvoke('connect-producer-transport', { transportId, dtlsParameters });
+  connectProducerTransport: (dtlsParameters: any) => {
+    return ipcInvoke('connect-producer-transport', { dtlsParameters });
   },
   createProducer: (params: { kind: string; rtpParameters: any; appData?: any }) => {
     return ipcInvoke('create-producer', params);
@@ -67,6 +67,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
     callback: (state: 'connected' | 'disconnected' | 'connecting') => void,
   ) => {
     return ipcOn('connection-state-changed', callback);
+  },
+  onTransportReady: (callback: (data: { transport: any; routerRtpCapabilities: any }) => void) => {
+    return ipcOn('transport-ready', callback);
   },
   removeAllListeners: (channel: string) => {
     electron.ipcRenderer.removeAllListeners(channel);

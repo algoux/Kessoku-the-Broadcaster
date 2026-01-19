@@ -38,7 +38,6 @@ let loginWindow: BrowserWindow;
 let mainWindow: BrowserWindow;
 let webSocketService: WebSocketService;
 let videoRecordingService: VideoRecordingService;
-// const SERVICE_URL: string = 'http://localhost:3001';
 let configManager: ConfigManager = new ConfigManager();
 
 app.setAboutPanelOptions({
@@ -237,7 +236,7 @@ function setupIpcHandlers() {
   });
 
   // 连接推流传输通道
-  ipcMainHandle('connect-producer-transport', async ({ transportId, dtlsParameters }) => {
+  ipcMainHandle('connect-producer-transport', async ({ dtlsParameters }) => {
     if (!webSocketService) {
       throw new Error('WebSocket 服务未初始化');
     }
@@ -295,6 +294,16 @@ function setupIpcHandlers() {
       });
 
       const resp = await webSocketService.confirmReady(tracks);
+
+      if (resp.success && resp.data) {
+        // 收到响应后，立即通知渲染进程初始化 transport
+        console.log('confirmReady 成功，通知渲染进程初始化 transport');
+        ipcWebContentsSend('transport-ready', mainWindow.webContents, {
+          transport: resp.data.transport,
+          routerRtpCapabilities: resp.data.routerRtpCapabilities,
+        });
+      }
+
       return { success: resp.success };
     } else {
       // 取消就绪前，先清理所有 producer 和 transport

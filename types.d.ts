@@ -29,8 +29,6 @@ declare global {
     // 监听事件
     'start-streaming-request': {
       classIds: string[];
-      transport?: any;
-      routerRtpCapabilities?: any;
     };
     'stop-streaming-request': Record<string, never>;
     'cleanup-media-resources': Record<string, never>;
@@ -41,6 +39,7 @@ declare global {
     };
     'stop-replay-request': { classId: string };
     'connection-state-changed': 'connected' | 'disconnected' | 'connecting';
+    'transport-ready': { transport: any; routerRtpCapabilities: any };
 
     // 回看相关事件
     'handle-replay-request': { success: boolean; filePath?: string; error?: string };
@@ -88,7 +87,7 @@ declare global {
       logout: () => Promise<{ success: boolean; error?: string }>;
       getConnectionStatus: () => Promise<'connected' | 'disconnected' | 'connecting'>;
       getContestInfo: () => Promise<Resp<ContestInfo>>;
-      connectProducerTransport: (transportId: string | null, dtlsParameters: any) => Promise<void>;
+      connectProducerTransport: (dtlsParameters: any) => Promise<void>;
       createProducer: (params: {
         kind: string;
         rtpParameters: any;
@@ -114,6 +113,9 @@ declare global {
       onStopReplayRequest: (callback: (data: { classId: string }) => void) => void;
       onConnectionStateChanged: (
         callback: (state: 'connected' | 'disconnected' | 'connecting') => void,
+      ) => void;
+      onTransportReady: (
+        callback: (data: { transport: any; routerRtpCapabilities: any }) => void,
       ) => void;
       removeAllListeners: (channel: string) => void;
       // 视频录制相关

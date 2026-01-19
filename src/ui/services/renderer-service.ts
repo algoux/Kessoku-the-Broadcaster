@@ -8,14 +8,8 @@ export class RendererService {
   private isInitialized: boolean = false;
   connectState: ConnectState = ConnectState.CONNECTED;
 
-  // 推流请求回调（支持 classIds 参数）
-  public onStreamingRequest:
-    | ((data: {
-        classIds: string[];
-        transport?: any;
-        routerRtpCapabilities?: any;
-      }) => Promise<void>)
-    | null = null;
+  // 推流请求回调（只包含需要推流的 trackIds）
+  public onStreamingRequest: ((data: { classIds: string[] }) => Promise<void>) | null = null;
   public onStopStreamingRequest: (() => Promise<void>) | null = null;
 
   constructor() {
@@ -39,14 +33,34 @@ export class RendererService {
     window.electron.removeAllListeners('start-streaming-request');
     window.electron.removeAllListeners('stop-streaming-request');
     window.electron.removeAllListeners('cleanup-media-resources');
+    window.electron.removeAllListeners('transport-ready');
 
-    // 监听主进程的推流请求（携带 transport 和 rtpCapabilities）
+    // 监听 transport 就绪事件（confirmReady 响应后触发）
+    window.electron.onTransportReady(async (data) => {
+      console.log('收到 transport-ready 事件，立即初始化 transport');
+      try {
+        if (!this.mediasoupClient) {
+          console.error('MediaSoup Client 未初始化');
+          return;
+        }
+
+        // 加载设备能力
+        await this.mediasoupClient.loadDeviceWithCapabilities(data.routerRtpCapabilities);
+
+        // 创建 producer transport
+        await this.mediasoupClient.createProducerTransportFromServer(data.transport);
+
+        console.log('Transport 初始化成功');
+      } catch (error) {
+        console.error('Transport 初始化失败:', error);
+      }
+    });
+
+    // 监听主进程的推流请求（只包含需要推流的 trackIds）
     window.electron.onStreamingRequest(async (data) => {
       if (this.onStreamingRequest) {
         await this.onStreamingRequest({
           classIds: data.classIds || [],
-          transport: (data as any).transport,
-          routerRtpCapabilities: (data as any).routerRtpCapabilities,
         });
       } else {
         console.error('onStreamingRequest 回调未设置！');
@@ -78,13 +92,11 @@ export class RendererService {
     }
   }
 
-  // 开始推流
+  // 开始推流（transport 已在 confirmReady 时初始化）
   async startStreaming(
     streamData: Array<{ stream: MediaStream; classId: string; simulcastConfigs?: any[] }>,
-    broadcasterData: { transport: any; routerRtpCapabilities: any },
   ) {
-    await this.mediasoupClient.loadDeviceWithCapabilities(broadcasterData.routerRtpCapabilities);
-    await this.mediasoupClient.createProducerTransportFromServer(broadcasterData.transport);
+    // 开始推流，使用已初始化的 transport
     for (const data of streamData) {
       await this.mediasoupClient.produceStream(data.stream, data.classId, data.simulcastConfigs);
     }
@@ -108,6 +120,7 @@ export class RendererService {
     window.electron.removeAllListeners('start-streaming-request');
     window.electron.removeAllListeners('stop-streaming-request');
     window.electron.removeAllListeners('cleanup-media-resources');
+    window.electron.removeAllListeners('transport-ready');
     this.isInitialized = false;
   }
 }
