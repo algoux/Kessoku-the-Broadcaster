@@ -12,19 +12,9 @@ export class MediasoupClient {
     this.device = new mediasoupClient.Device();
   }
 
-  // 加载 Device（使用提供的 rtpCapabilities）
   async loadDeviceWithCapabilities(rtpCapabilities: any) {
-    if (!this.device || !this.device.loaded) {
-      try {
-        // 通过 JSON 序列化/反序列化来清理对象，移除不可克隆的属性
-        const cleanRtpCapabilities = JSON.parse(JSON.stringify(rtpCapabilities));
-
-        await this.device.load({ routerRtpCapabilities: cleanRtpCapabilities });
-      } catch (error) {
-        console.error('Device 加载失败:', error);
-        throw error;
-      }
-    }
+    const cleanRtpCapabilities = JSON.parse(JSON.stringify(rtpCapabilities));
+    await this.device.load({ routerRtpCapabilities: cleanRtpCapabilities });
   }
 
   async createProducerTransportFromServer(transportInfo: any): Promise<void> {
@@ -32,40 +22,35 @@ export class MediasoupClient {
       return;
     }
 
-    try {
-      this.producerTransport = this.device.createSendTransport({
-        id: transportInfo.id,
-        iceParameters: transportInfo.iceParameters,
-        iceCandidates: transportInfo.iceCandidates,
-        dtlsParameters: transportInfo.dtlsParameters,
-      });
+    this.producerTransport = this.device.createSendTransport({
+      id: transportInfo.id,
+      iceParameters: transportInfo.iceParameters,
+      iceCandidates: transportInfo.iceCandidates,
+      dtlsParameters: transportInfo.dtlsParameters,
+    });
 
-      // 监听连接事件（新协议）
-      this.producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+    // 监听连接事件（新协议）
+    this.producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
+      try {
+        // 调用新协议的 completeConnectTransport
+        await window.electron.connectProducerTransport(null, dtlsParameters);
+        callback();
+      } catch (error) {
+        errback(error as Error);
+      }
+    });
+
+    this.producerTransport.on(
+      'produce',
+      async ({ kind, rtpParameters, appData }, callback, errback) => {
         try {
-          // 调用新协议的 completeConnectTransport
-          await window.electron.connectProducerTransport(null, dtlsParameters);
-          callback();
+          const { id } = await this.createProducer(kind, rtpParameters, appData);
+          callback({ id });
         } catch (error) {
           errback(error as Error);
         }
-      });
-
-      this.producerTransport.on(
-        'produce',
-        async ({ kind, rtpParameters, appData }, callback, errback) => {
-          try {
-            const { id } = await this.createProducer(kind, rtpParameters, appData);
-            callback({ id });
-          } catch (error) {
-            errback(error as Error);
-          }
-        },
-      );
-    } catch (error) {
-      console.error('使用服务端 transport 创建失败:', error);
-      throw error;
-    }
+      },
+    );
   }
 
   // 推送视频流

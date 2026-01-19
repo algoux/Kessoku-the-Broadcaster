@@ -35,6 +35,11 @@ export class RendererService {
 
   // 设置 IPC 监听器
   private setupIpcListeners() {
+    // 先移除所有旧的监听器，避免重复注册导致死循环
+    window.electron.removeAllListeners('start-streaming-request');
+    window.electron.removeAllListeners('stop-streaming-request');
+    window.electron.removeAllListeners('cleanup-media-resources');
+
     // 监听主进程的推流请求（携带 transport 和 rtpCapabilities）
     window.electron.onStreamingRequest(async (data) => {
       if (this.onStreamingRequest) {
@@ -66,6 +71,7 @@ export class RendererService {
   // 上报设备状态到服务器
   async reportDeviceState(devices: DeviceInfo[], isReady: boolean) {
     try {
+      console.log('Reporting device state:', devices, 'isReady:', isReady);
       await window.electron.reportDeviceState(devices, isReady);
     } catch (error) {
       throw error;
@@ -77,49 +83,20 @@ export class RendererService {
     streamData: Array<{ stream: MediaStream; classId: string; simulcastConfigs?: any[] }>,
     broadcasterData: { transport: any; routerRtpCapabilities: any },
   ) {
-    if (!this.mediasoupClient) {
-      throw new Error('MediaSoup Client 未初始化');
-    }
-
-    try {
-      // 加载 Device（使用服务端提供的 rtpCapabilities）
-      await this.mediasoupClient.loadDeviceWithCapabilities(broadcasterData.routerRtpCapabilities);
-
-      // 使用服务端创建的 transport
-      await this.mediasoupClient.createProducerTransportFromServer(broadcasterData.transport);
-
-      // 推送所有流
-      for (const data of streamData) {
-        await this.mediasoupClient.produceStream(data.stream, data.classId, data.simulcastConfigs);
-      }
-    } catch (error) {
-      throw error;
+    await this.mediasoupClient.loadDeviceWithCapabilities(broadcasterData.routerRtpCapabilities);
+    await this.mediasoupClient.createProducerTransportFromServer(broadcasterData.transport);
+    for (const data of streamData) {
+      await this.mediasoupClient.produceStream(data.stream, data.classId, data.simulcastConfigs);
     }
   }
 
-  // 停止推流
   async stopStreaming() {
-    if (!this.mediasoupClient) return;
-
-    try {
-      this.mediasoupClient.stopProducing();
-    } catch (error) {
-      console.error('停止推流失败:', error);
-      throw error;
-    }
+    this.mediasoupClient.stopProducing();
   }
 
   // 获取连接状态
   async getConnectionStatus() {
     return await window.electron.getConnectionStatus();
-  }
-
-  // 获取推流状态
-  getStreamingStatus() {
-    if (!this.mediasoupClient) {
-      return { total: 0, active: 0, byKind: {} };
-    }
-    return this.mediasoupClient.getProducerStatus();
   }
 
   // 清理资源
@@ -128,12 +105,9 @@ export class RendererService {
       this.mediasoupClient.disconnect();
       this.mediasoupClient = null;
     }
-
-    // 移除 IPC 监听器
     window.electron.removeAllListeners('start-streaming-request');
     window.electron.removeAllListeners('stop-streaming-request');
     window.electron.removeAllListeners('cleanup-media-resources');
-
     this.isInitialized = false;
   }
 }

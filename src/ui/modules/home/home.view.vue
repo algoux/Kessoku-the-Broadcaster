@@ -168,6 +168,12 @@ export default class HomeView extends Vue {
   // 初始化渲染进程服务
   private async initializeService() {
     try {
+      // 如果已经存在实例，先清理
+      if (this.rendererService) {
+        this.rendererService.cleanup();
+        this.rendererService = null;
+      }
+
       // 创建渲染进程服务
       this.rendererService = new RendererService();
 
@@ -250,8 +256,15 @@ export default class HomeView extends Vue {
       }
 
       const videoEl = card.getVideoEl();
-      if (videoEl && device.stream) {
-        videoEl.srcObject = device.stream;
+      if (!videoEl) {
+        console.warn(`视频元素未就绪: ${device.name}`);
+        return;
+      }
+
+      if (device.stream) {
+        if (videoEl.srcObject !== device.stream) {
+          videoEl.srcObject = device.stream;
+        }
         await videoEl.play();
       }
     } catch (err) {
