@@ -29,21 +29,10 @@ export class RendererService {
 
   // 设置 IPC 监听器
   private setupIpcListeners() {
-    // 先移除所有旧的监听器，避免重复注册导致死循环
-    window.electron.removeAllListeners('start-streaming-request');
-    window.electron.removeAllListeners('stop-streaming-request');
-    window.electron.removeAllListeners('cleanup-media-resources');
-    window.electron.removeAllListeners('transport-ready');
-
     // 监听 transport 就绪事件（confirmReady 响应后触发）
     window.electron.onTransportReady(async (data) => {
       console.log('收到 transport-ready 事件，立即初始化 transport');
       try {
-        if (!this.mediasoupClient) {
-          console.error('MediaSoup Client 未初始化');
-          return;
-        }
-
         // 加载设备能力
         await this.mediasoupClient.loadDeviceWithCapabilities(data.routerRtpCapabilities);
 

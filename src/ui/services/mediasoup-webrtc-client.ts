@@ -20,6 +20,7 @@ export class MediasoupClient {
     if (this.producerTransport) {
       return;
     }
+    console.log('Creating producer transport with info:', transportInfo);
 
     this.producerTransport = this.device.createSendTransport({
       id: transportInfo.id,
@@ -31,6 +32,7 @@ export class MediasoupClient {
     // 监听连接事件（新协议）
     this.producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
       try {
+        console.log("transport 链接成功")
         await window.electron.connectProducerTransport( dtlsParameters);
         callback();
       } catch (error) {

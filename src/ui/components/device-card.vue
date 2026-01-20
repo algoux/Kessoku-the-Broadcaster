@@ -38,8 +38,6 @@ export default class DeviceCard extends Vue {
   @Inject()
   removeDevice!: (device: Device) => void;
 
-  @Inject()
-  updateVideoElement!: (device: Device) => void;
 
   private localFormatSetting: string = '';
 
@@ -109,11 +107,12 @@ export default class DeviceCard extends Vue {
           <el-button
             size="small"
             :disabled="isReady"
+            circle
             @click="openConfigDialog(device)"
             class="ghost-button"
           >
-            <SettingsIcon style="width: 16px; margin-right: 6px" />
-            <span>修改设备参数</span>
+            <SettingsIcon style="width: 16px; " />
+            <!-- <span>修改设备参数</span> -->
           </el-button>
           <el-button
             size="small"

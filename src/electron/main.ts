@@ -36,6 +36,7 @@ app.setName('Kessoku the Broadcaster');
 
 let loginWindow: BrowserWindow;
 let mainWindow: BrowserWindow;
+let settingsWindow: BrowserWindow;
 let webSocketService: WebSocketService;
 let videoRecordingService: VideoRecordingService;
 let configManager: ConfigManager = new ConfigManager();
@@ -112,7 +113,12 @@ function createMainWindow() {
 }
 
 function createSettingsWindow() {
-  const settingsWindow = new BrowserWindow({
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return;
+  }
+  
+  settingsWindow = new BrowserWindow({
     webPreferences: {
       preload: getPreloadPath(),
     },
@@ -122,6 +128,11 @@ function createSettingsWindow() {
     show: false,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(process.platform === 'win32' && { frame: false }),
+  });
+
+  // 窗口关闭时清空引用
+  settingsWindow.on('closed', () => {
+    settingsWindow = null!;
   });
 
   if (isDevelopment()) {
