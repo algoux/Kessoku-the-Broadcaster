@@ -20,6 +20,12 @@ export interface RespError {
 
 export type Resp<T = any> = RespSuccess<T> | RespError;
 
+export interface RequestLoginDTO {
+  alias: string;
+  userId: string;
+  token: string;
+}
+
 /**
  * 比赛信息响应（getContestInfo）
  */

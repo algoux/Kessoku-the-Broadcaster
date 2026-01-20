@@ -1,26 +1,26 @@
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
 import { app, BrowserWindow, desktopCapturer } from 'electron';
 import { isDevelopment, ipcMainHandle, ipcMainOn, ipcWebContentsSend } from './utils/index';
 import { getPreloadPath, getUIPath } from './utils/path-resolver';
 import { WebSocketService } from './services/websocket-service';
 import { VideoRecordingService } from './services/video-recording-service';
-import { createTray } from './utils/tray';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
 import { ConfigManager } from './services/config-manager';
+import { createTray } from './utils/tray';
+import log from 'electron-log';
+
 import {
   UpdateConfigDTO,
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
 } from 'common/config.interface';
-import log from 'electron-log';
 
 // 配置日志路径到用户目录
 const homeDir = os.homedir();
 const appDir = path.join(homeDir, '.Kessoku-the-Broadcaster');
 const logsDir = path.join(appDir, 'logs');
-
-// 确保日志目录存在
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
@@ -95,47 +95,7 @@ function createMainWindow() {
     ...(process.platform === 'win32' && { frame: false }),
   });
 
-  ipcMainHandle('getSources', async () => {
-    return await desktopCapturer.getSources({ types: ['screen'] });
-  });
-
-  ipcMainOn('hasReady', () => {
-    if (mainWindow) {
-      mainWindow.hide();
-      if (app.dock) {
-        app.dock.hide();
-      }
-    }
-  });
-
-  // 处理回看请求
-  ipcMainHandle('handle-replay-request', async ({ classId, startTime, endTime }) => {
-    if (!videoRecordingService) {
-      return { success: false, error: '录制服务未初始化' };
-    }
-
-    try {
-      console.log(`处理回看请求: classId=${classId}, startTime=${startTime}, endTime=${endTime}`);
-      const result = await videoRecordingService.cutVideo(classId, startTime, endTime);
-
-      if (result.success && result.filePath) {
-        // 通知渲染进程视频已准备好
-        if (mainWindow) {
-          mainWindow.webContents.send('replay-video-ready', {
-            classId,
-            filePath: result.filePath,
-            startTime,
-            endTime,
-          });
-        }
-      }
-
-      return result;
-    } catch (error) {
-      console.error('处理回看请求失败:', error);
-      return { success: false, error: error.message };
-    }
-  });
+  setupMainWindowIpcHandlers(mainWindow);
 
   handleCloseEvents(mainWindow);
 
@@ -175,8 +135,14 @@ function createSettingsWindow() {
   }
 }
 
-// 设置 IPC 处理器
+/**
+ * 设置通用 IPC 处理器
+ * @description 负责处理来自渲染进程的各种请求
+ */
 function setupIpcHandlers() {
+  /**
+   * 登陆状态
+   */
   ipcMainHandle(
     'login',
     async ({ alias, userId, token }: { alias: string; userId: string; token: string }) => {
@@ -214,8 +180,18 @@ function setupIpcHandlers() {
     },
   );
 
-  ipcMainOn('openSettingsWindow', () => {
-    createSettingsWindow();
+  ipcMainHandle('logout', async () => {
+    try {
+      if (webSocketService) {
+        await webSocketService.cancelReady();
+      }
+      configManager.clearUserConfig();
+      app.quit();
+      return { success: true };
+    } catch (error) {
+      log.error('登出失败:', error);
+      return { success: false, error: (error as Error).message };
+    }
   });
 
   // 获取连接状态
@@ -235,7 +211,9 @@ function setupIpcHandlers() {
     return await webSocketService.getContestInfo();
   });
 
-  // 连接推流传输通道
+  /**
+   * 推流相关
+   */
   ipcMainHandle('connect-producer-transport', async ({ dtlsParameters }) => {
     if (!webSocketService) {
       throw new Error('WebSocket 服务未初始化');
@@ -246,15 +224,13 @@ function setupIpcHandlers() {
     }
   });
 
-  // 创建推流生产者
   ipcMainHandle('create-producer', async ({ kind, rtpParameters, appData }) => {
     if (!webSocketService) {
       throw new Error('WebSocket 服务未初始化');
     }
-    // 从 appData 中提取 classId 作为 trackId
     const trackId = appData.classId;
     if (!trackId) {
-      throw new Error('缺少 trackId（classId）');
+      throw new Error('缺少 classId');
     }
     const resp = await webSocketService.produce({ kind, rtpParameters, appData, trackId });
     if (!resp.success) {
@@ -263,7 +239,6 @@ function setupIpcHandlers() {
     return { id: resp.data!.producerId };
   });
 
-  // 上报设备状态（替换为 confirmReady）
   ipcMainHandle('report-device-state', async ({ devices, isReady }) => {
     if (isReady && devices && devices.length > 0) {
       // 转换设备信息为 TrackInfo 格式
@@ -313,61 +288,9 @@ function setupIpcHandlers() {
     }
   });
 
-  // 视频录制相关
-  ipcMainHandle('start-continuous-recording', async (classId: string) => {
-    if (!videoRecordingService) {
-      videoRecordingService = new VideoRecordingService();
-    }
-    return videoRecordingService.startRecording(classId);
-  });
-
-  ipcMainHandle('stop-continuous-recording', async (classId: string) => {
-    if (!videoRecordingService) {
-      return { success: false };
-    }
-    return videoRecordingService.stopRecording(classId);
-  });
-
-  ipcMainHandle('get-recording-blob', async ({ classId, arrayBuffer }) => {
-    if (!videoRecordingService) {
-      throw new Error('录制服务未初始化');
-    }
-    await videoRecordingService.saveRecordingChunk(classId, arrayBuffer);
-  });
-
-  ipcMainHandle('cut-video', async ({ classId, startTime, endTime }) => {
-    if (!videoRecordingService) {
-      return { success: false, error: '录制服务未初始化' };
-    }
-    return await videoRecordingService.cutVideo(classId, startTime, endTime);
-  });
-
-  // 登出
-  ipcMainHandle('logout', async () => {
-    try {
-      if (webSocketService) {
-        await webSocketService.cancelReady();
-      }
-      configManager.clearUserConfig();
-      app.quit();
-      return { success: true };
-    } catch (error) {
-      log.error('登出失败:', error);
-      return { success: false, error: (error as Error).message };
-    }
-  });
-
-  // 读取视频文件
-  ipcMainHandle('read-video-file', async (filePath: string) => {
-    try {
-      const buffer = fs.readFileSync(filePath);
-      return buffer.buffer;
-    } catch (error) {
-      console.error('读取视频文件失败:', error);
-      throw error;
-    }
-  });
-
+  /**
+   * 配置管理
+   */
   ipcMainHandle('getAppConfig', async () => {
     return configManager.getConfigData;
   });
@@ -432,7 +355,9 @@ function setupIpcHandlers() {
     };
   });
 
-  // 窗口控制
+  /**
+   * Windows 窗口控制
+   */
   ipcMainOn('window-minimize', () => {
     const win = BrowserWindow.getFocusedWindow();
     if (win) win.minimize();
@@ -453,8 +378,101 @@ function setupIpcHandlers() {
     const win = BrowserWindow.getFocusedWindow();
     if (win) win.close();
   });
+
+  ipcMainOn('openSettingsWindow', () => {
+    createSettingsWindow();
+  });
+
+  /**
+   * 视频录制
+   * @todo 完善请求处理逻辑
+   */
+  ipcMainHandle('read-video-file', async (filePath: string) => {
+    try {
+      const buffer = fs.readFileSync(filePath);
+      return buffer.buffer;
+    } catch (error) {
+      console.error('读取视频文件失败:', error);
+      throw error;
+    }
+  });
+
+  ipcMainHandle('start-continuous-recording', async (classId: string) => {
+    if (!videoRecordingService) {
+      videoRecordingService = new VideoRecordingService();
+    }
+    return videoRecordingService.startRecording(classId);
+  });
+
+  ipcMainHandle('stop-continuous-recording', async (classId: string) => {
+    if (!videoRecordingService) {
+      return { success: false };
+    }
+    return videoRecordingService.stopRecording(classId);
+  });
+
+  ipcMainHandle('get-recording-blob', async ({ classId, arrayBuffer }) => {
+    if (!videoRecordingService) {
+      throw new Error('录制服务未初始化');
+    }
+    await videoRecordingService.saveRecordingChunk(classId, arrayBuffer);
+  });
+
+  ipcMainHandle('cut-video', async ({ classId, startTime, endTime }) => {
+    if (!videoRecordingService) {
+      return { success: false, error: '录制服务未初始化' };
+    }
+    return await videoRecordingService.cutVideo(classId, startTime, endTime);
+  });
 }
 
+function setupMainWindowIpcHandlers(mainWindow: BrowserWindow) {
+  ipcMainHandle('getSources', async () => {
+    return await desktopCapturer.getSources({ types: ['screen'] });
+  });
+
+  ipcMainOn('hasReady', () => {
+    if (mainWindow) {
+      mainWindow.hide();
+      if (app.dock) {
+        app.dock.hide();
+      }
+    }
+  });
+
+  ipcMainHandle('handle-replay-request', async ({ classId, startTime, endTime }) => {
+    if (!videoRecordingService) {
+      return { success: false, error: '录制服务未初始化' };
+    }
+
+    try {
+      console.log(`处理回看请求: classId=${classId}, startTime=${startTime}, endTime=${endTime}`);
+      const result = await videoRecordingService.cutVideo(classId, startTime, endTime);
+
+      if (result.success && result.filePath) {
+        // 通知渲染进程视频已准备好
+        if (mainWindow) {
+          mainWindow.webContents.send('replay-video-ready', {
+            classId,
+            filePath: result.filePath,
+            startTime,
+            endTime,
+          });
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('处理回看请求失败:', error);
+      return { success: false, error: error.message };
+    }
+  });
+}
+
+/**
+ * 处理主窗口的关闭事件，防止应用退出，改为隐藏窗口
+ * @param mainWindow 主窗口引用
+ */
 const handleCloseEvents = (mainWindow: BrowserWindow) => {
   let willClose = false;
 

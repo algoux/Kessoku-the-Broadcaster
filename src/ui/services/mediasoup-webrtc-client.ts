@@ -13,8 +13,7 @@ export class MediasoupClient {
   }
 
   async loadDeviceWithCapabilities(rtpCapabilities: mediasoupClient.types.RtpCapabilities) {
-    const cleanRtpCapabilities = JSON.parse(JSON.stringify(rtpCapabilities));
-    await this.device.load({ routerRtpCapabilities: cleanRtpCapabilities });
+    await this.device.load({ routerRtpCapabilities: rtpCapabilities });
   }
 
   async createProducerTransportFromServer(transportInfo: any): Promise<void> {
@@ -148,22 +147,6 @@ export class MediasoupClient {
     this.producersByClassId.clear();
   }
 
-  // 获取 Producer 状态
-  getProducerStatus(): { total: number; active: number; byKind: Record<string, number> } {
-    const active = Array.from(this.producers.values()).filter((p) => !p.closed);
-    const byKind: Record<string, number> = {};
-
-    active.forEach((producer) => {
-      byKind[producer.kind] = (byKind[producer.kind] || 0) + 1;
-    });
-
-    return {
-      total: this.producers.size,
-      active: active.length,
-      byKind,
-    };
-  }
-
   // 断开连接
   disconnect(): void {
     this.stopProducing();
@@ -176,7 +159,7 @@ export class MediasoupClient {
   // 创建推流生产者
   private async createProducer(
     kind: string,
-    rtpParameters: any,
+    rtpParameters: mediasoupClient.types.RtpParameters,
     appData?: any,
   ): Promise<{ id: string }> {
     return await window.electron.createProducer({ kind, rtpParameters, appData });

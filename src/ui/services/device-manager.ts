@@ -9,6 +9,7 @@ import {
   DeviceAddingRes,
   ConfigSaveRes,
   DEVICE_TYPE_CONFIG,
+  DeviceInfo,
 } from '@/typings/data';
 import { SimulcastConfig } from 'common/config.interface';
 
@@ -44,22 +45,23 @@ export class DeviceManager {
   }
 
   /**
-   * 获取设备信息（用于上报）
-   * @returns {DeviceInfo[]}
+   * 获取设备信息
+   * @description 返回设备信息用于上报，对于 settings 将 Proxy 序列化
+   * @returns {DeviceInfo[]} 设备信息列表
    */
-  getDevicesInfo() {
+  getDevicesInfo(): DeviceInfo[] {
     return this.userDevices.map((device) => ({
       classId: device.classId,
       type: device.type,
       name: device.name,
-      // 将 Proxy 对象转换为普通对象，避免 IPC 序列化错误
       settings: device.settings ? JSON.parse(JSON.stringify(device.settings)) : undefined,
     }));
   }
 
   /**
    * 合并同一物理麦克风的多个通道
-   * 通过 groupId 识别同一个物理设备
+   * @description 通过 groupId 识别同一个物理设备
+   * @returns {MediaDeviceInfo[]} 合并后的麦克风设备列表
    */
   private mergeMicrophoneChannels(audioDevices: MediaDeviceInfo[]): MediaDeviceInfo[] {
     const deviceMap = new Map<string, MediaDeviceInfo>();
@@ -83,6 +85,12 @@ export class DeviceManager {
     return Array.from(deviceMap.values());
   }
 
+  /**
+   * 刷新设备列表
+   * @async
+   * @description 获取最新的可用设备列表，并加载已有配置
+   * @returns {Promise<Device[] | void>} 刷新后的设备列表
+   */
   async refreshAllDevices(): Promise<Device[] | void> {
     try {
       const sources = await window.electron.getSources();
@@ -126,6 +134,9 @@ export class DeviceManager {
 
   /**
    * 添加默认设备
+   * @async
+   * @description 添加第一个屏幕、摄像头和麦克风作为默认设备
+   * @returns {Promise<Device[]>} 添加的默认设备列表
    */
   async addDefaultDevices(): Promise<Device[]> {
     const defaultDevicesList: Device[] = [];
@@ -159,6 +170,17 @@ export class DeviceManager {
     return defaultDevicesList;
   }
 
+  /**
+   * 创建并启动设备流
+   * @private
+   * @async
+   * @param type 设备类型
+   * @param deviceInfo 设备信息
+   * @param isDefault 是否为默认设备
+   * @param classId 自定义分类 ID
+   * @description 如果该设备有 classId，那么使用该 classId，否则根据设备 deviceId 生成唯一的 classId
+   * @returns {Promise<Device>} 创建并启动的设备对象
+   */
   private async createAndStartDevice(
     type: DeviceType,
     deviceInfo: DeviceSourceInfo,
@@ -188,6 +210,11 @@ export class DeviceManager {
 
   /**
    * 添加设备
+   * @async
+   * @param type 设备类型
+   * @param deviceId 设备 ID（可选）
+   * @param classId 自定义分类 ID（可选）
+   * @returns {Promise<DeviceAddingRes>} 添加设备的结果，用于界面显示 Message
    */
   async addDevice<T extends DeviceType>(
     type: T,
@@ -197,7 +224,6 @@ export class DeviceManager {
     try {
       const config = DEVICE_TYPE_CONFIG[type];
       let deviceInfo: DeviceSourceInfo | undefined;
-      let finalDeviceId: string;
 
       // 如果指定了 deviceId，使用指定的设备源
       if (deviceId) {
@@ -205,14 +231,13 @@ export class DeviceManager {
         if (!deviceInfo || this.isDeviceInUse(deviceId, type)) {
           throw new Error('设备源不可用');
         }
-        finalDeviceId = deviceId;
       } else {
         // 自动选择第一个未使用的设备
         if (!this.canAddState[type]) {
           return { success: true, code: 0 };
         }
 
-        const availableDevices = this[config.availableDevicesKey] as any[];
+        const availableDevices = this[config.availableDevicesKey];
         deviceInfo = availableDevices.find((info) => {
           const id = config.getDeviceId(info);
           return !this.isDeviceInUse(id, type);
@@ -221,15 +246,12 @@ export class DeviceManager {
         if (!deviceInfo) {
           return { success: true, code: 0 };
         }
-
-        finalDeviceId = config.getDeviceId(deviceInfo);
       }
 
-      const device = await this.createAndStartDevice(type, deviceInfo, false, classId as string);
+      const device = await this.createAndStartDevice(type, deviceInfo, false, classId);
       this.userDevices.push(device);
       this.updateCanAddState();
 
-      // 保存到配置文件
       try {
         await this.saveSingleDeviceToConfig(device);
       } catch (saveError) {
@@ -248,6 +270,10 @@ export class DeviceManager {
 
   /**
    * 检查设备是否已在使用
+   * @description 根据 deviceId 和 type 检查设备是否已被添加，已经添加的设备则不可被重复添加
+   * @param deviceId 设备 ID
+   * @param type 设备类型
+   * @returns {boolean} 设备是否已在使用
    */
   private isDeviceInUse(deviceId: string, type: DeviceType): boolean {
     return this.userDevices.some((d) => d.id === deviceId && d.type === type);
@@ -255,6 +281,7 @@ export class DeviceManager {
 
   /**
    * 更新可添加设备状态
+   * @description 根据当前已添加的设备数量和可用设备列表，更新 canAddState 对象
    */
   private updateCanAddState() {
     const countByType = (type: DeviceType) =>
@@ -269,6 +296,16 @@ export class DeviceManager {
 
   /**
    * 获取设备的分类 id
+   * @param deviceId 设备 ID
+   * @param deviceType 设备类型
+   * @param isDefault 是否为默认设备
+   * @returns {string} 设备的分类 id
+   * @description 如果设备已存在映射关系，则返回已有的 classId，否则根据规则生成新的 classId 并保存映射关系
+   * 规则：
+   * - 默认设备使用 `${deviceType}_main`
+   * - 非默认设备使用 `${deviceType}_0`, `${deviceType}_1`, ... 依次递增的索引
+   * - 如果该类型还没有 main 设备，非默认设备也使用 `${deviceType}_main`
+   * - 保证同一类型的 classId 不重复
    */
   getOrCreateClassId<T extends DeviceType>(
     deviceId: string,
@@ -321,12 +358,19 @@ export class DeviceManager {
     return classId as any;
   }
 
+  /**
+   * 理想的屏幕帧率
+   * @description 根据屏幕支持的最大帧率，决定理想的帧率为 60 或 30
+   */
   get idealScreenFrameRate(): number {
     return this.screenAvailableMaxFrameRate >= 60 ? 60 : 30;
   }
 
   /**
    * 查找同一物理设备的所有通道
+   * @description 根据 deviceId 查找同一 groupId 下的所有设备
+   * @param deviceId 设备 ID
+   * @returns {MediaDeviceInfo[]} 同一物理设备的所有通道设备列表
    */
   private findDevicesInSameGroup(deviceId: string): MediaDeviceInfo[] {
     // 从所有麦克风设备中找到匹配的 groupId
@@ -339,7 +383,10 @@ export class DeviceManager {
   }
 
   /**
-   * 创建立体声流（从两个单声道设备合并）
+   * 创建立体声流
+   * @description 从两个单声道设备合并为一个立体声流
+   * @param devices 设备列表（至少两个设备）
+   * @returns {Promise<MediaStream>} 创建的立体声流
    */
   private async createStereoStream(devices: MediaDeviceInfo[]): Promise<MediaStream> {
     if (devices.length < 2) {
@@ -379,6 +426,10 @@ export class DeviceManager {
 
   /**
    * 应用视频约束到 constraints 对象
+   * @param constraints 约束对象
+   * @param settings 设备设置
+   * @param isScreen 是否为屏幕设备
+   * @description 根据 settings 中的宽度、高度、帧率设置相应的约束
    */
   private applyVideoConstraints(constraints: any, settings: any, isScreen: boolean = false) {
     const fields = ['width', 'height', 'frameRate'];
@@ -399,6 +450,10 @@ export class DeviceManager {
 
   /**
    * 应用音频约束到 constraints 对象
+   * @param constraints 约束对象
+   * @param settings 设备设置
+   * @param device 设备对象
+   * @description 根据 settings 中的采样率和通道模式设置相应的约束
    */
   private applyAudioConstraints(constraints: any, settings: any, device: Device) {
     if (settings?.sampleRate) {
@@ -416,6 +471,9 @@ export class DeviceManager {
 
   /**
    * 启动设备流
+   * @async
+   * @param device 设备对象
+   * @returns {Promise<Device>} 启动后的设备对象
    */
   async startDeviceStream(device: Device): Promise<Device> {
     try {
@@ -582,13 +640,33 @@ export class DeviceManager {
       device.type === 'screen' ? this.screenAvailableMaxFrameRate : capabilities.frameRate.max;
 
     if (!device.settings) {
+      const width = capabilities.width.max;
+      const height = capabilities.height.max;
+      const frameRate =
+        device.type === 'screen' ? this.idealScreenFrameRate : rawSettings.frameRate;
+
+      // 创建默认的 simulcastConfigs（原画在前，低清在后）
+      const simulcastConfigs: SimulcastConfig[] = [
+        {
+          rid: 'original',
+          scaleResolutionDownBy: 1,
+          maxBitRate: Math.round(width * height * frameRate * 0.000078125),
+        },
+        {
+          rid: 'low',
+          scaleResolutionDownBy: 4,
+          maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125),
+        },
+      ];
+
       device.settings = {
-        width: capabilities.width.max,
-        height: capabilities.height.max,
-        frameRate: device.type === 'screen' ? this.idealScreenFrameRate : rawSettings.frameRate,
+        width,
+        height,
+        frameRate,
         aspectRatio: rawSettings.aspectRatio,
         facingMode: rawSettings.facingMode,
         maxFrameRate,
+        simulcastConfigs,
       };
     } else {
       // 补充预设配置中缺失的字段
@@ -598,6 +676,26 @@ export class DeviceManager {
         facingMode: device.settings.facingMode || rawSettings.facingMode,
         maxFrameRate: device.settings.maxFrameRate || maxFrameRate,
       };
+
+      // 如果 simulcastConfigs 不存在或为空，创建默认配置
+      if (!device.settings.simulcastConfigs || device.settings.simulcastConfigs.length === 0) {
+        const width = device.settings.width;
+        const height = device.settings.height;
+        const frameRate = device.settings.frameRate;
+
+        device.settings.simulcastConfigs = [
+          {
+            rid: 'original',
+            scaleResolutionDownBy: 1,
+            maxBitRate: Math.round(width * height * frameRate * 0.000078125),
+          },
+          {
+            rid: 'low',
+            scaleResolutionDownBy: 4,
+            maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125),
+          },
+        ];
+      }
     }
     device.formatSetting = this.getFormatSettings(device);
   }
