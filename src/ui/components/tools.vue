@@ -96,7 +96,6 @@ export default class Tools extends Vue {}
   cursor: pointer;
   transition: all 0.2s ease;
 
-  // 移除点击后的焦点边框
   &:focus,
   &:focus-visible,
   &:active {
@@ -104,7 +103,6 @@ export default class Tools extends Vue {}
     border: none;
   }
 
-  // 移除 ElTooltip 触发器的焦点边框
   :deep(.el-tooltip__trigger) {
     outline: none !important;
     border: none !important;
@@ -117,7 +115,6 @@ export default class Tools extends Vue {}
     }
   }
 
-  // 悬停效果
   &:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     transform: translateY(-1px);

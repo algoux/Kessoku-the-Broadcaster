@@ -11,6 +11,8 @@ import { GetPlatformInfoDTO } from 'common/config.interface';
   },
 })
 export default class SettingsContent extends Vue {
+  private originalServiceURL: string = '';
+  private originalServicePath = '';
   appConfig = {
     autoOpenOnLogin: false,
     autoReady: false,
@@ -18,6 +20,7 @@ export default class SettingsContent extends Vue {
     serviceURL: '',
     servicePath: '',
   };
+  showServiceTip: boolean = false;
 
   async mounted() {
     await this.loadAppConfig();
@@ -32,6 +35,8 @@ export default class SettingsContent extends Vue {
       serviceURL: config.serviceURL,
       servicePath: config.servicePath,
     };
+    this.originalServiceURL = this.appConfig.serviceURL;
+    this.originalServicePath = this.appConfig.servicePath;
   }
 
   async onAutoOpenOnLoginChange(value: boolean) {
@@ -58,17 +63,32 @@ export default class SettingsContent extends Vue {
   }
 
   async onServiceURLChange() {
+    this.showServiceTip = this.serviceSettingsHasModified();
     await window.electron.updateConfig({
       serviceURL: this.appConfig.serviceURL,
     });
-    console.log('Service URL 已保存:', this.appConfig.serviceURL);
   }
 
   async onServicePathChange() {
+    this.showServiceTip = this.serviceSettingsHasModified();
     await window.electron.updateConfig({
-      servicePath: this.appConfig.servicePath || undefined,
+      servicePath:
+        this.appConfig.servicePath && this.appConfig.servicePath.length
+          ? this.appConfig.servicePath
+          : undefined,
     });
-    console.log('Service Path 已保存:', this.appConfig.servicePath);
+  }
+
+  serviceSettingsHasModified(): boolean {
+    console.log('Original Service URL:', this.originalServiceURL);
+    console.log('Current Service URL:', this.appConfig.serviceURL);
+    console.log('Original Service Path:', this.originalServicePath);
+    console.log('Current Service Path:', this.appConfig.servicePath);
+    const currentServicePath = this.appConfig.servicePath?.length ? this.appConfig.servicePath : undefined;
+    return (
+      this.appConfig.serviceURL !== this.originalServiceURL ||
+      currentServicePath != this.originalServicePath
+    );
   }
 
   async clearCache() {
@@ -114,7 +134,7 @@ export default class SettingsContent extends Vue {
           <el-input
             v-model="appConfig.serviceURL"
             placeholder="https://rl-broadcast-hub.algoux.cn"
-            @blur="onServiceURLChange"
+            @input="onServiceURLChange"
           />
         </div>
         <div class="path-input-wrapper">
@@ -124,9 +144,12 @@ export default class SettingsContent extends Vue {
           <el-input
             v-model="appConfig.servicePath"
             placeholder="例如: /path/socket.io"
-            @blur="onServicePathChange"
+            @input="onServicePathChange"
           />
         </div>
+        <span class="service-tip" :class="showServiceTip ? '' : 'hide-service-tip'"
+          >服务设置需要在应用重启后生效</span
+        >
       </div>
       <div class="settings-content-section">
         <p class="settings-content-section-title">视频缓存路径</p>
@@ -150,6 +173,15 @@ export default class SettingsContent extends Vue {
 </template>
 
 <style scoped lang="less">
+.service-tip {
+  color: rgb(255, 111, 111);
+  opacity: 1;
+}
+
+.hide-service-tip {
+  opacity: 0;
+}
+
 .option-button {
   width: fit-content;
   padding: 0 20px;

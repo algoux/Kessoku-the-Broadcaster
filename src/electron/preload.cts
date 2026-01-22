@@ -5,6 +5,30 @@ import {
   UpdateVideoConfigDTO,
 } from 'common/config.interface';
 
+function ipcOn<Key extends keyof EventPayloadMapping>(
+  key: Key,
+  callback: (payload: EventPayloadMapping[Key]) => void,
+) {
+  console.log('[Preload] 设置 IPC 监听器:', key);
+  const cb = (_: Electron.IpcRendererEvent, payload: any) => {
+    console.log('[Preload] 收到 IPC 消息:', key, payload);
+    callback(payload);
+  };
+  electron.ipcRenderer.on(key, cb);
+  return () => {
+    electron.ipcRenderer.off(key, cb);
+  };
+}
+
+export function ipcSend<Key extends keyof EventPayloadMapping>(
+  key: Key,
+  payload?: EventPayloadMapping[Key],
+) {
+  electron.ipcRenderer.send(key, payload);
+}
+
+
+
 electron.contextBridge.exposeInMainWorld('electron', {
   getSources: () => ipcInvoke('getSources'),
   hasReady: () => {
@@ -29,7 +53,6 @@ electron.contextBridge.exposeInMainWorld('electron', {
   createProducer: (params: { kind: string; rtpParameters: any; appData?: any }) => {
     return ipcInvoke('create-producer', params);
   },
-  // 设备状态上报
   reportDeviceState: (devices: any[], isReady: boolean) => {
     return ipcInvoke('report-device-state', { devices, isReady });
   },
@@ -45,6 +68,7 @@ electron.contextBridge.exposeInMainWorld('electron', {
   onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => {
     return ipcOn('cleanup-media-resources', callback);
   },
+
   onReplayRequest: (
     callback: (data: { classId: string; startTime: string; endTime: string }) => void,
   ) => {
@@ -141,24 +165,3 @@ function ipcInvoke<Key extends keyof EventPayloadMapping>(
   return electron.ipcRenderer.invoke(key, ...args);
 }
 
-function ipcOn<Key extends keyof EventPayloadMapping>(
-  key: Key,
-  callback: (payload: EventPayloadMapping[Key]) => void,
-) {
-  console.log('[Preload] 设置 IPC 监听器:', key);
-  const cb = (_: Electron.IpcRendererEvent, payload: any) => {
-    console.log('[Preload] 收到 IPC 消息:', key, payload);
-    callback(payload);
-  };
-  electron.ipcRenderer.on(key, cb);
-  return () => {
-    electron.ipcRenderer.off(key, cb);
-  };
-}
-
-export function ipcSend<Key extends keyof EventPayloadMapping>(
-  key: Key,
-  payload?: EventPayloadMapping[Key],
-) {
-  electron.ipcRenderer.send(key, payload);
-}
