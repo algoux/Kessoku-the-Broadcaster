@@ -191,15 +191,12 @@ export default class HomeView extends Vue {
         // 不需要重启设备流，本地视频应该继续显示
         // await this.deviceManager.resetDeviceStreaming();
         // await this.updateAllVideoElements();
-        console.log('停止推流，本地视频继续显示');
       };
 
       await this.rendererService.initialize();
 
       // 更新连接状态
       const loginStatus = await this.rendererService.getConnectionStatus();
-      this.deviceManager.streamStatus =
-        loginStatus === 'connected' ? '已连接，等待推流请求' : '未连接';
     } catch (error) {
       console.error('连接失败:', error);
     }

@@ -76,10 +76,11 @@ export class MediasoupClient {
         maxBitrate: config.maxBitRate,
         maxFramerate: config.maxFramerate,
       }));
+      console.log('Producing video with encodings:', encodings);
 
       const producer = await this.producerTransport.produce({
         track,
-        ...(encodings && encodings.length > 0 ? { encodings } : {}),
+        // ...(encodings && encodings.length > 0 ? { encodings } : {}),
         appData: { classId }, // 传递 classId
       });
 
@@ -131,15 +132,18 @@ export class MediasoupClient {
     const videoTrack = stream.getVideoTracks()[0];
     const audioTrack = stream.getAudioTracks()[0];
     if (videoTrack) {
-      await this.produceVideo(videoTrack, classId, simulcastConfigs);
+      const cloneVideoTrack = videoTrack.clone();
+      await this.produceVideo(cloneVideoTrack, classId, simulcastConfigs);
     }
     if (audioTrack) {
-      await this.produceAudio(audioTrack, classId);
+      const cloneAudioTrack = audioTrack.clone();
+      await this.produceAudio(cloneAudioTrack, classId);
     }
   }
 
   // 停止推流
   stopProducing(): void {
+    console.log('Stopping all producers');
     for (const [producerId, producer] of this.producers.entries()) {
       if (!producer.closed) {
         producer.close();

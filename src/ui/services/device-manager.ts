@@ -29,8 +29,6 @@ export class DeviceManager {
   };
   configForm: DeviceSettings;
   screenAvailableMaxFrameRate: number;
-  public isStreaming: boolean = false;
-  public streamStatus: string = '未连接';
 
   set setScreenAvailableMaxFrameRate(fps: number) {
     this.screenAvailableMaxFrameRate = fps;
@@ -96,11 +94,9 @@ export class DeviceManager {
       const sources = await window.electron.getSources();
       this.availableScreens = sources.map((s: any) => ({ id: s.id, name: s.name }));
 
-      // 请求权限以获取设备列表
       await navigator.mediaDevices
         .getUserMedia({ video: true, audio: true })
         .then((s) => s.getTracks().forEach((t) => t.stop()))
-        // 忽略权限拒绝错误，因为同时请求 video 和 audio 可能有比如摄像头不存在的情况
         .catch(() => {});
 
       const devices = await navigator.mediaDevices.enumerateDevices();
@@ -431,7 +427,11 @@ export class DeviceManager {
    * @param isScreen 是否为屏幕设备
    * @description 根据 settings 中的宽度、高度、帧率设置相应的约束
    */
-  private applyVideoConstraints(constraints: any, settings: any, isScreen: boolean = false) {
+  private applyVideoConstraints(
+    constraints: MediaTrackConstraints,
+    settings: MediaTrackSettings,
+    isScreen: boolean = false,
+  ) {
     const fields = ['width', 'height', 'frameRate'];
     fields.forEach((field) => {
       if (settings?.[field]) {
@@ -510,13 +510,7 @@ export class DeviceManager {
    */
   private async getDeviceStream(
     device: Device,
-    constraints?: {
-      width?: number;
-      height?: number;
-      frameRate?: number;
-      sampleRate?: number;
-      channelCount?: number;
-    },
+    constraints?: MediaTrackSettings,
   ): Promise<MediaStream> {
     const settings = constraints || device.settings;
     const hasSettings = !!settings;
@@ -650,12 +644,12 @@ export class DeviceManager {
         {
           rid: 'original',
           scaleResolutionDownBy: 1,
-          maxBitRate: Math.round(width * height * frameRate * 0.000078125),
+          maxBitRate: Math.round(width * height * frameRate * 0.000078125) * 1000,
         },
         {
           rid: 'low',
           scaleResolutionDownBy: 4,
-          maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125),
+          maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125) * 1000,
         },
       ];
 
@@ -665,8 +659,7 @@ export class DeviceManager {
         frameRate,
         aspectRatio: rawSettings.aspectRatio,
         facingMode: rawSettings.facingMode,
-        maxFrameRate,
-        simulcastConfigs,
+        simulcastConfigs: simulcastConfigs,
       };
     } else {
       // 补充预设配置中缺失的字段
@@ -674,7 +667,6 @@ export class DeviceManager {
         ...device.settings,
         aspectRatio: device.settings.aspectRatio || rawSettings.aspectRatio,
         facingMode: device.settings.facingMode || rawSettings.facingMode,
-        maxFrameRate: device.settings.maxFrameRate || maxFrameRate,
       };
 
       // 如果 simulcastConfigs 不存在或为空，创建默认配置
@@ -687,40 +679,17 @@ export class DeviceManager {
           {
             rid: 'original',
             scaleResolutionDownBy: 1,
-            maxBitRate: Math.round(width * height * frameRate * 0.000078125),
+            maxBitRate: Math.round(width * height * frameRate * 0.000078125) * 1000,
           },
           {
             rid: 'low',
             scaleResolutionDownBy: 4,
-            maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125),
+            maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125) * 1000,
           },
         ];
       }
     }
     device.formatSetting = this.getFormatSettings(device);
-  }
-
-  /**
-   * 重置设备推流状态
-   */
-  async resetDeviceStreaming() {
-    try {
-      this.isStreaming = false;
-      for (const device of this.userDevices) {
-        if (device.stream && device.stream.getVideoTracks().length > 0) {
-          const track = device.stream.getVideoTracks()[0];
-          if (track.readyState === 'ended') {
-            try {
-              await this.startDeviceStream(device);
-            } catch (error) {
-              throw new Error(`重新启动设备 ${device.name} 流失败`);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      throw new Error('停止推流失败');
-    }
   }
 
   /**
@@ -732,18 +701,6 @@ export class DeviceManager {
 
       if (classIds && classIds.length > 0) {
         devicesToStream = devicesToStream.filter((device) => classIds.includes(device.classId));
-      }
-
-      // 重新获取所选设备的流
-      for (const device of devicesToStream) {
-        const isStreamValid =
-          device.type === 'microphone'
-            ? device.stream.getAudioTracks()[0].readyState === 'live'
-            : device.stream.getVideoTracks()[0].readyState === 'live';
-
-        if (!isStreamValid) {
-          await this.startDeviceStream(device);
-        }
       }
 
       const enabledStreams: Array<{
@@ -773,7 +730,7 @@ export class DeviceManager {
           };
         });
 
-      this.isStreaming = true;
+      // this.isStreaming = true;
       return enabledStreams;
     } catch (error) {
       console.error('推流失败:', error);
@@ -781,12 +738,15 @@ export class DeviceManager {
     }
   }
 
-  removeDevice(device: Device) {
+  async removeDevice(device: Device) {
     const index = this.userDevices.indexOf(device);
     if (index > -1) {
       this.stopDeviceStream(device);
       this.userDevices.splice(index, 1);
       this.updateCanAddState();
+      await this.saveAllDevicesToConfig();
+    } else {
+      throw new Error('设备未找到，无法移除');
     }
   }
 
@@ -825,19 +785,7 @@ export class DeviceManager {
       if (device.settings?.simulcastConfigs && device.settings.simulcastConfigs.length > 0) {
         simulcastConfigs = [...device.settings.simulcastConfigs];
       } else {
-        // 默认配置：原画在前，低清在后
-        simulcastConfigs = [
-          {
-            rid: 'original',
-            scaleResolutionDownBy: 1,
-            maxBitRate: 0, // 将在 updateSimulcastBitrates 中计算
-          },
-          {
-            rid: 'low',
-            scaleResolutionDownBy: 4,
-            maxBitRate: 0,
-          },
-        ];
+        simulcastConfigs = this.calculateSimulcastConfigs(width, height, frameRate);
       }
 
       this.configForm = {
@@ -881,7 +829,7 @@ export class DeviceManager {
       const scaledWidth = width / scale;
       const scaledHeight = height / scale;
       // width * height * frameRate * 0.000078125 (Kbps)
-      config.maxBitRate = Math.round(scaledWidth * scaledHeight * frameRate * 0.000078125);
+      config.maxBitRate = Math.round(scaledWidth * scaledHeight * frameRate * 0.000078125) * 1000;
     });
   }
 
@@ -1006,7 +954,6 @@ export class DeviceManager {
       const originalSettings = this.currentConfigDevice.settings;
 
       // 对于麦克风，在获取新流之前先更新 channelMode，这样 getDeviceStream 才能正确判断使用哪种模式
-
       if (this.currentConfigDevice.type === 'microphone' && this.configForm.channelMode) {
         if (!this.currentConfigDevice.settings) {
           this.currentConfigDevice.settings = {} as any;
@@ -1014,47 +961,42 @@ export class DeviceManager {
         this.currentConfigDevice.settings.channelMode = this.configForm.channelMode;
       }
 
-      // 停止当前流
-      this.stopDeviceStream(this.currentConfigDevice);
+      console.log('Applying constraints:', this.configForm);
 
-      // 获取新流
-      const stream = await this.getNewStreamForConfig();
-      this.currentConfigDevice.stream = stream;
+      await this.currentConfigDevice.stream.getTracks()[0].applyConstraints(this.configForm);
 
-      // 更新设备配置后的设置
-      this.updateDeviceAfterConfigChange(originalCapabilities, originalSettings);
-
-      // 对于视频设备，保存 simulcastConfigs
-      if (this.currentConfigDevice.type !== 'microphone' && this.configForm.simulcastConfigs) {
-        this.currentConfigDevice.settings!.simulcastConfigs = this.configForm.simulcastConfigs;
+      // applyConstraints 后，主动刷新 settings/capabilities/formatSetting
+      let track;
+      if (this.currentConfigDevice.type === 'microphone') {
+        track = this.currentConfigDevice.stream.getAudioTracks()[0];
+      } else {
+        track = this.currentConfigDevice.stream.getVideoTracks()[0];
+      }
+      if (track) {
+        // 更新 settings
+        this.currentConfigDevice.settings = track.getSettings() as DeviceSettings;
+        // 更新 capabilities
+        this.currentConfigDevice.capabilities = track.getCapabilities() as DeviceCapabilities;
+        // 对于视频设备，保存 simulcastConfigs
+        if (this.currentConfigDevice.type !== 'microphone' && this.configForm.simulcastConfigs) {
+          this.currentConfigDevice.settings.simulcastConfigs = this.configForm.simulcastConfigs;
+        }
+        // 重新生成 formatSetting
+        this.currentConfigDevice.formatSetting = this.getFormatSettings(this.currentConfigDevice);
       }
 
-      // 同步更新用户设备列表
+      // 直接修改原对象，保持响应式
       const idx = this.userDevices.findIndex((d) => d.id === this.currentConfigDevice.id);
       if (idx !== -1) {
-        // 直接使用 currentConfigDevice，因为它就是 userDevices 中的引用
-        // 但为了触发 Vue 的响应式更新，我们需要重新赋值
-        const updatedDevice = {
-          ...this.currentConfigDevice,
-          stream: this.currentConfigDevice.stream,
-          settings: { ...this.currentConfigDevice.settings },
-          capabilities: { ...this.currentConfigDevice.capabilities },
-          formatSetting: this.getFormatSettings(this.currentConfigDevice),
-        };
-
-        this.userDevices.splice(idx, 1, updatedDevice);
-
-        // 重要：更新 currentConfigDevice 的引用，让配置对话框能看到最新数据
-        this.currentConfigDevice = updatedDevice;
-
-        // 保存到配置文件
+        const target = this.userDevices[idx];
+        Object.assign(target, this.currentConfigDevice);
+        // 保存到配置文件，确保写入最新 settings
         try {
-          await this.saveSingleDeviceToConfig(updatedDevice);
+          await this.saveSingleDeviceToConfig(target);
         } catch (saveError) {
           console.error('保存设备配置到文件失败:', saveError);
         }
-
-        return { updateIndex: idx, updateDevice: updatedDevice };
+        return { updateIndex: idx, updateDevice: target };
       }
     } catch (error) {
       // 清理 currentConfigDevice，避免影响其他操作
@@ -1314,5 +1256,24 @@ export class DeviceManager {
       console.error('保存设备配置失败:', error);
       throw new Error('保存设备配置失败');
     }
+  }
+
+  private calculateSimulcastConfigs(
+    width: number,
+    height: number,
+    frameRate: number,
+  ): SimulcastConfig[] {
+    return [
+      {
+        rid: 'original',
+        scaleResolutionDownBy: 1,
+        maxBitRate: Math.round(width * height * frameRate * 0.000078125) * 1000,
+      },
+      {
+        rid: 'low',
+        scaleResolutionDownBy: 4,
+        maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125) * 1000,
+      },
+    ];
   }
 }

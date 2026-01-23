@@ -106,10 +106,6 @@ export class RendererService {
       this.mediasoupClient.disconnect();
       this.mediasoupClient = null;
     }
-    window.electron.removeAllListeners('start-streaming-request');
-    window.electron.removeAllListeners('stop-streaming-request');
-    window.electron.removeAllListeners('cleanup-media-resources');
-    window.electron.removeAllListeners('transport-ready');
     this.isInitialized = false;
   }
 }

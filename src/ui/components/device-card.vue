@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
-import { Inject, Prop, Ref } from 'vue-property-decorator';
+import { Inject, Prop, Ref, Watch } from 'vue-property-decorator';
 import { DeviceType, Device } from '@/typings/data';
 
 import SettingsIcon from './svgs/settings.vue';
@@ -38,7 +38,6 @@ export default class DeviceCard extends Vue {
   @Inject()
   removeDevice!: (device: Device) => void;
 
-
   private localFormatSetting: string = '';
 
   mounted() {
@@ -51,6 +50,12 @@ export default class DeviceCard extends Vue {
 
   getVideoEl() {
     return this.videoEl;
+  }
+
+  // 响应 device.formatSetting 变化
+  @Watch('device.formatSetting', { immediate: true })
+  onFormatSettingChange() {
+    this.updateFormatSetting();
   }
 }
 </script>
@@ -111,7 +116,7 @@ export default class DeviceCard extends Vue {
             @click="openConfigDialog(device)"
             class="ghost-button"
           >
-            <SettingsIcon style="width: 16px; " />
+            <SettingsIcon style="width: 16px" />
             <!-- <span>修改设备参数</span> -->
           </el-button>
           <el-button
