@@ -1,18 +1,24 @@
 import { SimulcastConfig } from 'common/config.interface';
 import { DeviceManager } from '@/services/device-manager';
 
-export interface DeviceSettings {
-  width?: number;
-  height?: number;
-  frameRate?: number;
-  maxFrameRate?: number; // 设备支持的最大帧率
-  aspectRatio?: number;
-  facingMode?: string;
-  sampleRate?: number;
-  channelCount?: number;
-  channelMode?: 'mono' | 'stereo'; // 麦克风通道模式：单声道或立体声
+// export interface DeviceSettings {
+//   width?: number;
+//   height?: number;
+//   frameRate?: number;
+//   maxFrameRate?: number; // 设备支持的最大帧率
+//   aspectRatio?: number;
+//   facingMode?: string;
+//   sampleRate?: number;
+//   channelCount?: number;
+//   channelMode?: 'mono' | 'stereo'; // 麦克风通道模式：单声道或立体声
+//   formatSetting?: string;
+//   simulcastConfigs?: SimulcastConfig[]; // Simulcast 编码配置
+// }
+
+export interface DeviceSettings extends MediaTrackSettings {
   formatSetting?: string;
   simulcastConfigs?: SimulcastConfig[]; // Simulcast 编码配置
+  channelMode?: 'mono' | 'stereo'; // 麦克风通道模式：单声道或立体声
 }
 
 export type DeviceType = 'screen' | 'camera' | 'microphone';
@@ -25,14 +31,7 @@ export type ClassIdPattern<T extends DeviceType> = T extends 'screen'
       ? `microphone_${string}`
       : never;
 
-export interface DeviceCapabilities {
-  width?: { min?: number; max?: number };
-  height?: { min?: number; max?: number };
-  frameRate?: { min?: number; max?: number };
-  aspectRatio?: { min?: number; max?: number };
-  sampleRate?: { min?: number; max?: number };
-  channelCount?: { min?: number; max?: number };
-}
+export interface DeviceCapabilities extends MediaTrackCapabilities {}
 
 export interface Device<T extends DeviceType = DeviceType> {
   id: string;

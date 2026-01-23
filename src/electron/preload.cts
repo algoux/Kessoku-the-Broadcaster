@@ -68,7 +68,6 @@ electron.contextBridge.exposeInMainWorld('electron', {
   onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => {
     return ipcOn('cleanup-media-resources', callback);
   },
-
   onReplayRequest: (
     callback: (data: { classId: string; startTime: string; endTime: string }) => void,
   ) => {
@@ -94,9 +93,6 @@ electron.contextBridge.exposeInMainWorld('electron', {
   },
   onTransportReady: (callback: (data: { transport: any; routerRtpCapabilities: any }) => void) => {
     return ipcOn('transport-ready', callback);
-  },
-  removeAllListeners: (channel: string) => {
-    electron.ipcRenderer.removeAllListeners(channel);
   },
   // 视频录制相关
   startContinuousRecording: (classId: string) => {

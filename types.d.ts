@@ -8,7 +8,6 @@ import {
   RequestStartBroadcast,
   GetPlatformInfoDTO,
 } from 'common/config.interface';
-
 import { Resp, ContestInfo } from './src/common/typings/broadcaster.types';
 
 declare global {
@@ -93,12 +92,12 @@ declare global {
         rtpParameters: any;
         appData?: any;
       }) => Promise<{ id: string }>;
-      // 设备状态上报
       reportDeviceState: (devices: any[], isReady: boolean) => Promise<{ success: boolean }>;
-      // IPC 监听器方法
       onStreamingRequest: (callback: (data: RequestStartBroadcast) => void) => void;
       onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => void;
       onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => void;
+      
+      // 回看相关逻辑（todo）
       onReplayRequest: (
         callback: (data: { classId: string; startTime: string; endTime: string }) => void,
       ) => void;
@@ -117,7 +116,6 @@ declare global {
       onTransportReady: (
         callback: (data: { transport: any; routerRtpCapabilities: any }) => void,
       ) => void;
-      removeAllListeners: (channel: string) => void;
       // 视频录制相关
       startContinuousRecording: (classId: string) => Promise<{ success: boolean; error?: string }>;
       stopContinuousRecording: (classId: string) => Promise<{ success: boolean }>;

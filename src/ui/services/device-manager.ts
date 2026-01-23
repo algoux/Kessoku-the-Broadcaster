@@ -29,8 +29,6 @@ export class DeviceManager {
   };
   configForm: DeviceSettings;
   screenAvailableMaxFrameRate: number;
-  public isStreaming: boolean = false;
-  public streamStatus: string = '未连接';
 
   set setScreenAvailableMaxFrameRate(fps: number) {
     this.screenAvailableMaxFrameRate = fps;
@@ -96,11 +94,9 @@ export class DeviceManager {
       const sources = await window.electron.getSources();
       this.availableScreens = sources.map((s: any) => ({ id: s.id, name: s.name }));
 
-      // 请求权限以获取设备列表
       await navigator.mediaDevices
         .getUserMedia({ video: true, audio: true })
         .then((s) => s.getTracks().forEach((t) => t.stop()))
-        // 忽略权限拒绝错误，因为同时请求 video 和 audio 可能有比如摄像头不存在的情况
         .catch(() => {});
 
       const devices = await navigator.mediaDevices.enumerateDevices();
@@ -665,8 +661,7 @@ export class DeviceManager {
         frameRate,
         aspectRatio: rawSettings.aspectRatio,
         facingMode: rawSettings.facingMode,
-        maxFrameRate,
-        simulcastConfigs,
+        simulcastConfigs: simulcastConfigs,
       };
     } else {
       // 补充预设配置中缺失的字段
@@ -674,7 +669,6 @@ export class DeviceManager {
         ...device.settings,
         aspectRatio: device.settings.aspectRatio || rawSettings.aspectRatio,
         facingMode: device.settings.facingMode || rawSettings.facingMode,
-        maxFrameRate: device.settings.maxFrameRate || maxFrameRate,
       };
 
       // 如果 simulcastConfigs 不存在或为空，创建默认配置
@@ -703,25 +697,25 @@ export class DeviceManager {
   /**
    * 重置设备推流状态
    */
-  async resetDeviceStreaming() {
-    try {
-      this.isStreaming = false;
-      for (const device of this.userDevices) {
-        if (device.stream && device.stream.getVideoTracks().length > 0) {
-          const track = device.stream.getVideoTracks()[0];
-          if (track.readyState === 'ended') {
-            try {
-              await this.startDeviceStream(device);
-            } catch (error) {
-              throw new Error(`重新启动设备 ${device.name} 流失败`);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      throw new Error('停止推流失败');
-    }
-  }
+  // async resetDeviceStreaming() {
+  //   try {
+  //     this.isStreaming = false;
+  //     for (const device of this.userDevices) {
+  //       if (device.stream && device.stream.getVideoTracks().length > 0) {
+  //         const track = device.stream.getVideoTracks()[0];
+  //         if (track.readyState === 'ended') {
+  //           try {
+  //             await this.startDeviceStream(device);
+  //           } catch (error) {
+  //             throw new Error(`重新启动设备 ${device.name} 流失败`);
+  //           }
+  //         }
+  //       }
+  //     }
+  //   } catch (error) {
+  //     throw new Error('停止推流失败');
+  //   }
+  // }
 
   /**
    * 获取设备流
@@ -734,17 +728,17 @@ export class DeviceManager {
         devicesToStream = devicesToStream.filter((device) => classIds.includes(device.classId));
       }
 
-      // 重新获取所选设备的流
-      for (const device of devicesToStream) {
-        const isStreamValid =
-          device.type === 'microphone'
-            ? device.stream.getAudioTracks()[0].readyState === 'live'
-            : device.stream.getVideoTracks()[0].readyState === 'live';
+      // // 重新获取所选设备的流
+      // for (const device of devicesToStream) {
+      //   const isStreamValid =
+      //     device.type === 'microphone'
+      //       ? device.stream.getAudioTracks()[0].readyState === 'live'
+      //       : device.stream.getVideoTracks()[0].readyState === 'live';
 
-        if (!isStreamValid) {
-          await this.startDeviceStream(device);
-        }
-      }
+      //   if (!isStreamValid) {
+      //     await this.startDeviceStream(device);
+      //   }
+      // }
 
       const enabledStreams: Array<{
         stream: MediaStream;
@@ -773,7 +767,7 @@ export class DeviceManager {
           };
         });
 
-      this.isStreaming = true;
+      // this.isStreaming = true;
       return enabledStreams;
     } catch (error) {
       console.error('推流失败:', error);

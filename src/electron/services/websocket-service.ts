@@ -114,12 +114,9 @@ export class WebSocketService {
    * 设置事件处理器
    */
   private setupEventHandlers() {
-    // 断开连接（socket.io 会自动尝试重连）
     this.socket.on('disconnect', (reason: string) => {
       console.log('断开连接:', reason);
-
       ipcWebContentsSend('cleanup-media-resources', this.mainWindow.webContents, {});
-
       ipcWebContentsSend(
         'connection-state-changed',
         this.mainWindow.webContents,
@@ -127,12 +124,10 @@ export class WebSocketService {
       );
     });
 
-    // 重新连接成功
     this.socket.on('connect', () => {
       console.log('重新连接成功');
       this.connectionState = 'connected';
 
-      // 通知渲染进程连接状态变化
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         ipcWebContentsSend(
           'connection-state-changed',
@@ -141,36 +136,21 @@ export class WebSocketService {
         );
       }
 
-      // 如果之前已就绪，重新上报
       if (this.isReady && this.lastTracks.length > 0) {
         console.log('重连后恢复就绪状态');
         this.confirmReady(this.lastTracks);
       }
     });
 
-    // 重连错误（每次重连失败都会触发，但会继续尝试）
-    this.socket.on('reconnect_error', (error: any) => {
-      console.log('重连失败，继续尝试:', error.message);
-      // 保持 connecting 状态，因为还会继续重连
-      this.connectionState = 'connecting';
-      ipcWebContentsSend(
-        'connection-state-changed',
-        this.mainWindow.webContents,
-        this.connectionState,
-      );
-    });
-
-    // 连接错误（持续监听 - 重连阶段的错误）
     this.socket.on('connect_error', (error: any) => {
       console.log('重连错误:', error.message);
 
       // 是否是来自服务器的逻辑错误
-      if (error.data && error.data.code) {
+      if (error.data && error.data.code === -5) {
         console.error('认证失败，停止重连:', error.data);
         this.connectionState = 'disconnected';
         this.socket.disconnect();
 
-        // 通知渲染进程连接状态变化
         if (this.mainWindow && !this.mainWindow.isDestroyed()) {
           ipcWebContentsSend(
             'connection-state-changed',
@@ -179,29 +159,25 @@ export class WebSocketService {
           );
         }
       } else {
-        // 网络问题等，保持 connecting 状态继续重连
         this.connectionState = 'connecting';
+        ipcWebContentsSend(
+          'connection-state-changed',
+          this.mainWindow.webContents,
+          this.connectionState,
+        );
       }
     });
 
-    // 请求开始推流
     this.socket.on('requestStartBroadcast', (data: RequestStartBroadcast) => {
       console.log('收到推流请求:', data);
-      // 发送 trackIds 到渲染进程，transport 已在 confirmReady 时初始化
       ipcWebContentsSend('start-streaming-request', this.mainWindow.webContents, {
         classIds: data.trackIds,
       });
     });
 
-    // 请求停止推流
-    this.socket.on('requestStopBroadcast', (callback: (resp: Resp) => void) => {
+    this.socket.on('requestStopBroadcast', () => {
       console.log('收到停止推流请求');
       ipcWebContentsSend('stop-streaming-request', this.mainWindow.webContents, {});
-
-      // 回调确认
-      if (callback) {
-        callback({ success: true, code: 0 });
-      }
     });
 
     // 回看推流请求

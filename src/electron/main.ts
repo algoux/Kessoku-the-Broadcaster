@@ -10,6 +10,7 @@ import { VideoRecordingService } from './services/video-recording-service';
 import { ConfigManager } from './services/config-manager';
 import { createTray } from './utils/tray';
 import log from 'electron-log';
+import {CompleteConnectTransportParams} from './typings/data';
 
 import {
   UpdateConfigDTO,
@@ -225,7 +226,7 @@ function setupIpcHandlers() {
   /**
    * 推流相关
    */
-  ipcMainHandle('connect-producer-transport', async ({ dtlsParameters }) => {
+  ipcMainHandle('connect-producer-transport', async ({ dtlsParameters }: CompleteConnectTransportParams) => {
     if (!webSocketService) {
       throw new Error('WebSocket 服务未初始化');
     }
