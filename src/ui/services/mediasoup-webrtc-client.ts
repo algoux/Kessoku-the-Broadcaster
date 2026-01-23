@@ -76,10 +76,11 @@ export class MediasoupClient {
         maxBitrate: config.maxBitRate,
         maxFramerate: config.maxFramerate,
       }));
+      console.log('Producing video with encodings:', encodings);
 
       const producer = await this.producerTransport.produce({
         track,
-        ...(encodings && encodings.length > 0 ? { encodings } : {}),
+        // ...(encodings && encodings.length > 0 ? { encodings } : {}),
         appData: { classId }, // 传递 classId
       });
 
