@@ -12,6 +12,7 @@ import {
   DeviceInfo,
 } from '@/typings/data';
 import { SimulcastConfig } from 'common/config.interface';
+import { toRaw } from 'vue';
 
 export class DeviceManager {
   userDevices: Device[] = [];
@@ -52,7 +53,7 @@ export class DeviceManager {
       classId: device.classId,
       type: device.type,
       name: device.name,
-      settings: device.settings ? JSON.parse(JSON.stringify(device.settings)) : undefined,
+      settings: device.settings ? toRaw(device.settings) : undefined,
     }));
   }
 
@@ -104,6 +105,7 @@ export class DeviceManager {
       this.availableCameras = devices.filter((d) => d.kind === 'videoinput');
       const audioInputDevices = devices.filter((d) => d.kind === 'audioinput');
       this.availableMicrophones = this.mergeMicrophoneChannels(audioInputDevices);
+      console.log('可用麦克风设备列表:', this.availableMicrophones);
 
       // 检查是否已有配置
       const hasConfig = await window.electron.hasDevicesConfig();
@@ -479,11 +481,23 @@ export class DeviceManager {
     try {
       // 对于麦克风设备，检查是否支持立体声（有多个通道可合并）
       if (device.type === 'microphone' && !device.settings?.channelMode) {
-        const devicesInGroup = this.findDevicesInSameGroup(device.id);
-        if (devicesInGroup.length >= 2) {
-          // 设备支持立体声，默认使用 stereo 模式
-          if (!device.settings) device.settings = {} as any;
+        const tempStream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: device.id },
+        });
+
+        const track = tempStream.getAudioTracks()[0];
+        const caps = track.getCapabilities();
+
+        track.stop();
+
+        if (caps.channelCount?.max >= 2) {
           device.settings.channelMode = 'stereo';
+          device.settings.channelCount = 2;
+        } else {
+          const devicesInGroup = this.findDevicesInSameGroup(device.id);
+          if (devicesInGroup.length >= 2) {
+            device.settings.channelMode = 'stereo';
+          }
         }
       }
 
@@ -542,6 +556,15 @@ export class DeviceManager {
       // microphone
       // 检查是否需要 stereo 模式并且设备支持多通道
       if (device.settings?.channelMode === 'stereo') {
+        if (settings.channelCount === 2) {
+          // 原生 stereo
+          return navigator.mediaDevices.getUserMedia({
+            audio: {
+              deviceId: device.id,
+              channelCount: { ideal: 2 },
+            },
+          });
+        }
         const devicesInGroup = this.findDevicesInSameGroup(device.id);
         if (devicesInGroup.length >= 2) {
           return this.createStereoStream(devicesInGroup);
@@ -940,7 +963,7 @@ export class DeviceManager {
 
     // 验证配置参数
     if (this.currentConfigDevice.type === 'microphone') {
-      if (!this.configForm.sampleRate || !this.configForm.channelCount) {
+      if (!this.configForm.sampleRate || !this.configForm.channelMode) {
         throw new Error('请填写完整的配置参数');
       }
     } else {
@@ -950,14 +973,12 @@ export class DeviceManager {
     }
 
     try {
-      const originalCapabilities = this.currentConfigDevice.capabilities;
-      const originalSettings = this.currentConfigDevice.settings;
-
       // 对于麦克风，在获取新流之前先更新 channelMode，这样 getDeviceStream 才能正确判断使用哪种模式
       if (this.currentConfigDevice.type === 'microphone' && this.configForm.channelMode) {
         if (!this.currentConfigDevice.settings) {
           this.currentConfigDevice.settings = {} as any;
         }
+        console.log(this.configForm.channelMode);
         this.currentConfigDevice.settings.channelMode = this.configForm.channelMode;
       }
 
@@ -974,7 +995,10 @@ export class DeviceManager {
       }
       if (track) {
         // 更新 settings
-        this.currentConfigDevice.settings = track.getSettings() as DeviceSettings;
+        this.currentConfigDevice.settings = {
+          ...this.currentConfigDevice.settings,
+          ...track.getSettings(),
+        };
         // 更新 capabilities
         this.currentConfigDevice.capabilities = track.getCapabilities() as DeviceCapabilities;
         // 对于视频设备，保存 simulcastConfigs
@@ -1008,58 +1032,13 @@ export class DeviceManager {
   };
 
   /**
-   * 获取新的配置流
-   */
-  private async getNewStreamForConfig(): Promise<MediaStream> {
-    return this.getDeviceStream(this.currentConfigDevice, {
-      width: this.configForm.width,
-      height: this.configForm.height,
-      frameRate: this.configForm.frameRate,
-      sampleRate: this.configForm.sampleRate,
-      channelCount: this.configForm.channelCount,
-    });
-  }
-
-  /**
-   * 更新设备配置后的设置
-   */
-  private updateDeviceAfterConfigChange(
-    originalCapabilities: DeviceCapabilities | undefined,
-    originalSettings: DeviceSettings | undefined,
-  ) {
-    if (this.currentConfigDevice.type === 'microphone') {
-      // 清空旧的 capabilities 和 settings，强制重新获取新流的真实信息
-      this.currentConfigDevice.capabilities = undefined;
-      this.currentConfigDevice.settings = undefined;
-
-      // 重新处理音频轨道，获取新流的真实 capabilities
-      this.processAudioTrack(this.currentConfigDevice);
-
-      // 确保 channelMode 与用户选择一致（processAudioTrack 可能会根据流推断）
-      if (this.configForm.channelMode) {
-        this.currentConfigDevice.settings!.channelMode = this.configForm.channelMode;
-        this.currentConfigDevice.settings!.channelCount =
-          this.configForm.channelMode === 'stereo' ? 2 : 1;
-      }
-    } else {
-      const videoTrack = this.currentConfigDevice.stream!.getVideoTracks()[0];
-      this.currentConfigDevice.settings = videoTrack
-        ? (videoTrack.getSettings() as DeviceSettings)
-        : originalSettings;
-      if (originalCapabilities) {
-        this.currentConfigDevice.capabilities = originalCapabilities;
-      }
-    }
-    this.currentConfigDevice.formatSetting = this.getFormatSettings(this.currentConfigDevice);
-  }
-
-  /**
    * 获取格式化的设置信息
    */
   getFormatSettings = (device: Device): string => {
     if (!device.settings) return '未获取当前设备参数';
 
     const s = device.settings;
+    console.log('Generating format settings for', device.name, s);
     if (device.type === 'microphone') {
       return `${s.sampleRate || 'N/A'} Hz @ ${s.channelMode || 'N/A'}`;
     }

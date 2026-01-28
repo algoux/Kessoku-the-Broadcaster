@@ -129,6 +129,8 @@ function createSettingsWindow() {
     show: false,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(process.platform === 'win32' && { frame: false }),
+    vibrancy: 'sidebar', // 或 'sidebar'
+    visualEffectState: 'active',
   });
 
   // 窗口关闭时清空引用
@@ -193,8 +195,10 @@ function setupIpcHandlers() {
 
   ipcMainHandle('logout', async () => {
     try {
-      await webSocketService.cancelReady();
-      configManager.clearUserConfig();
+      if (configManager && webSocketService) {
+        await webSocketService.cancelReady();
+        configManager.clearUserConfig();
+      }
       app.quit();
       log.info('登出成功');
       return { success: true };

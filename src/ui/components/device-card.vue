@@ -110,21 +110,22 @@ export default class DeviceCard extends Vue {
 
         <div class="device-handler-buttons">
           <el-button
-            size="small"
             :disabled="isReady"
             circle
             @click="openConfigDialog(device)"
-            class="ghost-button"
+            type="info"
+            plain
+            size="small"
           >
             <SettingsIcon style="width: 16px" />
-            <!-- <span>修改设备参数</span> -->
           </el-button>
           <el-button
-            size="small"
             :disabled="isReady"
             circle
             @click="removeDevice(device)"
-            class="ghost-button danger-ghost-button"
+            type="danger"
+            plain
+            size="small"
           >
             <Trash style="color: var(--bg-pure-color); width: 14px" />
           </el-button>
@@ -269,9 +270,9 @@ export default class DeviceCard extends Vue {
       height: 60%;
       display: flex;
       // background-color: red;
-      gap: 10px;
+      gap: .2rem;
       flex: 1;
-      justify-content: space-between;
+      justify-content: end;
       align-items: center;
     }
   }
@@ -281,7 +282,6 @@ export default class DeviceCard extends Vue {
   background-color: transparent;
   background: transparent;
   color: var(--font-secondary-color);
-  border: 1px solid var(--font-secondary-color);
   transition: all 0.3s ease;
   display: flex;
   justify-content: center;
@@ -304,8 +304,8 @@ export default class DeviceCard extends Vue {
     &:hover {
       background-color: transparent !important;
       background: transparent !important;
-      color: var(--font-secondary-color) !important;
-      border-color: var(--font-secondary-color) !important;
+      // color: var(--font-secondary-color) !important;
+      // border-color: var(--font-secondary-color) !important;
     }
   }
 }

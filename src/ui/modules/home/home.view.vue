@@ -237,7 +237,7 @@ export default class HomeView extends Vue {
   @Provide()
   async updateVideoElement(device: Device) {
     try {
-      if (!device.stream) return;
+      if (!device.stream || device.type === 'microphone') return;
 
       const idx = this.findDeviceCardIndex(device);
       if (idx === -1) {

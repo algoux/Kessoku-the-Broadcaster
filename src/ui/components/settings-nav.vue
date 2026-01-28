@@ -28,7 +28,7 @@ export default class SettingsNav extends Vue {}
   flex-direction: column;
   justify-content: flex-start;
   align-items: center;
-  background-color: var(--bg-secondary-color);
+  background-color: transparent;
   & .settings-button {
     width: 85%;
     height: 40px;
@@ -42,7 +42,7 @@ export default class SettingsNav extends Vue {}
     cursor: pointer;
     transition: all 0.3s ease;
     &:hover {
-      background-color: var(--bg-primary-color);
+      background-color: rgba(194, 194, 194, 0.5);
     }
     color: var(--font-primary-color);
   }

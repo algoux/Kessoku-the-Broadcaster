@@ -34,15 +34,11 @@ export default class ConfigDialog extends Vue {
   @Inject()
   closeConfigDialog: Function;
 
-  // 强制更新的 key
-  private componentKey = 0;
-
   // 监听对话框打开
   @Watch('configDialogVisible')
   onDialogChange(newVal: boolean) {
     if (newVal) {
       this.deviceManager.updateSimulcastBitrates();
-      this.forceUpdate();
     }
   }
 
@@ -68,7 +64,6 @@ export default class ConfigDialog extends Vue {
    */
   set selectedChannelRid(rid: string) {
     this.deviceManager.selectSimulcastChannel(rid);
-    this.forceUpdate();
   }
 
   /**
@@ -89,27 +84,18 @@ export default class ConfigDialog extends Vue {
   get isSampleRateFixed(): boolean {
     // 立体声模式使用 AudioContext，采样率固定
     // 单声道模式使用原始流，采样率可调整
-    const channelMode = this.deviceManager.currentConfigDevice?.settings?.channelMode;
-    return channelMode === 'stereo';
+    const configForm = this.deviceManager.configForm;
+    return configForm?.channelMode === 'stereo';
   }
 
-  /**
-   * 获取采样率的最小值
-   */
   get sampleRateMin(): number {
     return this.deviceManager.currentConfigDevice?.capabilities?.sampleRate?.min || 8000;
   }
 
-  /**
-   * 获取采样率的最大值
-   */
   get sampleRateMax(): number {
     return this.deviceManager.currentConfigDevice?.capabilities?.sampleRate?.max || 48000;
   }
 
-  /**
-   * 转换 rid 名称
-   */
   private convertRidName(rid: string): string {
     const nameMap: Record<string, string> = {
       original: '原画',
@@ -120,9 +106,6 @@ export default class ConfigDialog extends Vue {
     return nameMap[rid] || rid;
   }
 
-  /**
-   * 格式化 simulcast 配置显示
-   */
   private formatSimulcastConfig(config: any): string {
     const name = this.convertRidName(config.rid);
     const bitrate = Math.round(config.maxBitRate);
@@ -130,29 +113,17 @@ export default class ConfigDialog extends Vue {
     return `${name} (${scale}x) @ ${bitrate} Kbps`;
   }
 
-  /**
-   * 处理码率选择变化
-   */
   private onSimulcastChange(rid: string) {
     this.deviceManager.selectSimulcastChannel(rid);
-    this.forceUpdate();
   }
 
-  /**
-   * 处理预设分辨率变化
-   */
   private onPresetChange(presetStr: string) {
     this.deviceManager.applyPreset(presetStr);
     this.deviceManager.updateSimulcastBitrates();
-    this.forceUpdate();
   }
 
-  /**
-   * 处理帧率变化
-   */
   private onFrameRateChange() {
     this.deviceManager.updateSimulcastBitrates();
-    this.forceUpdate();
   }
 
   /**
@@ -161,14 +132,9 @@ export default class ConfigDialog extends Vue {
   private onChannelModeChange(mode: 'mono' | 'stereo') {
     // 根据通道模式自动设置声道数
     this.deviceManager.configForm.channelCount = mode === 'stereo' ? 2 : 1;
-    this.forceUpdate();
-  }
-
-  /**
-   * 强制组件更新
-   */
-  private forceUpdate() {
-    this.componentKey++;
+    if (mode === 'stereo') {
+      this.deviceManager.configForm.sampleRate = this.sampleRateMax;
+    }
   }
 }
 </script>
@@ -220,12 +186,8 @@ export default class ConfigDialog extends Vue {
         <div class="capabilities-info">
           <p v-if="deviceManager.currentConfigDevice?.capabilities?.sampleRate">
             采样率:
-            {{ Math.round(sampleRateMin) }}
-            <span v-if="!isSampleRateFixed"> - {{ Math.round(sampleRateMax) }} </span>
-            Hz
-            <span v-if="isSampleRateFixed" style="color: var(--font-secondary-color)">
-              (固定)
-            </span>
+            <span v-if="isSampleRateFixed">{{ Math.round(sampleRateMax) }} Hz</span>
+            <span v-else>{{ Math.round(sampleRateMin) }} - {{ Math.round(sampleRateMax) }} Hz</span>
           </p>
           <p v-else>待获取设备参数信息</p>
         </div>
@@ -263,12 +225,7 @@ export default class ConfigDialog extends Vue {
       </el-form-item>
 
       <el-form-item label="码率">
-        <el-select
-          :key="componentKey"
-          v-model="selectedChannelRid"
-          placeholder="选择码率"
-          @change="onSimulcastChange"
-        >
+        <el-select v-model="selectedChannelRid" placeholder="选择码率" @change="onSimulcastChange">
           <el-option
             v-for="config in simulcastConfigs"
             :key="config.rid"
