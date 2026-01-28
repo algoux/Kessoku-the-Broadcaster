@@ -10,7 +10,7 @@ import { VideoRecordingService } from './services/video-recording-service';
 import { ConfigManager } from './services/config-manager';
 import { createTray } from './utils/tray';
 import log from 'electron-log';
-import {CompleteConnectTransportParams} from './typings/data';
+import { CompleteConnectTransportParams } from './typings/data';
 
 import {
   UpdateConfigDTO,
@@ -118,7 +118,7 @@ function createSettingsWindow() {
     settingsWindow.focus();
     return;
   }
-  
+
   settingsWindow = new BrowserWindow({
     webPreferences: {
       preload: getPreloadPath(),
@@ -149,7 +149,7 @@ function createSettingsWindow() {
 
 /**
  * 设置通用 IPC 处理器
- * @description 负责处理来自渲染进程的各种请求
+ * @description 负责与渲染进程通信，并处理来自服务器的请求
  */
 function setupIpcHandlers() {
   /**
@@ -159,7 +159,6 @@ function setupIpcHandlers() {
     'login',
     async ({ alias, userId, token }: { alias: string; userId: string; token: string }) => {
       try {
-        // 重新初始化 WebSocket 服务，确保使用最新的配置
         const config = configManager.getConfigData;
         webSocketService = new WebSocketService(
           config.serviceURL || 'https://rl-broadcast-hub.algoux.cn',
@@ -183,26 +182,25 @@ function setupIpcHandlers() {
         mainWindow = createMainWindow();
         webSocketService.setMainWindow(mainWindow);
         showWindow(mainWindow);
-
+        log.info('登录成功', { alias, userId, token });
         return { success: true };
       } catch (error) {
-        console.error('登录失败:', error);
-        return { success: false, error: (error as Error).message };
+        log.error('登录失败:', error);
+        return { success: false, error: error.message };
       }
     },
   );
 
   ipcMainHandle('logout', async () => {
     try {
-      if (webSocketService) {
-        await webSocketService.cancelReady();
-      }
+      await webSocketService.cancelReady();
       configManager.clearUserConfig();
       app.quit();
+      log.info('登出成功');
       return { success: true };
     } catch (error) {
       log.error('登出失败:', error);
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: error.message };
     }
   });
 
@@ -214,37 +212,24 @@ function setupIpcHandlers() {
 
   // 获取比赛信息
   ipcMainHandle('get-contest-info', async () => {
-    if (!webSocketService) {
-      return {
-        success: false,
-        msg: 'WebSocket 服务未初始化',
-      };
-    }
     return await webSocketService.getContestInfo();
   });
 
   /**
    * 推流相关
    */
-  ipcMainHandle('connect-producer-transport', async ({ dtlsParameters }: CompleteConnectTransportParams) => {
-    if (!webSocketService) {
-      throw new Error('WebSocket 服务未初始化');
-    }
-    const resp = await webSocketService.completeConnectTransport({ dtlsParameters });
-    if (!resp.success) {
-      throw new Error((resp as any).msg || '连接 transport 失败');
-    }
-  });
+  ipcMainHandle(
+    'connect-producer-transport',
+    async ({ dtlsParameters }: CompleteConnectTransportParams) => {
+      const resp = await webSocketService.completeConnectTransport({ dtlsParameters });
+      if (!resp.success) {
+        throw new Error((resp as any).msg || '连接 transport 失败');
+      }
+    },
+  );
 
-  ipcMainHandle('create-producer', async ({ kind, rtpParameters, appData }) => {
-    if (!webSocketService) {
-      throw new Error('WebSocket 服务未初始化');
-    }
-    const trackId = appData.classId;
-    if (!trackId) {
-      throw new Error('缺少 classId');
-    }
-    const resp = await webSocketService.produce({ kind, rtpParameters, appData, trackId });
+  ipcMainHandle('create-producer', async ({ trackId, kind, rtpParameters }) => {
+    const resp = await webSocketService.produce({ kind, rtpParameters, trackId });
     if (!resp.success) {
       throw new Error((resp as any).msg || '推流失败');
     }
@@ -253,7 +238,6 @@ function setupIpcHandlers() {
 
   ipcMainHandle('report-device-state', async ({ devices, isReady }) => {
     if (isReady && devices && devices.length > 0) {
-      // 转换设备信息为 TrackInfo 格式
       const tracks = devices.map((device: any) => {
         const track: any = {
           trackId: device.classId,
@@ -276,14 +260,11 @@ function setupIpcHandlers() {
             channelCount: device.settings.channelCount,
           };
         }
-
         return track;
       });
 
       const resp = await webSocketService.confirmReady(tracks);
-
       if (resp.success && resp.data) {
-        // 收到响应后，立即通知渲染进程初始化 transport
         console.log('confirmReady 成功，通知渲染进程初始化 transport');
         ipcWebContentsSend('transport-ready', mainWindow.webContents, {
           transport: resp.data.transport,
@@ -395,20 +376,6 @@ function setupIpcHandlers() {
     createSettingsWindow();
   });
 
-  /**
-   * 视频录制
-   * @todo 完善请求处理逻辑
-   */
-  ipcMainHandle('read-video-file', async (filePath: string) => {
-    try {
-      const buffer = fs.readFileSync(filePath);
-      return buffer.buffer;
-    } catch (error) {
-      console.error('读取视频文件失败:', error);
-      throw error;
-    }
-  });
-
   ipcMainHandle('start-continuous-recording', async (classId: string) => {
     if (!videoRecordingService) {
       videoRecordingService = new VideoRecordingService();
@@ -421,6 +388,18 @@ function setupIpcHandlers() {
       return { success: false };
     }
     return videoRecordingService.stopRecording(classId);
+  });
+
+  // todo
+  // 回看推流相关
+  ipcMainHandle('read-video-file', async (filePath: string) => {
+    try {
+      const buffer = fs.readFileSync(filePath);
+      return buffer.buffer;
+    } catch (error) {
+      console.error('读取视频文件失败:', error);
+      throw error;
+    }
   });
 
   ipcMainHandle('get-recording-blob', async ({ classId, arrayBuffer }) => {

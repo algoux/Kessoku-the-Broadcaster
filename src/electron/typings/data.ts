@@ -1,7 +1,6 @@
 import { Contest, User } from 'common/typings/srk.types';
 import { SimulcastConfig } from 'common/config.interface';
 import fs from 'fs';
-
 /**
  * Broadcaster 通用响应结构
  */
@@ -85,10 +84,9 @@ export interface RequestStartBroadcast {
  * Produce 请求参数
  */
 export interface ProduceParams {
+  trackId: string; // 设备的 classId，用于标识推流来源
   kind: 'audio' | 'video';
   rtpParameters: any;
-  appData?: any;
-  trackId: string; // 设备的 classId，用于标识推流来源
 }
 
 /**
@@ -96,6 +94,8 @@ export interface ProduceParams {
  */
 export interface ProduceResponse {
   producerId: string;
+  type: any;
+  appData: any;
 }
 
 /**

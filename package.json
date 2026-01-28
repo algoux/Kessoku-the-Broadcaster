@@ -1,5 +1,5 @@
 {
-  "name": "Kessoku-the-Broadcaster",
+  "name": "kessoku-the-broadcaster",
   "private": true,
   "version": "1.0.0",
   "main": "dist/electron/main.js",

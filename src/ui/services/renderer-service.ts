@@ -71,17 +71,14 @@ export class RendererService {
     });
   }
 
-  // 上报设备状态到服务器
   async reportDeviceState(devices: DeviceInfo[], isReady: boolean) {
     try {
-      console.log('Reporting device state:', devices, 'isReady:', isReady);
       await window.electron.reportDeviceState(devices, isReady);
     } catch (error) {
       throw error;
     }
   }
 
-  // 开始推流（transport 已在 confirmReady 时初始化）
   async startStreaming(
     streamData: Array<{ stream: MediaStream; classId: string; simulcastConfigs?: any[] }>,
   ) {

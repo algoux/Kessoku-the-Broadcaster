@@ -9,6 +9,7 @@ import {
   GetPlatformInfoDTO,
 } from 'common/config.interface';
 import { Resp, ContestInfo } from './src/common/typings/broadcaster.types';
+import * as mediasoupClient from 'mediasoup-client';
 
 declare global {
   type EventPayloadMapping = {
@@ -88,15 +89,15 @@ declare global {
       getContestInfo: () => Promise<Resp<ContestInfo>>;
       connectProducerTransport: (dtlsParameters: any) => Promise<void>;
       createProducer: (params: {
+        trackId: string;
         kind: string;
-        rtpParameters: any;
-        appData?: any;
+        rtpParameters: RtpCapabilities;
       }) => Promise<{ id: string }>;
       reportDeviceState: (devices: any[], isReady: boolean) => Promise<{ success: boolean }>;
       onStreamingRequest: (callback: (data: RequestStartBroadcast) => void) => void;
       onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => void;
       onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => void;
-      
+
       // 回看相关逻辑（todo）
       onReplayRequest: (
         callback: (data: { classId: string; startTime: string; endTime: string }) => void,

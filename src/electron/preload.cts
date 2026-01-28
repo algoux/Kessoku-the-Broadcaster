@@ -27,8 +27,6 @@ export function ipcSend<Key extends keyof EventPayloadMapping>(
   electron.ipcRenderer.send(key, payload);
 }
 
-
-
 electron.contextBridge.exposeInMainWorld('electron', {
   getSources: () => ipcInvoke('getSources'),
   hasReady: () => {
@@ -50,7 +48,7 @@ electron.contextBridge.exposeInMainWorld('electron', {
   connectProducerTransport: (dtlsParameters: any) => {
     return ipcInvoke('connect-producer-transport', { dtlsParameters });
   },
-  createProducer: (params: { kind: string; rtpParameters: any; appData?: any }) => {
+  createProducer: (params: { trackId: string; kind: string; rtpParameters: any }) => {
     return ipcInvoke('create-producer', params);
   },
   reportDeviceState: (devices: any[], isReady: boolean) => {
@@ -160,4 +158,3 @@ function ipcInvoke<Key extends keyof EventPayloadMapping>(
 ): Promise<EventPayloadMapping[Key]> {
   return electron.ipcRenderer.invoke(key, ...args);
 }
-

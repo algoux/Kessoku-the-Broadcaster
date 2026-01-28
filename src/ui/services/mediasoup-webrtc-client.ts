@@ -1,12 +1,20 @@
 import * as mediasoupClient from 'mediasoup-client';
+import {
+  Device,
+  Transport,
+  RtpCapabilities,
+  TransportOptions,
+  Producer,
+  RtpParameters
+} from 'mediasoup-client/types';
 import { SimulcastConfig } from 'common/config.interface';
 
 export class MediasoupClient {
-  private device!: mediasoupClient.Device;
-  private producerTransport!: mediasoupClient.types.Transport;
-  private producers: Map<string, mediasoupClient.types.Producer> = new Map();
+  private device!: Device;
+  private producerTransport!: Transport;
+  private producers: Map<string, Producer> = new Map();
   // 通过 classId 映射到 producer 列表（一个 classId 可能有多个 producer，如音视频）
-  private producersByClassId: Map<string, mediasoupClient.types.Producer[]> = new Map();
+  private producersByClassId: Map<string, Producer[]> = new Map();
 
   constructor() {
     this.device = new mediasoupClient.Device();
@@ -32,8 +40,8 @@ export class MediasoupClient {
     // 监听连接事件（新协议）
     this.producerTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
       try {
-        console.log("transport 链接成功")
-        await window.electron.connectProducerTransport( dtlsParameters);
+        console.log('transport 链接成功');
+        await window.electron.connectProducerTransport(dtlsParameters);
         callback();
       } catch (error) {
         errback(error as Error);
@@ -80,7 +88,7 @@ export class MediasoupClient {
 
       const producer = await this.producerTransport.produce({
         track,
-        // ...(encodings && encodings.length > 0 ? { encodings } : {}),
+        ...(encodings && encodings.length > 0 ? { encodings } : {}),
         appData: { classId }, // 传递 classId
       });
 
@@ -143,7 +151,6 @@ export class MediasoupClient {
 
   // 停止推流
   stopProducing(): void {
-    console.log('Stopping all producers');
     for (const [producerId, producer] of this.producers.entries()) {
       if (!producer.closed) {
         producer.close();
@@ -165,10 +172,9 @@ export class MediasoupClient {
   // 创建推流生产者
   private async createProducer(
     kind: string,
-    rtpParameters: mediasoupClient.types.RtpParameters,
+    rtpParameters: RtpParameters,
     appData?: any,
   ): Promise<{ id: string }> {
-    return await window.electron.createProducer({ kind, rtpParameters, appData });
+    return await window.electron.createProducer({ trackId: appData.classId, kind, rtpParameters });
   }
-
 }
