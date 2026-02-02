@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file 🌱.
 
-## [Unreleased]
+## [1.0.1]
 ### Added
 - 新增开机自启动管理功能
 - 新增 microphone 双声道合并
