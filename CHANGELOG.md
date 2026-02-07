@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file 🌱.
 
+## [1.0.2]
+### Added
+- 优化推流码率，提高预览清晰度
+
 ## [1.0.1]
 ### Added
 - 新增开机自启动管理功能

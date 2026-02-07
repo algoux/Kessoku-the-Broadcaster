@@ -5,7 +5,7 @@ import {
   RtpCapabilities,
   TransportOptions,
   Producer,
-  RtpParameters
+  RtpParameters,
 } from 'mediasoup-client/types';
 import { SimulcastConfig } from 'common/config.interface';
 
@@ -78,17 +78,18 @@ export class MediasoupClient {
     }
 
     try {
-      const encodings = simulcastConfigs?.map((config) => ({
-        rid: config.rid,
-        scaleResolutionDownBy: config.scaleResolutionDownBy,
-        maxBitrate: config.maxBitRate,
-        maxFramerate: config.maxFramerate,
-      }));
-      console.log('Producing video with encodings:', encodings);
-
+      // 原画不传递 maxBitrate 和 maxFramerate
+      // const encodings = simulcastConfigs?.map((config) => ({
+      //   rid: config.rid,
+      //   scaleResolutionDownBy: config.scaleResolutionDownBy,
+      //   ...(config.rid !== 'original' && config.maxBitRate != null
+      //     ? { maxBitrate: config.maxBitRate }
+      //     : {}),
+      //   ...(config.maxFramerate != null ? { maxFramerate: config.maxFramerate } : {}),
+      // }));
       const producer = await this.producerTransport.produce({
         track,
-        ...(encodings && encodings.length > 0 ? { encodings } : {}),
+        // ...(encodings && encodings.length > 0 ? { encodings } : {}),
         appData: { classId }, // 传递 classId
       });
 
