@@ -11,12 +11,12 @@
     "noImplicitThis": true,
     "resolveJsonModule": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "paths": {
       "common/*": ["../common/*"],
       "@/*": ["./*"]
     },
     "skipLibCheck": true,
-    "types": ["vite/client", "dom-mediacapture-record", "../../types.d.ts"]
+    "types": ["dom-mediacapture-record"]
   },
+  "include": ["./**/*", "../../types.d.ts"]
 }

@@ -56,6 +56,14 @@ function getDownloadUrl(platform, arch) {
   return { ffmpegPath, ffprobePath };
 }
 
+function binaryExists(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
+  const stat = fs.statSync(filePath);
+  return stat.isFile() && stat.size > 0;
+}
+
 async function downloadFile(url, outputPath) {
   console.log(`下载: ${url}`);
 
@@ -112,9 +120,22 @@ async function main() {
   const { ffmpegPath: ffmpegUrl, ffprobePath: ffprobeUrl } = getDownloadUrl(platform, arch);
 
   try {
-    await downloadFile(ffmpegUrl, ffmpegOutput);
+    if (binaryExists(ffmpegOutput) && binaryExists(ffprobeOutput)) {
+      console.log(`检测到 ${baseDir} 中已存在 ffmpeg 和 ffprobe，跳过下载`);
+      return;
+    }
 
-    await downloadFile(ffprobeUrl, ffprobeOutput);
+    if (binaryExists(ffmpegOutput)) {
+      console.log(`跳过: ${path.basename(ffmpegOutput)} 已存在`);
+    } else {
+      await downloadFile(ffmpegUrl, ffmpegOutput);
+    }
+
+    if (binaryExists(ffprobeOutput)) {
+      console.log(`跳过: ${path.basename(ffprobeOutput)} 已存在`);
+    } else {
+      await downloadFile(ffprobeUrl, ffprobeOutput);
+    }
 
     console.log('所有 ffmpeg 相关二进制文件下载完成');
   } catch (error) {

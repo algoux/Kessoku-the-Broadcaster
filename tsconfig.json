@@ -3,18 +3,17 @@
     "strict": false,
     "target": "ES2020",
     "module": "commonjs",
-    "moduleResolution": "node",
     "sourceMap": true,
+    "rootDir": "./src",
     "outDir": "dist",
-    "baseUrl": "./",
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "paths": {
-      "common/*": ["src/common/*"],
-      "@/*": ["src/*"]
+      "common/*": ["./src/common/*"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src/**/*", "types.d.ts"],

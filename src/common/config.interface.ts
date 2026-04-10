@@ -9,8 +9,21 @@ export interface SimulcastConfig {
   maxFramerate?: number; // 最大帧率（动态注入，不保存到配置文件）
 }
 
+export type PlatformType =
+  | 'aix'
+  | 'android'
+  | 'darwin'
+  | 'freebsd'
+  | 'haiku'
+  | 'linux'
+  | 'openbsd'
+  | 'sunos'
+  | 'win32'
+  | 'cygwin'
+  | 'netbsd';
+
 export interface GetPlatformInfoDTO {
-  platform: NodeJS.Platform;
+  platform: PlatformType;
   arch: string;
 }
 
