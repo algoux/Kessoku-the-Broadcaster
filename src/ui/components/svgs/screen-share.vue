@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class ScreenShare extends Vue {}
+class ScreenShare extends Vue {}
+
+export default ScreenShare;
 </script>
 
 <template>

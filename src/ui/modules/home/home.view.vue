@@ -64,8 +64,8 @@ const CONNECTION_STATE_MAP: Record<string, ConnectState> = {
     SettingsButton,
   },
 })
-export default class HomeView extends Vue {
-  @Ref('deviceCard') deviceCards!: DeviceCard[];
+class HomeView extends Vue {
+  @Ref('deviceCard') deviceCards!: Array<InstanceType<typeof DeviceCard>>;
 
   @Provide({ reactive: true })
   configDialogVisible = false;
@@ -441,6 +441,8 @@ export default class HomeView extends Vue {
     });
   }
 }
+
+export default HomeView;
 </script>
 
 <template>

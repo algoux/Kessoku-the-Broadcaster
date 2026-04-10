@@ -20,7 +20,7 @@ import { Component } from 'vue';
     Mic,
   },
 })
-export default class DeviceCard extends Vue {
+class DeviceCard extends Vue {
   @Ref(`videoEl`) videoEl!: HTMLVideoElement;
 
   @Prop({ required: true })
@@ -38,7 +38,7 @@ export default class DeviceCard extends Vue {
   @Inject()
   removeDevice!: (device: Device) => void;
 
-  private localFormatSetting: string = '';
+  localFormatSetting: string = '';
 
   mounted() {
     this.updateFormatSetting();
@@ -58,6 +58,8 @@ export default class DeviceCard extends Vue {
     this.updateFormatSetting();
   }
 }
+
+export default DeviceCard;
 </script>
 
 <template>

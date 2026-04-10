@@ -14,7 +14,7 @@ import WindowControls from './components/window-controls.vue';
     WindowControls,
   },
 })
-export default class App extends Vue {
+class App extends Vue {
   mounted() {
     // window.addEventListener('keydown', (e) => {
     //   if ((e.ctrlKey || e.metaKey) && ['=', '-', '0'].includes(e.key)) {
@@ -28,6 +28,8 @@ export default class App extends Vue {
     // });
   }
 }
+
+export default App;
 </script>
 
 <template>

@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class Trash extends Vue {}
+class Trash extends Vue {}
+
+export default Trash;
 </script>
 
 <template>

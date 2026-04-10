@@ -19,7 +19,7 @@ export class DeviceManager {
   selectedPreset: string = '';
   deviceIdToClassIdMap: Map<string, string> = new Map();
   microphoneGroupMap: Map<string, MediaDeviceInfo[]> = new Map();
-  currentConfigDevice: Device;
+  currentConfigDevice: Device = {} as Device;
   availableScreens: Array<{ id: string; name: string }> = [];
   availableCameras: Array<MediaDeviceInfo> = [];
   availableMicrophones: Array<MediaDeviceInfo> = [];
@@ -28,8 +28,8 @@ export class DeviceManager {
     camera: 0,
     microphone: 0,
   };
-  configForm: DeviceSettings;
-  screenAvailableMaxFrameRate: number;
+  configForm: DeviceSettings = {} as DeviceSettings;
+  screenAvailableMaxFrameRate: number = 60;
 
   set setScreenAvailableMaxFrameRate(fps: number) {
     this.screenAvailableMaxFrameRate = fps;
@@ -372,7 +372,7 @@ export class DeviceManager {
    */
   private findDevicesInSameGroup(deviceId: string): MediaDeviceInfo[] {
     // 从所有麦克风设备中找到匹配的 groupId
-    for (const [groupId, devices] of this.microphoneGroupMap.entries()) {
+    for (const [, devices] of this.microphoneGroupMap.entries()) {
       if (devices.some((d) => d.deviceId === deviceId)) {
         return devices;
       }
@@ -434,19 +434,40 @@ export class DeviceManager {
     settings: MediaTrackSettings,
     isScreen: boolean = false,
   ) {
-    const fields = ['width', 'height', 'frameRate'];
+    type VideoConstraintField = 'width' | 'height' | 'frameRate';
+    type ScreenConstraintKey =
+      | 'minWidth'
+      | 'maxWidth'
+      | 'minHeight'
+      | 'maxHeight'
+      | 'minFrameRate'
+      | 'maxFrameRate';
+
+    const fields: VideoConstraintField[] = ['width', 'height', 'frameRate'];
+    const screenConstraintMap: Record<
+      VideoConstraintField,
+      { min: ScreenConstraintKey; max: ScreenConstraintKey }
+    > = {
+      width: { min: 'minWidth', max: 'maxWidth' },
+      height: { min: 'minHeight', max: 'maxHeight' },
+      frameRate: { min: 'minFrameRate', max: 'maxFrameRate' },
+    };
+    const screenConstraints = constraints as MediaTrackConstraints &
+      Partial<Record<ScreenConstraintKey, number>>;
+
     fields.forEach((field) => {
-      if (settings?.[field]) {
-        if (isScreen) {
-          constraints[`min${field.charAt(0).toUpperCase() + field.slice(1)}`] = settings[field];
-          constraints[`max${field.charAt(0).toUpperCase() + field.slice(1)}`] = settings[field];
-        } else {
-          constraints[field] =
-            field === 'frameRate'
-              ? { ideal: settings[field], max: settings[field] }
-              : { ideal: settings[field] };
-        }
+      const value = settings[field];
+      if (typeof value !== 'number') return;
+
+      if (isScreen) {
+        const keys = screenConstraintMap[field];
+        screenConstraints[keys.min] = value;
+        screenConstraints[keys.max] = value;
+        return;
       }
+
+      constraints[field] =
+        field === 'frameRate' ? { ideal: value, max: value } : { ideal: value };
     });
   }
 
@@ -481,6 +502,10 @@ export class DeviceManager {
     try {
       // 对于麦克风设备，检查是否支持立体声（有多个通道可合并）
       if (device.type === 'microphone' && !device.settings?.channelMode) {
+        if (!device.settings) {
+          device.settings = {};
+        }
+
         const tempStream = await navigator.mediaDevices.getUserMedia({
           audio: { deviceId: device.id },
         });
@@ -490,7 +515,7 @@ export class DeviceManager {
 
         track.stop();
 
-        if (caps.channelCount?.max >= 2) {
+        if ((caps.channelCount?.max ?? 0) >= 2) {
           device.settings.channelMode = 'stereo';
           device.settings.channelCount = 2;
         } else {
@@ -556,7 +581,7 @@ export class DeviceManager {
       // microphone
       // 检查是否需要 stereo 模式并且设备支持多通道
       if (device.settings?.channelMode === 'stereo') {
-        if (settings.channelCount === 2) {
+        if (settings?.channelCount === 2) {
           // 原生 stereo
           return navigator.mediaDevices.getUserMedia({
             audio: {
@@ -645,22 +670,26 @@ export class DeviceManager {
     const videoTrack = device.stream!.getVideoTracks()[0];
     const capabilities = videoTrack.getCapabilities() as DeviceCapabilities;
     const rawSettings = videoTrack.getSettings();
+    const capabilityFrameRateMax = capabilities.frameRate?.max ?? rawSettings.frameRate ?? 30;
 
     if (!device.capabilities) {
       device.capabilities = capabilities;
       if (device.type === 'screen') {
-        device.capabilities.frameRate.max = this.screenAvailableMaxFrameRate;
+        const currentFrameRateCapability = device.capabilities.frameRate ?? {};
+        device.capabilities.frameRate = {
+          ...currentFrameRateCapability,
+          max: this.screenAvailableMaxFrameRate,
+        };
       }
     }
 
-    const maxFrameRate =
-      device.type === 'screen' ? this.screenAvailableMaxFrameRate : capabilities.frameRate.max;
-
     if (!device.settings) {
-      const width = capabilities.width.max;
-      const height = capabilities.height.max;
+      const width = capabilities.width?.max ?? rawSettings.width ?? 1920;
+      const height = capabilities.height?.max ?? rawSettings.height ?? 1080;
       const frameRate =
-        device.type === 'screen' ? this.idealScreenFrameRate : rawSettings.frameRate;
+        device.type === 'screen'
+          ? this.idealScreenFrameRate
+          : rawSettings.frameRate ?? capabilityFrameRateMax;
 
       // 创建默认的 simulcastConfigs（原画在前，低清在后）
       const simulcastConfigs: SimulcastConfig[] = [
@@ -694,9 +723,13 @@ export class DeviceManager {
 
       // 如果 simulcastConfigs 不存在或为空，创建默认配置
       if (!device.settings.simulcastConfigs || device.settings.simulcastConfigs.length === 0) {
-        const width = device.settings.width;
-        const height = device.settings.height;
-        const frameRate = device.settings.frameRate;
+        const width = device.settings.width ?? capabilities.width?.max ?? rawSettings.width ?? 1920;
+        const height = device.settings.height ?? capabilities.height?.max ?? rawSettings.height ?? 1080;
+        const frameRate =
+          device.settings.frameRate ??
+          (device.type === 'screen'
+            ? this.idealScreenFrameRate
+            : rawSettings.frameRate ?? capabilityFrameRateMax);
 
         device.settings.simulcastConfigs = [
           {
@@ -887,12 +920,19 @@ export class DeviceManager {
    * 生成分辨率预设列表
    */
   getResolutionPresets(): Array<{ width: number; height: number; label: string }> {
-    if (!this.currentConfigDevice?.capabilities?.width) {
+    const widthCapability = this.currentConfigDevice?.capabilities?.width;
+    const heightCapability = this.currentConfigDevice?.capabilities?.height;
+    if (
+      !widthCapability ||
+      !heightCapability ||
+      typeof widthCapability.max !== 'number' ||
+      typeof heightCapability.max !== 'number'
+    ) {
       return [];
     }
 
-    const maxWidth = Math.round(this.currentConfigDevice.capabilities.width.max);
-    const maxHeight = Math.round(this.currentConfigDevice.capabilities.height.max);
+    const maxWidth = Math.round(widthCapability.max);
+    const maxHeight = Math.round(heightCapability.max);
     const commonHeights = [2160, 1800, 1440, 1200, 1080, 900, 768, 720];
 
     const presets: Array<{ width: number; height: number; label: string }> = [];
@@ -959,10 +999,22 @@ export class DeviceManager {
    * 保存设备配置
    */
   saveDeviceConfig = async (): Promise<ConfigSaveRes> => {
-    const deviceName = this.currentConfigDevice.name;
+    if (!this.currentConfigDevice?.id || !this.currentConfigDevice?.type) {
+      throw new Error('当前没有可配置设备');
+    }
+    if (!this.currentConfigDevice.stream) {
+      throw new Error('当前设备流不存在');
+    }
+
+    const currentDevice = this.currentConfigDevice;
+    const currentStream = currentDevice.stream;
+    if (!currentStream) {
+      throw new Error('当前设备流不存在');
+    }
+    const deviceName = currentDevice.name;
 
     // 验证配置参数
-    if (this.currentConfigDevice.type === 'microphone') {
+    if (currentDevice.type === 'microphone') {
       if (!this.configForm.sampleRate || !this.configForm.channelMode) {
         throw new Error('请填写完整的配置参数');
       }
@@ -974,46 +1026,46 @@ export class DeviceManager {
 
     try {
       // 对于麦克风，在获取新流之前先更新 channelMode，这样 getDeviceStream 才能正确判断使用哪种模式
-      if (this.currentConfigDevice.type === 'microphone' && this.configForm.channelMode) {
-        if (!this.currentConfigDevice.settings) {
-          this.currentConfigDevice.settings = {} as any;
+      if (currentDevice.type === 'microphone' && this.configForm.channelMode) {
+        if (!currentDevice.settings) {
+          currentDevice.settings = {} as DeviceSettings;
         }
         console.log(this.configForm.channelMode);
-        this.currentConfigDevice.settings.channelMode = this.configForm.channelMode;
+        currentDevice.settings.channelMode = this.configForm.channelMode;
       }
 
       console.log('Applying constraints:', this.configForm);
 
-      await this.currentConfigDevice.stream.getTracks()[0].applyConstraints(this.configForm);
+      await currentStream.getTracks()[0].applyConstraints(this.configForm);
 
       // applyConstraints 后，主动刷新 settings/capabilities/formatSetting
-      let track;
-      if (this.currentConfigDevice.type === 'microphone') {
-        track = this.currentConfigDevice.stream.getAudioTracks()[0];
+      let track: MediaStreamTrack | undefined;
+      if (currentDevice.type === 'microphone') {
+        track = currentStream.getAudioTracks()[0];
       } else {
-        track = this.currentConfigDevice.stream.getVideoTracks()[0];
+        track = currentStream.getVideoTracks()[0];
       }
       if (track) {
         // 更新 settings
-        this.currentConfigDevice.settings = {
-          ...this.currentConfigDevice.settings,
+        currentDevice.settings = {
+          ...currentDevice.settings,
           ...track.getSettings(),
         };
         // 更新 capabilities
-        this.currentConfigDevice.capabilities = track.getCapabilities() as DeviceCapabilities;
+        currentDevice.capabilities = track.getCapabilities() as DeviceCapabilities;
         // 对于视频设备，保存 simulcastConfigs
-        if (this.currentConfigDevice.type !== 'microphone' && this.configForm.simulcastConfigs) {
-          this.currentConfigDevice.settings.simulcastConfigs = this.configForm.simulcastConfigs;
+        if (currentDevice.type !== 'microphone' && this.configForm.simulcastConfigs) {
+          currentDevice.settings.simulcastConfigs = this.configForm.simulcastConfigs;
         }
         // 重新生成 formatSetting
-        this.currentConfigDevice.formatSetting = this.getFormatSettings(this.currentConfigDevice);
+        currentDevice.formatSetting = this.getFormatSettings(currentDevice);
       }
 
       // 直接修改原对象，保持响应式
-      const idx = this.userDevices.findIndex((d) => d.id === this.currentConfigDevice.id);
+      const idx = this.userDevices.findIndex((d) => d.id === currentDevice.id);
       if (idx !== -1) {
         const target = this.userDevices[idx];
-        Object.assign(target, this.currentConfigDevice);
+        Object.assign(target, currentDevice);
         // 保存到配置文件，确保写入最新 settings
         try {
           await this.saveSingleDeviceToConfig(target);
@@ -1022,6 +1074,8 @@ export class DeviceManager {
         }
         return { updateIndex: idx, updateDevice: target };
       }
+
+      throw new Error(`未找到设备 ${deviceName}`);
     } catch (error) {
       // 清理 currentConfigDevice，避免影响其他操作
       const errorMessage = `更新设备 ${deviceName} 配置失败: ${(error as Error).message}`;

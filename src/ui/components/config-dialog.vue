@@ -24,7 +24,7 @@ import { Inject, Prop, Watch } from 'vue-property-decorator';
     ElButton,
   },
 })
-export default class ConfigDialog extends Vue {
+class ConfigDialog extends Vue {
   @Prop({ required: true })
   deviceManager!: DeviceManager;
 
@@ -106,30 +106,30 @@ export default class ConfigDialog extends Vue {
     return nameMap[rid] || rid;
   }
 
-  private formatSimulcastConfig(config: any): string {
+  formatSimulcastConfig(config: any): string {
     const name = this.convertRidName(config.rid);
     const bitrate = Math.round(config.maxBitRate);
     const scale = config.scaleResolutionDownBy;
     return `${name} (${scale}x) @ ${bitrate} Kbps`;
   }
 
-  private onSimulcastChange(rid: string) {
+  onSimulcastChange(rid: string) {
     this.deviceManager.selectSimulcastChannel(rid);
   }
 
-  private onPresetChange(presetStr: string) {
+  onPresetChange(presetStr: string) {
     this.deviceManager.applyPreset(presetStr);
     this.deviceManager.updateSimulcastBitrates();
   }
 
-  private onFrameRateChange() {
+  onFrameRateChange() {
     this.deviceManager.updateSimulcastBitrates();
   }
 
   /**
    * 处理通道模式变化
    */
-  private onChannelModeChange(mode: 'mono' | 'stereo') {
+  onChannelModeChange(mode: 'mono' | 'stereo') {
     // 根据通道模式自动设置声道数
     this.deviceManager.configForm.channelCount = mode === 'stereo' ? 2 : 1;
     if (mode === 'stereo') {
@@ -137,6 +137,8 @@ export default class ConfigDialog extends Vue {
     }
   }
 }
+
+export default ConfigDialog;
 </script>
 
 <template>

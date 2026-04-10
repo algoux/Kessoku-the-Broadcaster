@@ -9,11 +9,13 @@ import SysSettingsIcon from './svgs/sys-settings.vue';
     SysSettingsIcon
   },
 })
-export default class SettingsButton extends Vue {
+class SettingsButton extends Vue {
   openSettingsWindow() {
     window.electron.openSettingsWindow();
   }
 }
+
+export default SettingsButton;
 </script>
 
 <template>

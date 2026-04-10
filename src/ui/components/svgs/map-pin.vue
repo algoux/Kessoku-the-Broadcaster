@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class MapPin extends Vue {}
+class MapPin extends Vue {}
+
+export default MapPin;
 </script>
 
 <template>

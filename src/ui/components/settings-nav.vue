@@ -7,7 +7,9 @@ import SettingsIcon from './svgs/settings.vue';
     SettingsIcon,
   },
 })
-export default class SettingsNav extends Vue {}
+class SettingsNav extends Vue {}
+
+export default SettingsNav;
 </script>
 
 <template>

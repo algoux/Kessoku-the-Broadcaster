@@ -2,8 +2,8 @@
 import { Vue, Options } from 'vue-class-component';
 import { Inject } from 'vue-property-decorator';
 import { DeviceType, ConnectState } from '@/typings/data';
+import type { ContestInfo } from 'common/typings/broadcaster.types';
 import type { Text } from '../../common/typings/srk.types';
-import { ContestInfo } from '../../electron/typings/data';
 
 import {
   ElDescriptions,
@@ -51,7 +51,7 @@ import { DeviceManager } from '@/services/device-manager';
     PauseIcon,
   },
 })
-export default class HomeHeader extends Vue {
+class HomeHeader extends Vue {
   @Inject()
   deviceManager!: DeviceManager;
   @Inject()
@@ -152,6 +152,8 @@ export default class HomeHeader extends Vue {
     }
   }
 }
+
+export default HomeHeader;
 </script>
 
 <template>

@@ -33,6 +33,11 @@ export class RendererService {
     window.electron.onTransportReady(async (data) => {
       console.log('收到 transport-ready 事件，立即初始化 transport');
       try {
+        if (!this.mediasoupClient) {
+          console.error('mediasoupClient 尚未初始化，无法处理 transport-ready');
+          return;
+        }
+
         // 加载设备能力
         await this.mediasoupClient.loadDeviceWithCapabilities(data.routerRtpCapabilities);
 
@@ -84,11 +89,14 @@ export class RendererService {
   ) {
     // 开始推流，使用已初始化的 transport
     for (const data of streamData) {
-      await this.mediasoupClient.produceStream(data.stream, data.classId, data.simulcastConfigs);
+      await this.mediasoupClient?.produceStream(data.stream, data.classId, data.simulcastConfigs);
     }
   }
 
   async stopStreaming() {
+    if (!this.mediasoupClient) {
+      return;
+    }
     this.mediasoupClient.stopProducing();
   }
 

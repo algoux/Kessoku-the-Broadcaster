@@ -2,7 +2,7 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class WindowControls extends Vue {
+class WindowControls extends Vue {
   isWindows = navigator.userAgent.includes('Windows');
 
   minimize() {
@@ -17,6 +17,8 @@ export default class WindowControls extends Vue {
     window.electron.closeWindow();
   }
 }
+
+export default WindowControls;
 </script>
 
 <template>

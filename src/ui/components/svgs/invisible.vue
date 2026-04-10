@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class InvisibleIcon extends Vue {}
+class InvisibleIcon extends Vue {}
+
+export default InvisibleIcon;
 </script>
 
 <template>

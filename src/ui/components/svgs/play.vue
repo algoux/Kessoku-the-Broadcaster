@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class PlayIcon extends Vue {}
+class PlayIcon extends Vue {}
+
+export default PlayIcon;
 </script>
 
 <template>

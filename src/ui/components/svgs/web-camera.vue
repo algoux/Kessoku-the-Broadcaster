@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class WebCamera extends Vue {}
+class WebCamera extends Vue {}
+
+export default WebCamera;
 </script>
 
 <template>

@@ -9,7 +9,9 @@ import SettingsContent from '@/components/settings-content.vue';
     SettingsContent,
   },
 })
-export default class SettingsView extends Vue {}
+class SettingsView extends Vue {}
+
+export default SettingsView;
 </script>
 
 <template>

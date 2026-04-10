@@ -10,7 +10,7 @@ import { GetPlatformInfoDTO } from 'common/config.interface';
     ElButton,
   },
 })
-export default class SettingsContent extends Vue {
+class SettingsContent extends Vue {
   private originalServiceURL: string = '';
   private originalServicePath = '';
   appConfig = {
@@ -111,6 +111,8 @@ export default class SettingsContent extends Vue {
     }
   }
 }
+
+export default SettingsContent;
 </script>
 
 <template>

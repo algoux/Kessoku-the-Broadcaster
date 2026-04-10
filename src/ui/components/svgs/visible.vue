@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class VisibleIcon extends Vue {}
+class VisibleIcon extends Vue {}
+
+export default VisibleIcon;
 </script>
 
 <template>

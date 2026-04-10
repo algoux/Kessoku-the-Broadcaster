@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class PauseIcon extends Vue{}
+class PauseIcon extends Vue{}
+
+export default PauseIcon;
 </script>
 
 <template>

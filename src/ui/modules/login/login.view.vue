@@ -10,7 +10,7 @@ import SettingsButton from '@/components/settings-button.vue';
     SettingsButton,
   },
 })
-export default class LoginView extends Vue {
+class LoginView extends Vue {
   @Provide({ reactive: true })
   isLoading = false;
 
@@ -19,6 +19,8 @@ export default class LoginView extends Vue {
     this.isLoading = state;
   }
 }
+
+export default LoginView;
 </script>
 
 <template>

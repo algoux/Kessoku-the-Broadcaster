@@ -34,7 +34,7 @@ interface DeviceSource {
     ElInputNumber,
   },
 })
-export default class AddDeviceDialog extends Vue {
+class AddDeviceDialog extends Vue {
   @Prop({ required: true })
   deviceManager!: DeviceManager;
 
@@ -151,6 +151,8 @@ export default class AddDeviceDialog extends Vue {
     });
   }
 }
+
+export default AddDeviceDialog;
 </script>
 
 <template>

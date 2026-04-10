@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class CircleUser extends Vue {}
+class CircleUser extends Vue {}
+
+export default CircleUser;
 </script>
 
 <template>

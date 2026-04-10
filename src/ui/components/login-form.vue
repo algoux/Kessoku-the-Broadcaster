@@ -10,7 +10,7 @@ import { ElFormItem, ElForm, ElButton, ElInput, ElMessage } from 'element-plus';
     ElInput,
   },
 })
-export default class LoginForm extends Vue {
+class LoginForm extends Vue {
   form = {
     alias: '',
     userId: '',
@@ -71,6 +71,8 @@ export default class LoginForm extends Vue {
     }
   }
 }
+
+export default LoginForm;
 </script>
 
 <template>

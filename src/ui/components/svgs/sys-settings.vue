@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class SysSettingsIcon extends Vue {}
+class SysSettingsIcon extends Vue {}
+
+export default SysSettingsIcon;
 </script>
 
 <template>

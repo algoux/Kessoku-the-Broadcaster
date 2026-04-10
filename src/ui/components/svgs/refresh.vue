@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class Refresh extends Vue {}
+class Refresh extends Vue {}
+
+export default Refresh;
 </script>
 
 <template>

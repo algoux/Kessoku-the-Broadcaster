@@ -18,7 +18,9 @@ import { ElTooltip } from 'element-plus';
     CircleUser,
   },
 })
-export default class Tools extends Vue {}
+class Tools extends Vue {}
+
+export default Tools;
 </script>
 
 <template>

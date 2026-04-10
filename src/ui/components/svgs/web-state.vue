@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class WebState extends Vue {}
+class WebState extends Vue {}
+
+export default WebState;
 </script>
 
 <template>

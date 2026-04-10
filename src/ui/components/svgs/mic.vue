@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class Mic extends Vue {}
+class Mic extends Vue {}
+
+export default Mic;
 </script>
 
 <template>

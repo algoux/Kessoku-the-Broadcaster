@@ -2,7 +2,9 @@
 import { Vue, Options } from 'vue-class-component';
 
 @Options({})
-export default class HomeIcon extends Vue {}
+class HomeIcon extends Vue {}
+
+export default HomeIcon;
 </script>
 
 <template>
