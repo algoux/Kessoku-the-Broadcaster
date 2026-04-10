@@ -1,7 +1,7 @@
 # Kessoku the Broadcaster 🎈
 > 专注于算法竞赛的直播推流客户端
 
-## 🤨 配套使用
+## 配套使用
 该软件为选手端推流程序，需要结合导播端程序 [Kessoku the Overlay](https://github.com/algoux/Kessoku-the-Overlay) 使用。
 
 ## 🛠️ 技术栈
@@ -22,6 +22,12 @@
 - pnpm v8
 
 ## 🚀 快速开始
+### AI Agent
+我们推荐使用 [GitHub Copilot CLI](https://github.com/github/copilot-cli) 进行 ai agent 开发。
+
+skills 存放位置为：`.github/instructions/**.instructions.md`
+
+
 ### 安装依赖
 确保您的终端有良好的网络环境
 > 如果您是中国大陆 🇨🇳 开发者，请打开`.npmrc`中的 electron 加速源
@@ -69,7 +75,6 @@ $ pnpm dev
 ├── vite.config.ts
 ├── package.json
 └── pnpm-lock.yaml
-
 ```
 
 ## 📄 开源协议
