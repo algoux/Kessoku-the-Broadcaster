@@ -1,8 +1,25 @@
-import RecordRTC from 'recordrtc';
 import { Device } from '@/typings/data';
 
+interface RollingRecord {
+  recorder: MediaRecorder;
+  mimeType: string;
+  deviceId: string;
+  deviceName: string;
+  startTime: number;
+}
+
 export class RecorderService {
-  rollingRecordsMap: Map<string, any> = new Map();
+  rollingRecordsMap: Map<string, RollingRecord> = new Map();
+
+  private getSupportedMimeType(): string {
+    const mimeTypes = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+    ];
+
+    return mimeTypes.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
+  }
 
   // 开始滚动录制 - 单个连续录制,定期保存到文件
   async startRollingRecord(device: Device) {
@@ -14,39 +31,40 @@ export class RecorderService {
     // 如果该 classId 已经有录制实例，先停止
     if (this.rollingRecordsMap.has(device.classId)) {
       const existingRecord = this.rollingRecordsMap.get(device.classId);
-      if (existingRecord.recorder) {
-        existingRecord.recorder.stopRecording(() => {
-          existingRecord.recorder.destroy();
-        });
+      if (existingRecord?.recorder && existingRecord.recorder.state !== 'inactive') {
+        existingRecord.recorder.stop();
       }
+      this.rollingRecordsMap.delete(device.classId);
     }
 
     try {
       // 通知主进程开始录制
       await window.electron.startContinuousRecording(device.classId);
 
+      const mimeType = this.getSupportedMimeType();
+
       // 创建单个连续录制器,使用 timeSlice 实时发送数据
-      const recorder = new RecordRTC(device.stream, {
-        type: 'video',
-        mimeType: 'video/webm;codecs=vp9',
+      const recorder = new MediaRecorder(device.stream, {
+        ...(mimeType ? { mimeType } : {}),
         videoBitsPerSecond: 2500000,
-        timeSlice: 1000, // 每 1 秒发送一次数据
-        ondataavailable: async (blob: Blob) => {
-          // 实时发送到主进程
-          try {
-            await window.electron.sendRecordingBlob(device.classId, blob);
-          } catch (error) {
-            console.error('发送录制数据失败:', error);
-          }
-        },
       });
 
-      recorder.startRecording();
+      recorder.ondataavailable = async (event: BlobEvent) => {
+        if (!event.data.size) return;
+
+        try {
+          await window.electron.sendRecordingBlob(device.classId, event.data);
+        } catch (error) {
+          console.error('发送录制数据失败:', error);
+        }
+      };
+
+      recorder.start(1000); // 每 1 秒发送一次数据
 
       // 保存录制实例
       this.rollingRecordsMap.set(device.classId, {
         recorder,
-        mimeType: 'video/webm;codecs=vp9',
+        mimeType: mimeType || recorder.mimeType,
         deviceId: device.id,
         deviceName: device.name,
         startTime: Date.now(),

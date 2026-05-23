@@ -1,16 +1,10 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 
-import LoginView from './modules/login/login.view.vue';
-import HomeView from './modules/home/home.view.vue';
-import Tools from './components/tools.vue';
 import WindowControls from './components/window-controls.vue';
 
 @Options({
   components: {
-    LoginView,
-    HomeView,
-    Tools,
     WindowControls,
   },
 })

@@ -1,12 +1,10 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router';
-import HomeView from '@/modules/home/home.view.vue';
-import LoginView from '@/modules/login/login.view.vue';
-import SettingsView from '@/modules/settings/settings.view.vue';
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Home',
-    component: HomeView,
+    component: () => import('@/modules/home/home.view.vue'),
     meta: {
       title: '设备总揽',
     },
@@ -14,7 +12,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'Login',
-    component: LoginView,
+    component: () => import('@/modules/login/login.view.vue'),
     meta: {
       title: '用户登录',
     },
@@ -22,7 +20,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/settings',
     name: 'Settings',
-    component: SettingsView,
+    component: () => import('@/modules/settings/settings.view.vue'),
     meta: {
       title: '设置',
     },

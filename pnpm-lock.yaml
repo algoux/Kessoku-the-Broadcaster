@@ -20,15 +20,9 @@ importers:
       element-plus:
         specifier: ^2.11.7
         version: 2.13.6(typescript@5.9.3)(vue@3.5.32(typescript@5.9.3))
-      fix-webm-duration:
-        specifier: ^1.0.6
-        version: 1.0.6
       fluent-ffmpeg:
         specifier: ^2.1.3
         version: 2.1.3
-      media-recorder-js:
-        specifier: ^2.1.0
-        version: 2.1.0
       mediasoup-client:
         specifier: '3'
         version: 3.18.7
@@ -38,9 +32,6 @@ importers:
       os-utils:
         specifier: ^0.0.14
         version: 0.0.14
-      recordrtc:
-        specifier: ^5.6.2
-        version: 5.6.2
       socket.io-client:
         specifier: ^4.8.1
         version: 4.8.3
@@ -62,9 +53,6 @@ importers:
       vue-router:
         specifier: ^4.6.3
         version: 4.6.4(vue@3.5.32(typescript@5.9.3))
-      webm-duration-fix:
-        specifier: ^1.0.4
-        version: 1.0.4
     devDependencies:
       '@types/dom-mediacapture-record':
         specifier: ^1.0.22
@@ -78,9 +66,6 @@ importers:
       '@types/os-utils':
         specifier: ^0.0.4
         version: 0.0.4
-      '@types/recordrtc':
-        specifier: ^5.6.15
-        version: 5.6.15
       '@types/simple-peer':
         specifier: ^9.11.9
         version: 9.11.9
@@ -860,9 +845,6 @@ packages:
   '@types/plist@3.0.5':
     resolution: {integrity: sha512-E6OCaRmAe4WDmWNsL/9RMqdkkzDCY1etutkflWk4c+AcjDU07Pcz1fQwTX0TQz+Pxqn9i4L1TU3UFpjnrcDgxA==}
 
-  '@types/recordrtc@5.6.15':
-    resolution: {integrity: sha512-Hml5qLCDfnACr5pYsbt+PbHQSCY4ynN/s84hx9szZz6B6zaTnX1jCUFLtdYWdxDLUKC6YuCaudm+fSpfnJ06tA==}
-
   '@types/responselike@1.0.3':
     resolution: {integrity: sha512-H/+L+UkTV33uf49PH5pCAUBVPNj2nDBXTN+qS1dOwyyg24l3CcicicCA7ca+HMvJBZcFgl5r8e+RR6elsb4Lyw==}
 
@@ -1519,9 +1501,6 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  ebml-block@1.1.2:
-    resolution: {integrity: sha512-HgNlIsRFP6D9VKU5atCeHRJY7XkJP8bOe8yEhd8NB7B3b4++VWTyauz6g650iiPmLfPLGlVpoJmGSgMfXDYusg==}
-
   ecc-jsbn@0.1.2:
     resolution: {integrity: sha512-eh9O+hwRHNbG4BLTjEl3nw044CkGm5X6LoaCf7LPp7UU8Qrt47JYNi6nPX8xjW97TKGKm1ouctg0QSpZe9qrnw==}
 
@@ -1797,9 +1776,6 @@ packages:
   find-up@5.0.0:
     resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
     engines: {node: '>=10'}
-
-  fix-webm-duration@1.0.6:
-    resolution: {integrity: sha512-zVAqi4gE+8ywxJuAyV/rlJVX6CMtvyapEbQx6jyoeX9TMjdqAlt/FdG5d7rXSSkDVzTvS0H7CtwzHcH/vh4FPA==}
 
   flat-cache@4.0.1:
     resolution: {integrity: sha512-f7ccFPK3SXFHpx15UIGyRJ/FJQctuKZ0zVuN3frBo4HnK3cay9VEW0R6yPYFHC0AgqhukPzKjq22t5DmAyqGyw==}
@@ -2082,9 +2058,6 @@ packages:
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
-
-  int64-buffer@1.1.0:
-    resolution: {integrity: sha512-94smTCQOvigN4d/2R/YDjz8YVG0Sufvv2aAh8P5m42gwhCsDAJqnbNOrxJsrADuAFAA69Q/ptGzxvNcNuIJcvw==}
 
   internal-slot@1.1.0:
     resolution: {integrity: sha512-4gd7VpWNQNB4UKKCFFVcp1AVv+FMOgs9NKzjHKusc8jTMhd5eL1NqQqOpE0KzMds804/yHlglp3uxgluOqAPLw==}
@@ -2435,9 +2408,6 @@ packages:
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
-
-  media-recorder-js@2.1.0:
-    resolution: {integrity: sha512-8BtOJWCO92TxgCauC/Ixt1pqdR0wfE9h69Dz4tCgO5hb0ldHymfr6bkcAzog1MWru7oDj6tvPKq5twYqRHBpvQ==}
 
   mediasoup-client@3.18.7:
     resolution: {integrity: sha512-110f+zYEvSllYoF6didbIznIvSrTwMY9CqDhdWpq1M0goX1HWLoBdguiYB/MqcA858R2dOKDarP1R4vv5RAg1w==}
@@ -2979,9 +2949,6 @@ packages:
   readable-web-to-node-stream@3.0.4:
     resolution: {integrity: sha512-9nX56alTf5bwXQ3ZDipHJhusu9NTQJ/CVPtb/XHAJCXihZeitfJvIRS4GqQ/mfIoOE3IelHMrpayVrosdHBuLw==}
     engines: {node: '>=8'}
-
-  recordrtc@5.6.2:
-    resolution: {integrity: sha512-1QNKKNtl7+KcwD1lyOgP3ZlbiJ1d0HtXnypUy7yq49xEERxk31PHvE9RCciDrulPCY7WJ+oz0R9hpNxgsIurGQ==}
 
   reflect.getprototypeof@1.0.10:
     resolution: {integrity: sha512-00o4I+DVrefhv+nX0ulyi3biSHCPDe+yLv5o/p6d/UVlirijB8E16FtfwSAi4g3tcqrQ4lRAqQSoFEZJehYEcw==}
@@ -3574,9 +3541,6 @@ packages:
   web-streams-polyfill@3.3.3:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
-
-  webm-duration-fix@1.0.4:
-    resolution: {integrity: sha512-kvhmSmEnuohtK+j+mJswqCCM2ViKb9W8Ch0oAxcaeUvpok5CsMORQLnea+CYKDXPG6JH12H0CbRK85qhfeZLew==}
 
   which-boxed-primitive@1.1.1:
     resolution: {integrity: sha512-TbX3mj8n0odCBFVlY8AxkqcHASw3L60jIuF8jFP78az3C2YhmGvqbHBpAjTRH2/xqYunrJ9g1jSyjCjpoWzIAA==}
@@ -4427,8 +4391,6 @@ snapshots:
       xmlbuilder: 15.1.1
     optional: true
 
-  '@types/recordrtc@5.6.15': {}
-
   '@types/responselike@1.0.3':
     dependencies:
       '@types/node': 24.12.2
@@ -5219,8 +5181,6 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
-  ebml-block@1.1.2: {}
-
   ecc-jsbn@0.1.2:
     dependencies:
       jsbn: 0.1.1
@@ -5655,8 +5615,6 @@ snapshots:
       locate-path: 6.0.0
       path-exists: 4.0.0
 
-  fix-webm-duration@1.0.6: {}
-
   flat-cache@4.0.1:
     dependencies:
       flatted: 3.4.2
@@ -5992,8 +5950,6 @@ snapshots:
       wrappy: 1.0.2
 
   inherits@2.0.4: {}
-
-  int64-buffer@1.1.0: {}
 
   internal-slot@1.1.0:
     dependencies:
@@ -6358,8 +6314,6 @@ snapshots:
     optional: true
 
   math-intrinsics@1.1.0: {}
-
-  media-recorder-js@2.1.0: {}
 
   mediasoup-client@3.18.7:
     dependencies:
@@ -6875,8 +6829,6 @@ snapshots:
   readable-web-to-node-stream@3.0.4:
     dependencies:
       readable-stream: 4.7.0
-
-  recordrtc@5.6.2: {}
 
   reflect.getprototypeof@1.0.10:
     dependencies:
@@ -7572,13 +7524,6 @@ snapshots:
       defaults: 1.0.4
 
   web-streams-polyfill@3.3.3: {}
-
-  webm-duration-fix@1.0.4:
-    dependencies:
-      buffer: 6.0.3
-      ebml-block: 1.1.2
-      events: 3.3.0
-      int64-buffer: 1.1.0
 
   which-boxed-primitive@1.1.1:
     dependencies:

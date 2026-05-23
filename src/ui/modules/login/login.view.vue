@@ -25,7 +25,7 @@ export default LoginView;
 
 <template>
   <div class="login-view">
-    <img src="../../assets/icon.png" alt="" style="width: 100px; height: 100px;" />
+    <img src="../../assets/icon-128.png" alt="" style="width: 100px; height: 100px;" />
     <h1>登录 Kessoku the Broadcaster</h1>
     <div class="login-form-container">
       <LoginForm />
