@@ -9,6 +9,7 @@ export type {
   TrackInfo,
   TransportInfo,
   RequestStartBroadcast,
+  RequestStopBroadcast,
   ProduceParams,
   ProduceResponse,
   CompleteConnectTransportParams,

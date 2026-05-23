@@ -186,8 +186,8 @@ class HomeView extends Vue {
       };
 
       // 设置停止推流请求回调
-      this.rendererService.onStopStreamingRequest = async () => {
-        await this.rendererService!.stopStreaming();
+      this.rendererService.onStopStreamingRequest = async (data) => {
+        await this.rendererService!.stopStreaming(data.classIds);
         // 不需要重启设备流，本地视频应该继续显示
         // await this.deviceManager.resetDeviceStreaming();
         // await this.updateAllVideoElements();

@@ -240,6 +240,11 @@ function setupIpcHandlers() {
     return { id: resp.data!.producerId };
   });
 
+  ipcMainHandle('complete-stop-broadcast', async ({ requestId }) => {
+    webSocketService.completeStopBroadcast(requestId);
+    return { success: true };
+  });
+
   ipcMainHandle('report-device-state', async ({ devices, isReady }) => {
     if (isReady && devices && devices.length > 0) {
       const tracks = devices.map((device: any) => {

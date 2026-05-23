@@ -51,6 +51,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   createProducer: (params: { trackId: string; kind: string; rtpParameters: any }) => {
     return ipcInvoke('create-producer', params);
   },
+  completeStopBroadcast: (requestId: string) => {
+    return ipcInvoke('complete-stop-broadcast', { requestId });
+  },
   reportDeviceState: (devices: any[], isReady: boolean) => {
     return ipcInvoke('report-device-state', { devices, isReady });
   },
@@ -60,7 +63,7 @@ electron.contextBridge.exposeInMainWorld('electron', {
   ) => {
     return ipcOn('start-streaming-request', callback);
   },
-  onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => {
+  onStopStreamingRequest: (callback: (data: { classIds: string[]; requestId?: string }) => void) => {
     return ipcOn('stop-streaming-request', callback);
   },
   onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => {

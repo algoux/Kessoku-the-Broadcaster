@@ -696,12 +696,12 @@ export class DeviceManager {
         {
           rid: 'original',
           scaleResolutionDownBy: 1,
-          maxBitRate: Math.round(width * height * frameRate * 0.000078125) * 1000,
+          maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 1, 'original'),
         },
         {
           rid: 'low',
           scaleResolutionDownBy: 4,
-          maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125) * 1000,
+          maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 4, 'low'),
         },
       ];
 
@@ -735,14 +735,33 @@ export class DeviceManager {
           {
             rid: 'original',
             scaleResolutionDownBy: 1,
-            maxBitRate: Math.round(width * height * frameRate * 0.000078125) * 1000,
+            maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 1, 'original'),
           },
           {
             rid: 'low',
             scaleResolutionDownBy: 4,
-            maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125) * 1000,
+            maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 4, 'low'),
           },
         ];
+      } else {
+        const width = device.settings.width ?? capabilities.width?.max ?? rawSettings.width ?? 1920;
+        const height = device.settings.height ?? capabilities.height?.max ?? rawSettings.height ?? 1080;
+        const frameRate =
+          device.settings.frameRate ??
+          (device.type === 'screen'
+            ? this.idealScreenFrameRate
+            : rawSettings.frameRate ?? capabilityFrameRateMax);
+
+        device.settings.simulcastConfigs = device.settings.simulcastConfigs.map((config) => ({
+          ...config,
+          maxBitRate: this.calculateSimulcastBitrate(
+            width,
+            height,
+            frameRate,
+            config.scaleResolutionDownBy || 1,
+            config.rid,
+          ),
+        }));
       }
     }
     device.formatSetting = this.getFormatSettings(device);
@@ -882,10 +901,7 @@ export class DeviceManager {
 
     simulcastConfigs.forEach((config: SimulcastConfig) => {
       const scale = config.scaleResolutionDownBy || 1;
-      const scaledWidth = width / scale;
-      const scaledHeight = height / scale;
-      // width * height * frameRate * 0.000078125 (Kbps)
-      config.maxBitRate = Math.round(scaledWidth * scaledHeight * frameRate * 0.000078125) * 1000;
+      config.maxBitRate = this.calculateSimulcastBitrate(width, height, frameRate, scale, config.rid);
     });
   }
 
@@ -1300,13 +1316,33 @@ export class DeviceManager {
       {
         rid: 'original',
         scaleResolutionDownBy: 1,
-        maxBitRate: Math.round(width * height * frameRate * 0.000078125) * 1000,
+        maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 1, 'original'),
       },
       {
         rid: 'low',
         scaleResolutionDownBy: 4,
-        maxBitRate: Math.round((width / 4) * (height / 4) * frameRate * 0.000078125) * 1000,
+        maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 4, 'low'),
       },
     ];
+  }
+
+  private calculateSimulcastBitrate(
+    width: number,
+    height: number,
+    frameRate: number,
+    scaleResolutionDownBy: number,
+    rid: string,
+  ): number {
+    const scaledWidth = width / scaleResolutionDownBy;
+    const scaledHeight = height / scaleResolutionDownBy;
+    const qualityFactorByRid: Record<string, number> = {
+      original: 0.105,
+      high: 0.105,
+      medium: 0.085,
+      low: 0.072,
+    };
+    const bitsPerPixelFrame = qualityFactorByRid[rid] ?? 0.09;
+
+    return Math.round(scaledWidth * scaledHeight * frameRate * bitsPerPixelFrame);
   }
 }

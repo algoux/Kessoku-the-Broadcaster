@@ -6,11 +6,12 @@ import { ConnectState } from '@/typings/data';
 export class RendererService {
   public mediasoupClient: MediasoupClient | null = null;
   private isInitialized: boolean = false;
+  private transportReadyPromise: Promise<void> | null = null;
   connectState: ConnectState = ConnectState.CONNECTED;
 
   // 推流请求回调（只包含需要推流的 trackIds）
   public onStreamingRequest: ((data: { classIds: string[] }) => Promise<void>) | null = null;
-  public onStopStreamingRequest: (() => Promise<void>) | null = null;
+  public onStopStreamingRequest: ((data: { classIds: string[] }) => Promise<void>) | null = null;
 
   constructor() {
     this.setupIpcListeners();
@@ -32,10 +33,9 @@ export class RendererService {
     // 监听 transport 就绪事件（confirmReady 响应后触发）
     window.electron.onTransportReady(async (data) => {
       console.log('收到 transport-ready 事件，立即初始化 transport');
-      try {
+      this.transportReadyPromise = (async () => {
         if (!this.mediasoupClient) {
-          console.error('mediasoupClient 尚未初始化，无法处理 transport-ready');
-          return;
+          throw new Error('mediasoupClient 尚未初始化，无法处理 transport-ready');
         }
 
         // 加载设备能力
@@ -45,8 +45,13 @@ export class RendererService {
         await this.mediasoupClient.createProducerTransportFromServer(data.transport);
 
         console.log('Transport 初始化成功');
+      })();
+
+      try {
+        await this.transportReadyPromise;
       } catch (error) {
         console.error('Transport 初始化失败:', error);
+        this.transportReadyPromise = null;
       }
     });
 
@@ -62,9 +67,17 @@ export class RendererService {
     });
 
     // 监听主进程的停止推流请求
-    window.electron.onStopStreamingRequest(async () => {
+    window.electron.onStopStreamingRequest(async (data) => {
       if (this.onStopStreamingRequest) {
-        await this.onStopStreamingRequest();
+        try {
+          await this.onStopStreamingRequest({
+            classIds: data.classIds || [],
+          });
+        } finally {
+          if (data.requestId) {
+            await window.electron.completeStopBroadcast(data.requestId);
+          }
+        }
       }
     });
 
@@ -73,6 +86,7 @@ export class RendererService {
       if (this.mediasoupClient) {
         this.mediasoupClient.disconnect();
       }
+      this.transportReadyPromise = null;
     });
   }
 
@@ -87,17 +101,29 @@ export class RendererService {
   async startStreaming(
     streamData: Array<{ stream: MediaStream; classId: string; simulcastConfigs?: any[] }>,
   ) {
+    if (!this.mediasoupClient) {
+      throw new Error('MediaSoup Client 未初始化');
+    }
+
+    if (this.transportReadyPromise) {
+      await this.transportReadyPromise;
+    }
+
+    if (!this.mediasoupClient.isProducerTransportReady()) {
+      throw new Error('推流 transport 尚未初始化');
+    }
+
     // 开始推流，使用已初始化的 transport
     for (const data of streamData) {
-      await this.mediasoupClient?.produceStream(data.stream, data.classId, data.simulcastConfigs);
+      await this.mediasoupClient.produceStream(data.stream, data.classId, data.simulcastConfigs);
     }
   }
 
-  async stopStreaming() {
+  async stopStreaming(classIds?: string[]) {
     if (!this.mediasoupClient) {
       return;
     }
-    this.mediasoupClient.stopProducing();
+    this.mediasoupClient.stopProducing(classIds);
   }
 
   // 获取连接状态
@@ -112,5 +138,6 @@ export class RendererService {
       this.mediasoupClient = null;
     }
     this.isInitialized = false;
+    this.transportReadyPromise = null;
   }
 }

@@ -81,6 +81,14 @@ export interface RequestStartBroadcast {
 }
 
 /**
+ * 停止推流请求
+ * 服务端要求选手端停止推流指定的轨道
+ */
+export interface RequestStopBroadcast {
+  trackIds: string[];
+}
+
+/**
  * Produce 请求参数
  */
 export interface ProduceParams {

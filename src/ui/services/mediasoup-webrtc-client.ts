@@ -2,8 +2,6 @@ import * as mediasoupClient from 'mediasoup-client';
 import {
   Device,
   Transport,
-  RtpCapabilities,
-  TransportOptions,
   Producer,
   RtpParameters,
 } from 'mediasoup-client/types';
@@ -21,11 +19,14 @@ export class MediasoupClient {
   }
 
   async loadDeviceWithCapabilities(rtpCapabilities: mediasoupClient.types.RtpCapabilities) {
+    if (this.device.loaded) {
+      return;
+    }
     await this.device.load({ routerRtpCapabilities: rtpCapabilities });
   }
 
   async createProducerTransportFromServer(transportInfo: any): Promise<void> {
-    if (this.producerTransport) {
+    if (this.producerTransport && !this.producerTransport.closed) {
       return;
     }
     console.log('Creating producer transport with info:', transportInfo);
@@ -59,6 +60,54 @@ export class MediasoupClient {
         }
       },
     );
+
+    this.producerTransport.on('connectionstatechange', (state) => {
+      console.log('producer transport state:', state);
+      if (state === 'failed' || state === 'closed') {
+        this.stopProducing();
+      }
+    });
+  }
+
+  isProducerTransportReady(): boolean {
+    return !!this.producerTransport && !this.producerTransport.closed;
+  }
+
+  private buildVideoEncodings(simulcastConfigs?: SimulcastConfig[]) {
+    if (!simulcastConfigs?.length) return undefined;
+
+    return simulcastConfigs.map((config) => ({
+      rid: config.rid,
+      scaleResolutionDownBy: config.scaleResolutionDownBy,
+      maxBitrate: config.maxBitRate,
+      ...(config.maxFramerate ? { maxFramerate: config.maxFramerate } : {}),
+    }));
+  }
+
+  private rememberProducer(classId: string, producer: Producer) {
+    this.producers.set(producer.id, producer);
+
+    const classProducers = this.producersByClassId.get(classId) || [];
+    classProducers.push(producer);
+    this.producersByClassId.set(classId, classProducers);
+
+    const cleanup = () => {
+      this.producers.delete(producer.id);
+      const remaining = (this.producersByClassId.get(classId) || []).filter(
+        (item) => item.id !== producer.id && !item.closed,
+      );
+      if (remaining.length) {
+        this.producersByClassId.set(classId, remaining);
+      } else {
+        this.producersByClassId.delete(classId);
+      }
+    };
+
+    producer.on('transportclose', cleanup);
+    producer.on('trackended', () => {
+      producer.close();
+      cleanup();
+    });
   }
 
   // 推送视频流
@@ -78,27 +127,14 @@ export class MediasoupClient {
     }
 
     try {
-      // 原画不传递 maxBitrate 和 maxFramerate
-      // const encodings = simulcastConfigs?.map((config) => ({
-      //   rid: config.rid,
-      //   scaleResolutionDownBy: config.scaleResolutionDownBy,
-      //   ...(config.rid !== 'original' && config.maxBitRate != null
-      //     ? { maxBitrate: config.maxBitRate }
-      //     : {}),
-      //   ...(config.maxFramerate != null ? { maxFramerate: config.maxFramerate } : {}),
-      // }));
+      const encodings = this.buildVideoEncodings(simulcastConfigs);
       const producer = await this.producerTransport.produce({
         track,
-        // ...(encodings && encodings.length > 0 ? { encodings } : {}),
+        ...(encodings && encodings.length > 0 ? { encodings } : {}),
         appData: { classId }, // 传递 classId
       });
 
-      this.producers.set(producer.id, producer);
-
-      // 将 producer 添加到 classId 映射中
-      const classProducers = this.producersByClassId.get(classId) || [];
-      classProducers.push(producer);
-      this.producersByClassId.set(classId, classProducers);
+      this.rememberProducer(classId, producer);
     } catch (error) {
       console.error('视频流推送失败:', error);
       throw error;
@@ -119,13 +155,7 @@ export class MediasoupClient {
 
     try {
       const producer = await this.producerTransport.produce({ track, appData: { classId } });
-      // 将 producer 存储到 Map 中
-      this.producers.set(producer.id, producer);
-
-      // 将 producer 添加到 classId 映射中
-      const classProducers = this.producersByClassId.get(classId) || [];
-      classProducers.push(producer);
-      this.producersByClassId.set(classId, classProducers);
+      this.rememberProducer(classId, producer);
     } catch (error) {
       console.error('音频流推送失败:', error);
       throw error;
@@ -151,14 +181,34 @@ export class MediasoupClient {
   }
 
   // 停止推流
-  stopProducing(): void {
-    for (const [producerId, producer] of this.producers.entries()) {
+  stopProducing(classIds?: string[]): void {
+    const targetProducers = classIds?.length
+      ? classIds.flatMap((classId) => this.producersByClassId.get(classId) || [])
+      : Array.from(this.producers.values());
+
+    for (const producer of targetProducers) {
       if (!producer.closed) {
         producer.close();
       }
+      this.producers.delete(producer.id);
     }
-    this.producers.clear();
-    this.producersByClassId.clear();
+
+    if (!classIds?.length) {
+      this.producers.clear();
+      this.producersByClassId.clear();
+      return;
+    }
+
+    for (const classId of classIds) {
+      const remaining = (this.producersByClassId.get(classId) || []).filter(
+        (producer) => !producer.closed,
+      );
+      if (remaining.length) {
+        this.producersByClassId.set(classId, remaining);
+      } else {
+        this.producersByClassId.delete(classId);
+      }
+    }
   }
 
   // 断开连接

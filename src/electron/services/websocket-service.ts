@@ -1,11 +1,13 @@
 import { io, Socket } from 'socket.io-client';
 import { BrowserWindow } from 'electron';
+import { randomUUID } from 'crypto';
 import { ipcWebContentsSend } from '../utils';
 import type {
   Resp,
   ContestInfo,
   TrackInfo,
   RequestStartBroadcast,
+  RequestStopBroadcast,
   ProduceParams,
   ProduceResponse,
   CompleteConnectTransportParams,
@@ -31,6 +33,13 @@ export class WebSocketService {
   // 状态缓存
   private lastTracks: TrackInfo[] = [];
   private isReady: boolean = false;
+  private stopBroadcastCallbacks: Map<
+    string,
+    {
+      callback: () => void;
+      timeout: NodeJS.Timeout;
+    }
+  > = new Map();
 
   constructor(serviceURL: string, servicePath?: string, clientId?: string) {
     this.serviceURL = serviceURL;
@@ -116,6 +125,7 @@ export class WebSocketService {
   private setupEventHandlers() {
     this.socket.on('disconnect', (reason: string) => {
       console.log('断开连接:', reason);
+      this.connectionState = reason === 'io client disconnect' ? 'disconnected' : 'connecting';
       ipcWebContentsSend('cleanup-media-resources', this.mainWindow.webContents, {});
       ipcWebContentsSend(
         'connection-state-changed',
@@ -138,7 +148,18 @@ export class WebSocketService {
 
       if (this.isReady && this.lastTracks.length > 0) {
         console.log('重连后恢复就绪状态');
-        this.confirmReady(this.lastTracks);
+        this.confirmReady(this.lastTracks)
+          .then((resp) => {
+            if (resp.success && resp.data && this.mainWindow && !this.mainWindow.isDestroyed()) {
+              ipcWebContentsSend('transport-ready', this.mainWindow.webContents, {
+                transport: resp.data.transport,
+                routerRtpCapabilities: resp.data.routerRtpCapabilities,
+              });
+            }
+          })
+          .catch((error) => {
+            console.error('重连后恢复就绪状态失败:', error);
+          });
       }
     });
 
@@ -175,10 +196,26 @@ export class WebSocketService {
       });
     });
 
-    this.socket.on('requestStopBroadcast', () => {
-      console.log('收到停止推流请求');
-      ipcWebContentsSend('stop-streaming-request', this.mainWindow.webContents, {});
-    });
+    this.socket.on(
+      'requestStopBroadcast',
+      (data: RequestStopBroadcast = { trackIds: [] }, callback?: () => void) => {
+        console.log('收到停止推流请求:', data);
+        const requestId = callback ? randomUUID() : undefined;
+
+        if (requestId && callback) {
+          const timeout = setTimeout(() => {
+            console.warn('等待停止推流回执超时，执行兜底 ACK:', requestId);
+            this.completeStopBroadcast(requestId);
+          }, 5000);
+          this.stopBroadcastCallbacks.set(requestId, { callback, timeout });
+        }
+
+        ipcWebContentsSend('stop-streaming-request', this.mainWindow.webContents, {
+          classIds: data.trackIds || [],
+          requestId,
+        });
+      },
+    );
 
     // 回看推流请求
     this.socket.on('replayRequest', ({ trackId, startTime, endTime }: any) => {
@@ -306,10 +343,24 @@ export class WebSocketService {
     });
   }
 
+  completeStopBroadcast(requestId?: string) {
+    if (!requestId) return;
+
+    const pending = this.stopBroadcastCallbacks.get(requestId);
+    if (!pending) return;
+
+    clearTimeout(pending.timeout);
+    pending.callback();
+    this.stopBroadcastCallbacks.delete(requestId);
+  }
+
   /**
    * 断开连接
    */
   disconnect() {
+    for (const requestId of this.stopBroadcastCallbacks.keys()) {
+      this.completeStopBroadcast(requestId);
+    }
     if (this.socket) {
       this.socket.removeAllListeners();
       this.socket.disconnect();

@@ -108,9 +108,9 @@ class ConfigDialog extends Vue {
 
   formatSimulcastConfig(config: any): string {
     const name = this.convertRidName(config.rid);
-    const bitrate = Math.round(config.maxBitRate);
+    const bitrateMbps = config.maxBitRate / 1_000_000;
     const scale = config.scaleResolutionDownBy;
-    return `${name} (${scale}x) @ ${bitrate} Kbps`;
+    return `${name} (${scale}x) @ ${bitrateMbps.toFixed(1)} Mbps`;
   }
 
   onSimulcastChange(rid: string) {

@@ -5,7 +5,6 @@ import {
   UpdateVideoConfigDTO,
   VideoConfig,
   AudioConfig,
-  RequestStartBroadcast,
   GetPlatformInfoDTO,
 } from 'common/config.interface';
 import { Resp, ContestInfo } from './src/common/typings/broadcaster.types';
@@ -24,13 +23,17 @@ declare global {
     'get-contest-info': Resp<ContestInfo>;
     'connect-producer-transport': void;
     'create-producer': { id: string };
+    'complete-stop-broadcast': { success: boolean };
     'report-device-state': { success: boolean };
 
     // 监听事件
     'start-streaming-request': {
       classIds: string[];
     };
-    'stop-streaming-request': Record<string, never>;
+    'stop-streaming-request': {
+      classIds: string[];
+      requestId?: string;
+    };
     'cleanup-media-resources': Record<string, never>;
     'replay-request': {
       classId: string;
@@ -93,9 +96,12 @@ declare global {
         kind: string;
         rtpParameters: RtpCapabilities;
       }) => Promise<{ id: string }>;
+      completeStopBroadcast: (requestId: string) => Promise<{ success: boolean }>;
       reportDeviceState: (devices: any[], isReady: boolean) => Promise<{ success: boolean }>;
-      onStreamingRequest: (callback: (data: RequestStartBroadcast) => void) => void;
-      onStopStreamingRequest: (callback: (data: Record<string, never>) => void) => void;
+      onStreamingRequest: (callback: (data: { classIds: string[] }) => void) => void;
+      onStopStreamingRequest: (
+        callback: (data: { classIds: string[]; requestId?: string }) => void,
+      ) => void;
       onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => void;
 
       // 回看相关逻辑（todo）
