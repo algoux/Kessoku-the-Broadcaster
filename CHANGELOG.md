@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file 🌱.
 
+## [1.0.3]
+### Changed
+- 优化推流链路，提高推流稳定性
+- 优化前端打包体积，减少渲染进程资源占用
+- 优化 ffmpeg 资源校验，提升 macOS 打包可靠性
+
 ## [1.0.2]
 ### Added
 - 优化推流码率，提高预览清晰度
