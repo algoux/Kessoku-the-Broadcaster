@@ -7,73 +7,31 @@ import {
   AudioConfig,
   GetPlatformInfoDTO,
 } from 'common/config.interface';
-import { Resp, ContestInfo } from './src/common/typings/broadcaster.types';
-import * as mediasoupClient from 'mediasoup-client';
+import {
+  CompleteConnectTransportParams,
+  ConnectionState,
+  ContestInfo,
+  DeviceInfo,
+  ProduceParams,
+  Resp,
+} from './src/common/typings/broadcaster.types';
+import type {
+  CreateProducerResult,
+  EmptyPayload,
+  EventArgMapping as IpcEventArgMapping,
+  EventPayloadMapping as IpcEventPayloadMapping,
+  OperationResult,
+  ReplayRequestPayload,
+  StopReplayRequestPayload,
+  StopStreamingRequestPayload,
+  StreamingRequestPayload,
+  TransportReadyPayload,
+  VideoClipResult,
+} from './src/common/typings/ipc.types';
 
 declare global {
-  type EventPayloadMapping = {
-    getSources: Electron.DesktopCapturerSource[];
-    hasReady: void;
-
-    // WebSocket 相关事件
-    login: { success: boolean; error?: string };
-    logout: { success: boolean };
-    openSettingsWindow: void;
-    'get-connection-status': 'connected' | 'disconnected' | 'connecting';
-    'get-contest-info': Resp<ContestInfo>;
-    'connect-producer-transport': void;
-    'create-producer': { id: string };
-    'complete-stop-broadcast': { success: boolean };
-    'report-device-state': { success: boolean };
-
-    // 监听事件
-    'start-streaming-request': {
-      classIds: string[];
-    };
-    'stop-streaming-request': {
-      classIds: string[];
-      requestId?: string;
-    };
-    'cleanup-media-resources': Record<string, never>;
-    'replay-request': {
-      classId: string;
-      startTime: string;
-      endTime: string;
-    };
-    'stop-replay-request': { classId: string };
-    'connection-state-changed': 'connected' | 'disconnected' | 'connecting';
-    'transport-ready': { transport: any; routerRtpCapabilities: any };
-
-    // 回看相关事件
-    'handle-replay-request': { success: boolean; filePath?: string; error?: string };
-    'replay-video-ready': { classId: string; filePath: string; startTime: string; endTime: string };
-
-    // 视频录制相关
-    'start-continuous-recording': { success: boolean; error?: string };
-    'stop-continuous-recording': { success: boolean };
-    'get-recording-blob': void;
-    'cut-video': { success: boolean; filePath?: string; error?: string };
-    'read-video-file': ArrayBuffer;
-
-    getAppConfig: AppConfigInterface;
-    getDevicesConfig: {
-      screens?: VideoConfig[];
-      cameras?: VideoConfig[];
-      microphones?: AudioConfig[];
-    };
-    hasDevicesConfig: boolean;
-    updateVideoConfig: void;
-    updateAudioConfig: void;
-    updateConfig: void;
-    clearVideoCache: { success: boolean; deletedCount?: number; error?: string };
-
-    // 窗口控制
-    'window-minimize': void;
-    'window-maximize': void;
-    'window-close': void;
-
-    getPlatformInfo: GetPlatformInfoDTO;
-  };
+  type EventPayloadMapping = IpcEventPayloadMapping;
+  type EventArgMapping = IpcEventArgMapping;
 
   // 扩展 Window 接口
   interface Window {
@@ -82,62 +40,41 @@ declare global {
       getSources: () => Promise<Electron.DesktopCapturerSource[]>;
       hasReady: () => void;
       // WebSocket 相关方法
-      login: (
-        alias: string,
-        userId: string,
-        token: string,
-      ) => Promise<{ success: boolean; error?: string }>;
-      logout: () => Promise<{ success: boolean; error?: string }>;
-      getConnectionStatus: () => Promise<'connected' | 'disconnected' | 'connecting'>;
+      login: (alias: string, userId: string, token: string) => Promise<OperationResult>;
+      logout: () => Promise<OperationResult>;
+      getConnectionStatus: () => Promise<ConnectionState>;
       getContestInfo: () => Promise<Resp<ContestInfo>>;
-      connectProducerTransport: (dtlsParameters: any) => Promise<void>;
-      createProducer: (params: {
-        trackId: string;
-        kind: string;
-        rtpParameters: RtpCapabilities;
-      }) => Promise<{ id: string }>;
-      completeStopBroadcast: (requestId: string) => Promise<{ success: boolean }>;
-      reportDeviceState: (devices: any[], isReady: boolean) => Promise<{ success: boolean }>;
-      onStreamingRequest: (callback: (data: { classIds: string[] }) => void) => void;
-      onStopStreamingRequest: (
-        callback: (data: { classIds: string[]; requestId?: string }) => void,
-      ) => void;
-      onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => void;
+      connectProducerTransport: (
+        dtlsParameters: CompleteConnectTransportParams['dtlsParameters'],
+      ) => Promise<void>;
+      createProducer: (params: ProduceParams) => Promise<CreateProducerResult>;
+      completeStopBroadcast: (requestId: string) => Promise<OperationResult>;
+      reportDeviceState: (devices: DeviceInfo[], isReady: boolean) => Promise<OperationResult>;
+      onStreamingRequest: (callback: (data: StreamingRequestPayload) => void) => void;
+      onStopStreamingRequest: (callback: (data: StopStreamingRequestPayload) => void) => void;
+      onCleanupMediaResources: (callback: (data: EmptyPayload) => void) => void;
 
       // 回看相关逻辑（todo）
-      onReplayRequest: (
-        callback: (data: { classId: string; startTime: string; endTime: string }) => void,
-      ) => void;
-      onReplayVideoReady: (
-        callback: (data: {
-          classId: string;
-          filePath: string;
-          startTime: string;
-          endTime: string;
-        }) => void,
-      ) => void;
-      onStopReplayRequest: (callback: (data: { classId: string }) => void) => void;
-      onConnectionStateChanged: (
-        callback: (state: 'connected' | 'disconnected' | 'connecting') => void,
-      ) => void;
-      onTransportReady: (
-        callback: (data: { transport: any; routerRtpCapabilities: any }) => void,
-      ) => void;
+      onReplayRequest: (callback: (data: ReplayRequestPayload) => void) => void;
+      onReplayVideoReady: (callback: (data: EventPayloadMapping['replayVideoReady']) => void) => void;
+      onStopReplayRequest: (callback: (data: StopReplayRequestPayload) => void) => void;
+      onConnectionStateChanged: (callback: (state: ConnectionState) => void) => void;
+      onTransportReady: (callback: (data: TransportReadyPayload) => void) => void;
       // 视频录制相关
-      startContinuousRecording: (classId: string) => Promise<{ success: boolean; error?: string }>;
-      stopContinuousRecording: (classId: string) => Promise<{ success: boolean }>;
+      startContinuousRecording: (classId: string) => Promise<OperationResult>;
+      stopContinuousRecording: (classId: string) => Promise<OperationResult>;
       sendRecordingBlob: (classId: string, blob: Blob) => Promise<void>;
       cutVideo: (
         classId: string,
         startTime: string,
         endTime: string,
-      ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+      ) => Promise<VideoClipResult>;
       readVideoFile: (filePath: string) => Promise<ArrayBuffer>;
       handleReplayRequest: (
         classId: string,
         startTime: string,
         endTime: string,
-      ) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+      ) => Promise<VideoClipResult>;
       openSettingsWindow: () => void;
 
       getAppConfig: () => Promise<AppConfigInterface>;

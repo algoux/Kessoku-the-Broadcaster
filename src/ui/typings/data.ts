@@ -1,4 +1,5 @@
 import { SimulcastConfig } from 'common/config.interface';
+import type { DeviceInfo as BroadcasterDeviceInfo } from 'common/typings/broadcaster.types';
 import { DeviceManager } from '@/services/device-manager';
 
 // export interface DeviceSettings {
@@ -46,12 +47,7 @@ export interface Device<T extends DeviceType = DeviceType> {
 }
 
 // 设备信息上报接口（发送给服务器）
-export interface DeviceInfo {
-  classId: string;
-  type: DeviceType;
-  name: string;
-  settings?: DeviceSettings;
-}
+export type DeviceInfo = BroadcasterDeviceInfo;
 
 export interface PlayerDeviceState {
   playerName: string;

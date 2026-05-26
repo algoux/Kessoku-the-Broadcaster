@@ -7,6 +7,7 @@ export type {
   RequestLoginDTO,
   ContestInfo,
   TrackInfo,
+  DeviceInfo,
   TransportInfo,
   RequestStartBroadcast,
   RequestStopBroadcast,
@@ -14,6 +15,8 @@ export type {
   ProduceResponse,
   CompleteConnectTransportParams,
   ConfirmReadyResponse,
+  ReplayRequest,
+  StopReplayRequest,
 } from 'common/typings/broadcaster.types';
 
 export interface RecordingData {

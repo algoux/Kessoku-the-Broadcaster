@@ -1,23 +1,28 @@
 import type { SimulcastConfig } from '../config.interface';
 import type { Contest, User } from './srk.types';
+import type { types as MediasoupTypes } from 'mediasoup-client';
 
 /**
  * Broadcaster 通用响应结构
  */
-export interface RespSuccess<T = any> {
+export interface RespSuccess<T = unknown> {
   success: true;
   code?: 0;
   data?: T;
 }
 
-export interface RespError {
+export interface RespError<T = unknown> {
   success: false;
   code?: number;
   msg?: string;
-  data?: any;
+  data?: T;
 }
 
-export type Resp<T = any> = RespSuccess<T> | RespError;
+export type Resp<T = void, E = unknown> = RespSuccess<T> | RespError<E>;
+
+export type ConnectionState = 'connected' | 'disconnected' | 'connecting';
+
+export type TrackType = 'screen' | 'camera' | 'microphone';
 
 export interface RequestLoginDTO {
   alias: string;
@@ -39,7 +44,7 @@ export interface ContestInfo {
   user: User;
 
   /** 服务端时间戳（毫秒） */
-  serverTimeStamp: number;
+  serverTimestamp: number;
 }
 
 /**
@@ -47,7 +52,7 @@ export interface ContestInfo {
  */
 export interface TrackInfo {
   trackId: string;
-  type: 'screen' | 'camera' | 'microphone';
+  type: TrackType;
   name: string;
   video?: {
     width: number;
@@ -62,14 +67,30 @@ export interface TrackInfo {
   };
 }
 
+export interface DeviceReportSettings {
+  width?: number;
+  height?: number;
+  frameRate?: number;
+  sampleRate?: number;
+  channelCount?: number;
+  simulcastConfigs?: SimulcastConfig[];
+}
+
+export interface DeviceInfo {
+  classId: string;
+  type: TrackType;
+  name: string;
+  settings?: DeviceReportSettings;
+}
+
 /**
  * Transport 信息
  */
 export interface TransportInfo {
   id: string;
-  iceParameters: any;
-  iceCandidates: any[];
-  dtlsParameters: any;
+  iceParameters: MediasoupTypes.IceParameters;
+  iceCandidates: MediasoupTypes.IceCandidate[];
+  dtlsParameters: MediasoupTypes.DtlsParameters;
 }
 
 /**
@@ -93,8 +114,8 @@ export interface RequestStopBroadcast {
  */
 export interface ProduceParams {
   trackId: string; // 设备的 classId，用于标识推流来源
-  kind: 'audio' | 'video';
-  rtpParameters: any;
+  kind: MediasoupTypes.MediaKind;
+  rtpParameters: MediasoupTypes.RtpParameters;
 }
 
 /**
@@ -102,15 +123,17 @@ export interface ProduceParams {
  */
 export interface ProduceResponse {
   producerId: string;
-  type: any;
-  appData: any;
+  type: ProducerType;
+  appData: MediasoupTypes.AppData;
 }
+
+export type ProducerType = 'simple' | 'simulcast' | 'svc' | (string & {});
 
 /**
  * 完成连接 Transport 参数
  */
 export interface CompleteConnectTransportParams {
-  dtlsParameters: any;
+  dtlsParameters: MediasoupTypes.DtlsParameters;
 }
 
 /**
@@ -118,5 +141,15 @@ export interface CompleteConnectTransportParams {
  */
 export interface ConfirmReadyResponse {
   transport: TransportInfo;
-  routerRtpCapabilities: any;
+  routerRtpCapabilities: MediasoupTypes.RtpCapabilities;
+}
+
+export interface ReplayRequest {
+  trackId: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface StopReplayRequest {
+  trackId: string;
 }
