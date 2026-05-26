@@ -12,6 +12,8 @@ import type {
   ProduceResponse,
   CompleteConnectTransportParams,
   ConfirmReadyResponse,
+  ReplayRequest,
+  StopReplayRequest,
 } from '../typings/data';
 
 /**
@@ -105,7 +107,7 @@ export class WebSocketService {
       });
 
       // 首次连接失败
-      this.socket.once('connect_error', (error: any) => {
+      this.socket.once('connect_error', (error: Error & { data?: Resp }) => {
         console.log('连接错误:', error);
         // 是否是来自服务器的逻辑错误
         if (error.data && error.data.code) {
@@ -126,9 +128,9 @@ export class WebSocketService {
     this.socket.on('disconnect', (reason: string) => {
       console.log('断开连接:', reason);
       this.connectionState = reason === 'io client disconnect' ? 'disconnected' : 'connecting';
-      ipcWebContentsSend('cleanup-media-resources', this.mainWindow.webContents, {});
+      ipcWebContentsSend('cleanupMediaResources', this.mainWindow.webContents, {});
       ipcWebContentsSend(
-        'connection-state-changed',
+        'connectionStateChanged',
         this.mainWindow.webContents,
         this.connectionState,
       );
@@ -140,7 +142,7 @@ export class WebSocketService {
 
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         ipcWebContentsSend(
-          'connection-state-changed',
+          'connectionStateChanged',
           this.mainWindow.webContents,
           this.connectionState,
         );
@@ -151,7 +153,7 @@ export class WebSocketService {
         this.confirmReady(this.lastTracks)
           .then((resp) => {
             if (resp.success && resp.data && this.mainWindow && !this.mainWindow.isDestroyed()) {
-              ipcWebContentsSend('transport-ready', this.mainWindow.webContents, {
+              ipcWebContentsSend('transportReady', this.mainWindow.webContents, {
                 transport: resp.data.transport,
                 routerRtpCapabilities: resp.data.routerRtpCapabilities,
               });
@@ -163,7 +165,7 @@ export class WebSocketService {
       }
     });
 
-    this.socket.on('connect_error', (error: any) => {
+    this.socket.on('connect_error', (error: Error & { data?: Resp }) => {
       console.log('重连错误:', error.message);
 
       // 是否是来自服务器的逻辑错误
@@ -174,7 +176,7 @@ export class WebSocketService {
 
         if (this.mainWindow && !this.mainWindow.isDestroyed()) {
           ipcWebContentsSend(
-            'connection-state-changed',
+            'connectionStateChanged',
             this.mainWindow.webContents,
             this.connectionState,
           );
@@ -182,7 +184,7 @@ export class WebSocketService {
       } else {
         this.connectionState = 'connecting';
         ipcWebContentsSend(
-          'connection-state-changed',
+          'connectionStateChanged',
           this.mainWindow.webContents,
           this.connectionState,
         );
@@ -191,7 +193,7 @@ export class WebSocketService {
 
     this.socket.on('requestStartBroadcast', (data: RequestStartBroadcast) => {
       console.log('收到推流请求:', data);
-      ipcWebContentsSend('start-streaming-request', this.mainWindow.webContents, {
+      ipcWebContentsSend('startStreamingRequest', this.mainWindow.webContents, {
         classIds: data.trackIds,
       });
     });
@@ -210,7 +212,7 @@ export class WebSocketService {
           this.stopBroadcastCallbacks.set(requestId, { callback, timeout });
         }
 
-        ipcWebContentsSend('stop-streaming-request', this.mainWindow.webContents, {
+        ipcWebContentsSend('stopStreamingRequest', this.mainWindow.webContents, {
           classIds: data.trackIds || [],
           requestId,
         });
@@ -218,9 +220,9 @@ export class WebSocketService {
     );
 
     // 回看推流请求
-    this.socket.on('replayRequest', ({ trackId, startTime, endTime }: any) => {
+    this.socket.on('replayRequest', ({ trackId, startTime, endTime }: ReplayRequest) => {
       console.log('收到回看请求:', trackId, startTime, endTime);
-      ipcWebContentsSend('replay-request', this.mainWindow.webContents, {
+      ipcWebContentsSend('replayRequest', this.mainWindow.webContents, {
         classId: trackId, // trackId 映射为 classId
         startTime,
         endTime,
@@ -228,9 +230,9 @@ export class WebSocketService {
     });
 
     // 停止回看推流请求
-    this.socket.on('stopReplayRequest', ({ trackId }: any) => {
+    this.socket.on('stopReplayRequest', ({ trackId }: StopReplayRequest) => {
       console.log('收到停止回看请求:', trackId);
-      ipcWebContentsSend('stop-replay-request', this.mainWindow.webContents, { classId: trackId });
+      ipcWebContentsSend('stopReplayRequest', this.mainWindow.webContents, { classId: trackId });
     });
   }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import { reactive } from 'vue';
-import { Device, DeviceType, ConnectState } from '@/typings/data';
+import { ClassIdPattern, Device, DeviceType, ConnectState } from '@/typings/data';
 import { Provide, Ref } from 'vue-property-decorator';
 import { RendererService } from '@/services/renderer-service';
 import { DeviceManager } from '@/services/device-manager';
@@ -297,12 +297,12 @@ class HomeView extends Vue {
     const deviceType = this.currentAddDeviceType;
 
     await this.executeWithLoading(
-      `正在添加${this.deviceTypeName(deviceType)}`,
+          `正在添加${this.deviceTypeName(deviceType)}`,
       async () => {
         const result = await this.deviceManager.addDevice(
           deviceType,
           data.deviceId,
-          data.classId as any,
+          data.classId as ClassIdPattern<typeof deviceType>,
         );
 
         this.closeAddDeviceDialog();

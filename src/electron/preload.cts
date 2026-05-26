@@ -4,13 +4,18 @@ import {
   UpdateAudioConfigDTO,
   UpdateVideoConfigDTO,
 } from 'common/config.interface';
+import type {
+  CompleteConnectTransportParams,
+  DeviceInfo,
+  ProduceParams,
+} from 'common/typings/broadcaster.types';
 
 function ipcOn<Key extends keyof EventPayloadMapping>(
   key: Key,
   callback: (payload: EventPayloadMapping[Key]) => void,
 ) {
   console.log('[Preload] 设置 IPC 监听器:', key);
-  const cb = (_: Electron.IpcRendererEvent, payload: any) => {
+  const cb = (_: Electron.IpcRendererEvent, payload: EventPayloadMapping[Key]) => {
     console.log('[Preload] 收到 IPC 消息:', key, payload);
     callback(payload);
   };
@@ -22,9 +27,9 @@ function ipcOn<Key extends keyof EventPayloadMapping>(
 
 export function ipcSend<Key extends keyof EventPayloadMapping>(
   key: Key,
-  payload?: EventPayloadMapping[Key],
+  ...args: EventArgMapping[Key]
 ) {
-  electron.ipcRenderer.send(key, payload);
+  electron.ipcRenderer.send(key, ...args);
 }
 
 electron.contextBridge.exposeInMainWorld('electron', {
@@ -40,39 +45,37 @@ electron.contextBridge.exposeInMainWorld('electron', {
     return ipcInvoke('logout');
   },
   getConnectionStatus: () => {
-    return ipcInvoke('get-connection-status');
+    return ipcInvoke('getConnectionStatus');
   },
   getContestInfo: () => {
-    return ipcInvoke('get-contest-info');
+    return ipcInvoke('getContestInfo');
   },
-  connectProducerTransport: (dtlsParameters: any) => {
-    return ipcInvoke('connect-producer-transport', { dtlsParameters });
+  connectProducerTransport: (dtlsParameters: CompleteConnectTransportParams['dtlsParameters']) => {
+    return ipcInvoke('connectProducerTransport', { dtlsParameters });
   },
-  createProducer: (params: { trackId: string; kind: string; rtpParameters: any }) => {
-    return ipcInvoke('create-producer', params);
+  createProducer: (params: ProduceParams) => {
+    return ipcInvoke('createProducer', params);
   },
   completeStopBroadcast: (requestId: string) => {
-    return ipcInvoke('complete-stop-broadcast', { requestId });
+    return ipcInvoke('completeStopBroadcast', { requestId });
   },
-  reportDeviceState: (devices: any[], isReady: boolean) => {
-    return ipcInvoke('report-device-state', { devices, isReady });
+  reportDeviceState: (devices: DeviceInfo[], isReady: boolean) => {
+    return ipcInvoke('reportDeviceState', { devices, isReady });
   },
   // IPC 监听器方法
-  onStreamingRequest: (
-    callback: (data: { classIds: string[]; transport?: any; routerRtpCapabilities?: any }) => void,
-  ) => {
-    return ipcOn('start-streaming-request', callback);
+  onStreamingRequest: (callback: (data: EventPayloadMapping['startStreamingRequest']) => void) => {
+    return ipcOn('startStreamingRequest', callback);
   },
   onStopStreamingRequest: (callback: (data: { classIds: string[]; requestId?: string }) => void) => {
-    return ipcOn('stop-streaming-request', callback);
+    return ipcOn('stopStreamingRequest', callback);
   },
   onCleanupMediaResources: (callback: (data: Record<string, never>) => void) => {
-    return ipcOn('cleanup-media-resources', callback);
+    return ipcOn('cleanupMediaResources', callback);
   },
   onReplayRequest: (
     callback: (data: { classId: string; startTime: string; endTime: string }) => void,
   ) => {
-    return ipcOn('replay-request', callback);
+    return ipcOn('replayRequest', callback);
   },
   onReplayVideoReady: (
     callback: (data: {
@@ -82,38 +85,38 @@ electron.contextBridge.exposeInMainWorld('electron', {
       endTime: string;
     }) => void,
   ) => {
-    return ipcOn('replay-video-ready', callback);
+    return ipcOn('replayVideoReady', callback);
   },
   onStopReplayRequest: (callback: (data: { classId: string }) => void) => {
-    return ipcOn('stop-replay-request', callback);
+    return ipcOn('stopReplayRequest', callback);
   },
   onConnectionStateChanged: (
     callback: (state: 'connected' | 'disconnected' | 'connecting') => void,
   ) => {
-    return ipcOn('connection-state-changed', callback);
+    return ipcOn('connectionStateChanged', callback);
   },
-  onTransportReady: (callback: (data: { transport: any; routerRtpCapabilities: any }) => void) => {
-    return ipcOn('transport-ready', callback);
+  onTransportReady: (callback: (data: EventPayloadMapping['transportReady']) => void) => {
+    return ipcOn('transportReady', callback);
   },
   // 视频录制相关
   startContinuousRecording: (classId: string) => {
-    return ipcInvoke('start-continuous-recording', classId);
+    return ipcInvoke('startContinuousRecording', classId);
   },
   stopContinuousRecording: (classId: string) => {
-    return ipcInvoke('stop-continuous-recording', classId);
+    return ipcInvoke('stopContinuousRecording', classId);
   },
   sendRecordingBlob: async (classId: string, blob: Blob) => {
     const arrayBuffer = await blob.arrayBuffer();
-    return ipcInvoke('get-recording-blob', { classId, arrayBuffer });
+    return ipcInvoke('getRecordingBlob', { classId, arrayBuffer });
   },
   cutVideo: (classId: string, startTime: string, endTime: string) => {
-    return ipcInvoke('cut-video', { classId, startTime, endTime });
+    return ipcInvoke('cutVideo', { classId, startTime, endTime });
   },
   readVideoFile: (filePath: string) => {
-    return ipcInvoke('read-video-file', filePath);
+    return ipcInvoke('readVideoFile', filePath);
   },
   handleReplayRequest: (classId: string, startTime: string, endTime: string) => {
-    return ipcInvoke('handle-replay-request', { classId, startTime, endTime });
+    return ipcInvoke('handleReplayRequest', { classId, startTime, endTime });
   },
   openSettingsWindow: () => {
     ipcSend('openSettingsWindow');
@@ -142,13 +145,13 @@ electron.contextBridge.exposeInMainWorld('electron', {
 
   // 窗口控制
   minimizeWindow: () => {
-    ipcSend('window-minimize');
+    ipcSend('windowMinimize');
   },
   maximizeWindow: () => {
-    ipcSend('window-maximize');
+    ipcSend('windowMaximize');
   },
   closeWindow: () => {
-    ipcSend('window-close');
+    ipcSend('windowClose');
   },
   getPlatformInfo: () => {
     return ipcInvoke('getPlatformInfo');
@@ -157,7 +160,7 @@ electron.contextBridge.exposeInMainWorld('electron', {
 
 function ipcInvoke<Key extends keyof EventPayloadMapping>(
   key: Key,
-  ...args: any[]
+  ...args: EventArgMapping[Key]
 ): Promise<EventPayloadMapping[Key]> {
   return electron.ipcRenderer.invoke(key, ...args);
 }

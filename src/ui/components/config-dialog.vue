@@ -1,6 +1,7 @@
 <script lang="ts">
 import { Vue, Options } from 'vue-class-component';
 import { DeviceManager } from '@/services/device-manager';
+import type { SimulcastConfig } from 'common/config.interface';
 
 import {
   ElDialog,
@@ -45,8 +46,8 @@ class ConfigDialog extends Vue {
   /**
    * 获取 simulcast 配置列表（用于显示）
    */
-  get simulcastConfigs() {
-    const configForm = this.deviceManager.configForm as any;
+  get simulcastConfigs(): SimulcastConfig[] {
+    const configForm = this.deviceManager.configForm;
     const configs = configForm?.simulcastConfigs || [];
     return configs;
   }
@@ -106,7 +107,7 @@ class ConfigDialog extends Vue {
     return nameMap[rid] || rid;
   }
 
-  formatSimulcastConfig(config: any): string {
+  formatSimulcastConfig(config: SimulcastConfig): string {
     const name = this.convertRidName(config.rid);
     const bitrateMbps = config.maxBitRate / 1_000_000;
     const scale = config.scaleResolutionDownBy;

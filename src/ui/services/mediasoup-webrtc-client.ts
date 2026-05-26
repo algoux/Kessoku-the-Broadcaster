@@ -1,11 +1,18 @@
 import * as mediasoupClient from 'mediasoup-client';
 import {
+  AppData,
   Device,
+  MediaKind,
   Transport,
   Producer,
   RtpParameters,
 } from 'mediasoup-client/types';
 import { SimulcastConfig } from 'common/config.interface';
+import type { TransportInfo } from 'common/typings/broadcaster.types';
+
+type ProducerAppData = AppData & {
+  classId: string;
+};
 
 export class MediasoupClient {
   private device!: Device;
@@ -25,7 +32,7 @@ export class MediasoupClient {
     await this.device.load({ routerRtpCapabilities: rtpCapabilities });
   }
 
-  async createProducerTransportFromServer(transportInfo: any): Promise<void> {
+  async createProducerTransportFromServer(transportInfo: TransportInfo): Promise<void> {
     if (this.producerTransport && !this.producerTransport.closed) {
       return;
     }
@@ -222,10 +229,18 @@ export class MediasoupClient {
 
   // 创建推流生产者
   private async createProducer(
-    kind: string,
+    kind: MediaKind,
     rtpParameters: RtpParameters,
-    appData?: any,
+    appData: AppData,
   ): Promise<{ id: string }> {
-    return await window.electron.createProducer({ trackId: appData.classId, kind, rtpParameters });
+    const { classId } = this.assertProducerAppData(appData);
+    return await window.electron.createProducer({ trackId: classId, kind, rtpParameters });
+  }
+
+  private assertProducerAppData(appData: AppData): ProducerAppData {
+    if (typeof appData.classId !== 'string') {
+      throw new Error('producer appData 缺少 classId');
+    }
+    return appData as ProducerAppData;
   }
 }

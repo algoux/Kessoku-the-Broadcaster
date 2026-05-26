@@ -30,7 +30,7 @@ class DeviceCard extends Vue {
   isReady!: boolean;
 
   @Inject()
-  getDeviceIcon!: (type: DeviceType) => any;
+  getDeviceIcon!: (type: DeviceType) => Component;
 
   @Inject()
   openConfigDialog!: (device: Device) => Component;

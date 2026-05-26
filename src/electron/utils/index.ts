@@ -6,19 +6,21 @@ export function isDevelopment() {
 
 export function ipcMainHandle<Key extends keyof EventPayloadMapping>(
   key: Key,
-  handler: (...args: any[]) => EventPayloadMapping[Key] | Promise<EventPayloadMapping[Key]>,
+  handler: (
+    ...args: EventArgMapping[Key]
+  ) => EventPayloadMapping[Key] | Promise<EventPayloadMapping[Key]>,
 ) {
   ipcMain.handle(key, (_, ...args) => {
-    return handler(...args);
+    return handler(...(args as EventArgMapping[Key]));
   });
 }
 
 export function ipcMainOn<Key extends keyof EventPayloadMapping>(
   key: Key,
-  handler: (payload: EventPayloadMapping[Key]) => void,
+  handler: (...args: EventArgMapping[Key]) => void,
 ) {
-  ipcMain.on(key, (_, payload) => {
-    return handler(payload);
+  ipcMain.on(key, (_, ...args) => {
+    return handler(...(args as EventArgMapping[Key]));
   });
 }
 

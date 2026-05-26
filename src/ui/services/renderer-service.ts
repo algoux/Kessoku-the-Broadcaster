@@ -2,6 +2,7 @@
 import { MediasoupClient } from './mediasoup-webrtc-client';
 import { DeviceInfo } from '@/typings/data';
 import { ConnectState } from '@/typings/data';
+import type { SimulcastConfig } from 'common/config.interface';
 
 export class RendererService {
   public mediasoupClient: MediasoupClient | null = null;
@@ -99,7 +100,7 @@ export class RendererService {
   }
 
   async startStreaming(
-    streamData: Array<{ stream: MediaStream; classId: string; simulcastConfigs?: any[] }>,
+    streamData: Array<{ stream: MediaStream; classId: string; simulcastConfigs?: SimulcastConfig[] }>,
   ) {
     if (!this.mediasoupClient) {
       throw new Error('MediaSoup Client 未初始化');

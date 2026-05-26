@@ -11,8 +11,38 @@ import {
   DEVICE_TYPE_CONFIG,
   DeviceInfo,
 } from '@/typings/data';
-import { SimulcastConfig } from 'common/config.interface';
+import {
+  AudioConfig,
+  SimulcastConfig,
+  UpdateAudioConfigDTO,
+  UpdateVideoConfigDTO,
+  VideoConfig,
+} from 'common/config.interface';
+import type { DeviceConfigPayload } from 'common/typings/ipc.types';
 import { toRaw } from 'vue';
+
+type AudioContextSampleRateStream = MediaStream & {
+  _audioContextSampleRate?: number;
+};
+
+type ScreenConstraintKey =
+  | 'minWidth'
+  | 'maxWidth'
+  | 'minHeight'
+  | 'maxHeight'
+  | 'minFrameRate'
+  | 'maxFrameRate';
+
+type ChromeDesktopMandatoryConstraints = {
+  chromeMediaSource: 'desktop';
+  chromeMediaSourceId: string;
+} & Partial<Record<ScreenConstraintKey, number>>;
+
+type ChromeDesktopMediaTrackConstraints = MediaTrackConstraints & {
+  mandatory: ChromeDesktopMandatoryConstraints;
+};
+
+type PersistedDeviceConfig = VideoConfig | AudioConfig;
 
 export class DeviceManager {
   userDevices: Device[] = [];
@@ -93,7 +123,7 @@ export class DeviceManager {
   async refreshAllDevices(): Promise<Device[] | void> {
     try {
       const sources = await window.electron.getSources();
-      this.availableScreens = sources.map((s: any) => ({ id: s.id, name: s.name }));
+      this.availableScreens = sources.map((source) => ({ id: source.id, name: source.name }));
 
       await navigator.mediaDevices
         .getUserMedia({ video: true, audio: true })
@@ -193,7 +223,9 @@ export class DeviceManager {
       id: deviceId,
       name: deviceName,
       type: type,
-      classId: (classId || this.getOrCreateClassId(deviceId, type, isDefault)) as any,
+      classId: (classId || this.getOrCreateClassId(deviceId, type, isDefault)) as ClassIdPattern<
+        DeviceType
+      >,
       isDefault,
     };
 
@@ -309,13 +341,9 @@ export class DeviceManager {
     deviceId: string,
     deviceType: T,
     isDefault: boolean = false,
-  ): T extends 'screen'
-    ? `screen_${string}`
-    : T extends 'camera'
-      ? `camera_${string}`
-      : `microphone_${string}` {
+  ): ClassIdPattern<T> {
     if (this.deviceIdToClassIdMap.has(deviceId)) {
-      return this.deviceIdToClassIdMap.get(deviceId)! as any;
+      return this.deviceIdToClassIdMap.get(deviceId)! as ClassIdPattern<T>;
     }
 
     let classId: string;
@@ -353,7 +381,7 @@ export class DeviceManager {
 
     // 保存映射关系
     this.deviceIdToClassIdMap.set(deviceId, classId);
-    return classId as any;
+    return classId as ClassIdPattern<T>;
   }
 
   /**
@@ -417,7 +445,7 @@ export class DeviceManager {
 
     // AudioContext.sampleRate 就是输出流的真实采样率
     // 保存到流对象上供后续使用
-    (mergedStream as any)._audioContextSampleRate = audioContext.sampleRate;
+    (mergedStream as AudioContextSampleRateStream)._audioContextSampleRate = audioContext.sampleRate;
 
     return mergedStream;
   }
@@ -432,42 +460,45 @@ export class DeviceManager {
   private applyVideoConstraints(
     constraints: MediaTrackConstraints,
     settings: MediaTrackSettings,
-    isScreen: boolean = false,
   ) {
     type VideoConstraintField = 'width' | 'height' | 'frameRate';
-    type ScreenConstraintKey =
-      | 'minWidth'
-      | 'maxWidth'
-      | 'minHeight'
-      | 'maxHeight'
-      | 'minFrameRate'
-      | 'maxFrameRate';
 
     const fields: VideoConstraintField[] = ['width', 'height', 'frameRate'];
+
+    fields.forEach((field) => {
+      const value = settings[field];
+      if (typeof value !== 'number') return;
+
+      constraints[field] =
+        field === 'frameRate' ? { ideal: value, max: value } : { ideal: value };
+    });
+  }
+
+  private applyScreenConstraints(
+    constraints: ChromeDesktopMandatoryConstraints,
+    settings: MediaTrackSettings,
+  ) {
+    const fields: Array<keyof Pick<MediaTrackSettings, 'width' | 'height' | 'frameRate'>> = [
+      'width',
+      'height',
+      'frameRate',
+    ];
     const screenConstraintMap: Record<
-      VideoConstraintField,
+      (typeof fields)[number],
       { min: ScreenConstraintKey; max: ScreenConstraintKey }
     > = {
       width: { min: 'minWidth', max: 'maxWidth' },
       height: { min: 'minHeight', max: 'maxHeight' },
       frameRate: { min: 'minFrameRate', max: 'maxFrameRate' },
     };
-    const screenConstraints = constraints as MediaTrackConstraints &
-      Partial<Record<ScreenConstraintKey, number>>;
 
     fields.forEach((field) => {
       const value = settings[field];
       if (typeof value !== 'number') return;
 
-      if (isScreen) {
-        const keys = screenConstraintMap[field];
-        screenConstraints[keys.min] = value;
-        screenConstraints[keys.max] = value;
-        return;
-      }
-
-      constraints[field] =
-        field === 'frameRate' ? { ideal: value, max: value } : { ideal: value };
+      const keys = screenConstraintMap[field];
+      constraints[keys.min] = value;
+      constraints[keys.max] = value;
     });
   }
 
@@ -478,7 +509,11 @@ export class DeviceManager {
    * @param device 设备对象
    * @description 根据 settings 中的采样率和通道模式设置相应的约束
    */
-  private applyAudioConstraints(constraints: any, settings: any, device: Device) {
+  private applyAudioConstraints(
+    constraints: MediaTrackConstraints,
+    settings: DeviceSettings | undefined,
+    device: Device,
+  ) {
     if (settings?.sampleRate) {
       constraints.sampleRate = { ideal: settings.sampleRate };
     }
@@ -555,19 +590,19 @@ export class DeviceManager {
     const hasSettings = !!settings;
 
     if (device.type === 'screen') {
-      const mandatory: any = {
+      const mandatory: ChromeDesktopMandatoryConstraints = {
         chromeMediaSource: 'desktop',
         chromeMediaSourceId: device.id,
       };
       if (hasSettings) {
-        this.applyVideoConstraints(mandatory, settings, true);
+        this.applyScreenConstraints(mandatory, settings);
       }
       return navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { mandatory } as any,
+        video: { mandatory } as ChromeDesktopMediaTrackConstraints,
       });
     } else if (device.type === 'camera') {
-      const videoConstraints: any = { deviceId: { exact: device.id } };
+      const videoConstraints: MediaTrackConstraints = { deviceId: { exact: device.id } };
       if (hasSettings) {
         this.applyVideoConstraints(videoConstraints, settings);
       } else {
@@ -597,7 +632,7 @@ export class DeviceManager {
       }
 
       // 单声道模式或设备不支持多通道
-      const audioConstraints: any = { deviceId: device.id };
+      const audioConstraints: MediaTrackConstraints = { deviceId: device.id };
       if (hasSettings) {
         this.applyAudioConstraints(audioConstraints, settings, device);
       }
@@ -613,7 +648,8 @@ export class DeviceManager {
     const rawSettings = audioTrack.getSettings();
 
     // 检查是否是通过 AudioContext 合并的流
-    const audioContextSampleRate = (device.stream as any)._audioContextSampleRate;
+    const audioContextSampleRate = (device.stream as AudioContextSampleRateStream)
+      ._audioContextSampleRate;
 
     // 设置 capabilities
     if (!device.capabilities) {
@@ -895,9 +931,17 @@ export class DeviceManager {
   updateSimulcastBitrates() {
     if (!this.configForm || this.currentConfigDevice?.type === 'microphone') return;
 
-    const configForm = this.configForm as any;
+    const configForm = this.configForm;
     const { width, height, frameRate } = configForm;
     const simulcastConfigs = configForm.simulcastConfigs || [];
+
+    if (
+      typeof width !== 'number' ||
+      typeof height !== 'number' ||
+      typeof frameRate !== 'number'
+    ) {
+      return;
+    }
 
     simulcastConfigs.forEach((config: SimulcastConfig) => {
       const scale = config.scaleResolutionDownBy || 1;
@@ -911,7 +955,7 @@ export class DeviceManager {
   selectSimulcastChannel(rid: string) {
     if (!this.configForm || this.currentConfigDevice?.type === 'microphone') return;
 
-    const configForm = this.configForm as any;
+    const configForm = this.configForm;
     const simulcastConfigs = configForm.simulcastConfigs || [];
 
     const selectedIndex = simulcastConfigs.findIndex((cfg: SimulcastConfig) => cfg.rid === rid);
@@ -927,7 +971,7 @@ export class DeviceManager {
   getSelectedSimulcastChannel(): SimulcastConfig | null {
     if (!this.configForm || this.currentConfigDevice?.type === 'microphone') return null;
 
-    const configForm = this.configForm as any;
+    const configForm = this.configForm;
     const simulcastConfigs = configForm.simulcastConfigs || [];
     return simulcastConfigs[0] || null;
   }
@@ -1120,12 +1164,12 @@ export class DeviceManager {
   /**
    * 从配置文件加载设备
    */
-  async loadDevicesFromConfig(devicesConfig: any): Promise<Device[]> {
+  async loadDevicesFromConfig(devicesConfig: DeviceConfigPayload): Promise<Device[]> {
     const loadedDevices: Device[] = [];
 
     const deviceConfigs: Array<{
       type: DeviceType;
-      configs: any[];
+      configs: PersistedDeviceConfig[];
     }> = [
       { type: 'screen', configs: devicesConfig.screens || [] },
       { type: 'camera', configs: devicesConfig.cameras || [] },
@@ -1148,7 +1192,7 @@ export class DeviceManager {
   /**
    * 加载单个设备
    */
-  private async loadSingleDevice(type: DeviceType, config: any): Promise<Device | null> {
+  private async loadSingleDevice(type: DeviceType, config: PersistedDeviceConfig): Promise<Device | null> {
     try {
       const typeConfig = DEVICE_TYPE_CONFIG[type];
       const deviceInfo = typeConfig.findDeviceInfo(this, config.id);
@@ -1160,7 +1204,7 @@ export class DeviceManager {
         this.deviceIdToClassIdMap.set(config.id, config.classId);
       }
 
-      const classId = config.classId || this.getOrCreateClassId(config.id, type);
+      const classId = this.getPersistedClassId(config, type);
       const device: Device = {
         id: config.id,
         name: typeConfig.getDeviceName(deviceInfo),
@@ -1178,27 +1222,35 @@ export class DeviceManager {
     }
   }
 
+  private getPersistedClassId(
+    config: PersistedDeviceConfig,
+    type: DeviceType,
+  ): ClassIdPattern<DeviceType> {
+    return (config.classId || this.getOrCreateClassId(config.id, type)) as ClassIdPattern<
+      DeviceType
+    >;
+  }
+
   /**
    * 从配置中提取设置
    */
-  private extractSettingsFromConfig(type: DeviceType, config: any): DeviceSettings {
-    const audioFields = ['sampleRate', 'channelCount', 'channelMode'];
-    const videoFields = ['width', 'height', 'frameRate', 'simulcastConfigs'];
-    const fields = type === 'microphone' ? audioFields : videoFields;
-
-    const settings: any = {};
-    fields.forEach((field) => {
-      if (config[field] !== undefined) {
-        settings[field] = config[field];
-      }
-    });
-
-    // 为麦克风设置默认 channelMode
-    if (type === 'microphone' && !settings.channelMode) {
-      settings.channelMode = 'mono';
+  private extractSettingsFromConfig(type: DeviceType, config: PersistedDeviceConfig): DeviceSettings {
+    if (type === 'microphone') {
+      const audioConfig = config as AudioConfig;
+      return {
+        sampleRate: audioConfig.sampleRate,
+        channelCount: audioConfig.channelCount,
+        channelMode: audioConfig.channelMode || 'mono',
+      };
     }
 
-    return settings;
+    const videoConfig = config as VideoConfig;
+    return {
+      width: videoConfig.width,
+      height: videoConfig.height,
+      frameRate: videoConfig.frameRate,
+      simulcastConfigs: videoConfig.simulcastConfigs,
+    };
   }
 
   /**
@@ -1211,12 +1263,18 @@ export class DeviceManager {
 
     try {
       const deviceConfig = this.buildDeviceConfig(device);
-      const existingConfigs = this.getExistingDeviceConfigs(device.type, device.id) as any[];
+      const existingConfigs = this.getExistingDeviceConfigs(device.type, device.id);
 
       if (device.type === 'microphone') {
-        await window.electron.updateAudioConfig([...existingConfigs, deviceConfig] as any);
+        await window.electron.updateAudioConfig([
+          ...(existingConfigs as UpdateAudioConfigDTO[]),
+          deviceConfig as UpdateAudioConfigDTO,
+        ]);
       } else {
-        await window.electron.updateVideoConfig([...existingConfigs, deviceConfig], device.type);
+        await window.electron.updateVideoConfig(
+          [...(existingConfigs as UpdateVideoConfigDTO[]), deviceConfig as UpdateVideoConfigDTO],
+          device.type,
+        );
       }
     } catch (error) {
       console.error(`保存设备 ${device.name} 配置失败:`, error);
@@ -1227,7 +1285,7 @@ export class DeviceManager {
   /**
    * 构建设备配置对象
    */
-  private buildDeviceConfig(device: Device): any {
+  private buildDeviceConfig(device: Device): UpdateAudioConfigDTO | UpdateVideoConfigDTO {
     const baseConfig = {
       id: device.id,
       classId: device.classId,
