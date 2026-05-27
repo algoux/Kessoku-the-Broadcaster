@@ -6,7 +6,6 @@ import { Provide, Ref } from 'vue-property-decorator';
 import { RendererService } from '@/services/renderer-service';
 import { DeviceManager } from '@/services/device-manager';
 import { RecorderService } from '@/services/media-recorder';
-import { getScreenActualRefreshRate } from '@/utils/get-framerate';
 
 import { ElIcon, ElMessage, ElLoading } from 'element-plus';
 import type { LoadingInstance } from 'element-plus/es/components/loading/src/loading';
@@ -420,10 +419,6 @@ class HomeView extends Vue {
     window.electron.onConnectionStateChanged((state) => {
       this.updateConnectionState(state);
     });
-
-    // 设置屏幕最大帧率
-    const fps = await getScreenActualRefreshRate(60);
-    this.deviceManager.setScreenAvailableMaxFrameRate = fps;
 
     await this.refreshAllDevices();
   }
