@@ -21,10 +21,6 @@ import {
 import type { DeviceConfigPayload } from 'common/typings/ipc.types';
 import { toRaw } from 'vue';
 
-type AudioContextSampleRateStream = MediaStream & {
-  _audioContextSampleRate?: number;
-};
-
 type ScreenConstraintKey =
   | 'minWidth'
   | 'maxWidth'
@@ -48,7 +44,6 @@ export class DeviceManager {
   userDevices: Device[] = [];
   selectedPreset: string = '';
   deviceIdToClassIdMap: Map<string, string> = new Map();
-  microphoneGroupMap: Map<string, MediaDeviceInfo[]> = new Map();
   currentConfigDevice: Device = {} as Device;
   availableScreens: Array<{ id: string; name: string }> = [];
   availableCameras: Array<MediaDeviceInfo> = [];
@@ -88,33 +83,6 @@ export class DeviceManager {
   }
 
   /**
-   * 合并同一物理麦克风的多个通道
-   * @description 通过 groupId 识别同一个物理设备
-   * @returns {MediaDeviceInfo[]} 合并后的麦克风设备列表
-   */
-  private mergeMicrophoneChannels(audioDevices: MediaDeviceInfo[]): MediaDeviceInfo[] {
-    const deviceMap = new Map<string, MediaDeviceInfo>();
-    this.microphoneGroupMap.clear();
-
-    audioDevices.forEach((device) => {
-      const groupId = device.groupId;
-
-      // 保存所有设备到 groupMap（包括同一 groupId 的多个设备）
-      if (!this.microphoneGroupMap.has(groupId)) {
-        this.microphoneGroupMap.set(groupId, []);
-      }
-      this.microphoneGroupMap.get(groupId)!.push(device);
-
-      // 如果已经有同一 groupId 的设备，跳过（保留第一个用于显示）
-      if (!deviceMap.has(groupId)) {
-        deviceMap.set(groupId, device);
-      }
-    });
-
-    return Array.from(deviceMap.values());
-  }
-
-  /**
    * 刷新设备列表
    * @async
    * @description 获取最新的可用设备列表，并加载已有配置
@@ -133,8 +101,7 @@ export class DeviceManager {
       const devices = await navigator.mediaDevices.enumerateDevices();
 
       this.availableCameras = devices.filter((d) => d.kind === 'videoinput');
-      const audioInputDevices = devices.filter((d) => d.kind === 'audioinput');
-      this.availableMicrophones = this.mergeMicrophoneChannels(audioInputDevices);
+      this.availableMicrophones = devices.filter((d) => d.kind === 'audioinput');
       console.log('可用麦克风设备列表:', this.availableMicrophones);
 
       // 检查是否已有配置
@@ -393,64 +360,6 @@ export class DeviceManager {
   }
 
   /**
-   * 查找同一物理设备的所有通道
-   * @description 根据 deviceId 查找同一 groupId 下的所有设备
-   * @param deviceId 设备 ID
-   * @returns {MediaDeviceInfo[]} 同一物理设备的所有通道设备列表
-   */
-  private findDevicesInSameGroup(deviceId: string): MediaDeviceInfo[] {
-    // 从所有麦克风设备中找到匹配的 groupId
-    for (const [, devices] of this.microphoneGroupMap.entries()) {
-      if (devices.some((d) => d.deviceId === deviceId)) {
-        return devices;
-      }
-    }
-    return [];
-  }
-
-  /**
-   * 创建立体声流
-   * @description 从两个单声道设备合并为一个立体声流
-   * @param devices 设备列表（至少两个设备）
-   * @returns {Promise<MediaStream>} 创建的立体声流
-   */
-  private async createStereoStream(devices: MediaDeviceInfo[]): Promise<MediaStream> {
-    if (devices.length < 2) {
-      throw new Error('需要至少两个通道才能创建立体声流');
-    }
-
-    // 获取两个单声道流
-    const stream1 = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: devices[0].deviceId, channelCount: 1 },
-    });
-    const stream2 = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: devices[1].deviceId, channelCount: 1 },
-    });
-
-    // 使用 AudioContext 合并两个单声道为立体声
-    const audioContext = new AudioContext();
-    const source1 = audioContext.createMediaStreamSource(stream1);
-    const source2 = audioContext.createMediaStreamSource(stream2);
-
-    // 创建通道合并节点
-    const merger = audioContext.createChannelMerger(2);
-    source1.connect(merger, 0, 0); // 左声道
-    source2.connect(merger, 0, 1); // 右声道
-
-    // 创建目标节点
-    const destination = audioContext.createMediaStreamDestination();
-    merger.connect(destination);
-
-    const mergedStream = destination.stream;
-
-    // AudioContext.sampleRate 就是输出流的真实采样率
-    // 保存到流对象上供后续使用
-    (mergedStream as AudioContextSampleRateStream)._audioContextSampleRate = audioContext.sampleRate;
-
-    return mergedStream;
-  }
-
-  /**
    * 应用视频约束到 constraints 对象
    * @param constraints 约束对象
    * @param settings 设备设置
@@ -535,32 +444,6 @@ export class DeviceManager {
    */
   async startDeviceStream(device: Device): Promise<Device> {
     try {
-      // 对于麦克风设备，检查是否支持立体声（有多个通道可合并）
-      if (device.type === 'microphone' && !device.settings?.channelMode) {
-        if (!device.settings) {
-          device.settings = {};
-        }
-
-        const tempStream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: device.id },
-        });
-
-        const track = tempStream.getAudioTracks()[0];
-        const caps = track.getCapabilities();
-
-        track.stop();
-
-        if ((caps.channelCount?.max ?? 0) >= 2) {
-          device.settings.channelMode = 'stereo';
-          device.settings.channelCount = 2;
-        } else {
-          const devicesInGroup = this.findDevicesInSameGroup(device.id);
-          if (devicesInGroup.length >= 2) {
-            device.settings.channelMode = 'stereo';
-          }
-        }
-      }
-
       const stream = await this.getDeviceStream(device);
       device.stream = stream;
 
@@ -613,25 +496,6 @@ export class DeviceManager {
         video: videoConstraints,
       });
     } else {
-      // microphone
-      // 检查是否需要 stereo 模式并且设备支持多通道
-      if (device.settings?.channelMode === 'stereo') {
-        if (settings?.channelCount === 2) {
-          // 原生 stereo
-          return navigator.mediaDevices.getUserMedia({
-            audio: {
-              deviceId: device.id,
-              channelCount: { ideal: 2 },
-            },
-          });
-        }
-        const devicesInGroup = this.findDevicesInSameGroup(device.id);
-        if (devicesInGroup.length >= 2) {
-          return this.createStereoStream(devicesInGroup);
-        }
-      }
-
-      // 单声道模式或设备不支持多通道
       const audioConstraints: MediaTrackConstraints = { deviceId: device.id };
       if (hasSettings) {
         this.applyAudioConstraints(audioConstraints, settings, device);
@@ -647,43 +511,21 @@ export class DeviceManager {
     const capabilities = audioTrack.getCapabilities() as DeviceCapabilities;
     const rawSettings = audioTrack.getSettings();
 
-    // 检查是否是通过 AudioContext 合并的流
-    const audioContextSampleRate = (device.stream as AudioContextSampleRateStream)
-      ._audioContextSampleRate;
-
-    // 设置 capabilities
     if (!device.capabilities) {
-      if (audioContextSampleRate) {
-        // 立体声合并流：AudioContext 的采样率是固定的，不可调整
-        device.capabilities = {
-          ...capabilities,
-          sampleRate: {
-            min: audioContextSampleRate,
-            max: audioContextSampleRate,
-          },
-          channelCount: { min: 2, max: 2 },
-        } as DeviceCapabilities;
-      } else {
-        // 单声道原始流：使用设备真实的 capabilities，支持动态调整
-        device.capabilities = capabilities;
-        // 如果设备没有提供 sampleRate 范围，使用当前值作为固定值
-        if (!device.capabilities.sampleRate) {
-          const actualSampleRate = rawSettings.sampleRate || 48000;
-          device.capabilities.sampleRate = {
-            min: actualSampleRate,
-            max: actualSampleRate,
-          };
-        }
+      device.capabilities = capabilities;
+      if (!device.capabilities.sampleRate) {
+        const actualSampleRate = rawSettings.sampleRate || 48000;
+        device.capabilities.sampleRate = {
+          min: actualSampleRate,
+          max: actualSampleRate,
+        };
       }
     }
 
     if (!device.settings) {
-      // 根据实际通道数设置默认 channelMode
       const channelMode = rawSettings.channelCount === 2 ? 'stereo' : 'mono';
-      // 使用真实的采样率：AudioContext 的或流本身的
-      const sampleRate = audioContextSampleRate || rawSettings.sampleRate;
       device.settings = {
-        sampleRate: sampleRate,
+        sampleRate: rawSettings.sampleRate,
         channelCount: rawSettings.channelCount,
         channelMode: channelMode,
       };
