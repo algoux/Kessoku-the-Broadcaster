@@ -3,14 +3,20 @@ import path from 'path';
 import os from 'os';
 
 import { app, BrowserWindow, desktopCapturer } from 'electron';
-import { isDevelopment, ipcMainHandle, ipcMainOn, ipcWebContentsSend } from './utils/index';
+import {
+  isDevelopment,
+  isLocalDevelopment,
+  ipcMainHandle,
+  ipcMainOn,
+  ipcWebContentsSend,
+} from './utils/index';
 import { getPreloadPath, getUIPath } from './utils/path-resolver';
 import { WebSocketService } from './services/websocket-service';
 import { VideoRecordingService } from './services/video-recording-service';
 import { ConfigManager } from './services/config-manager';
 import { createTray } from './utils/tray';
 import log from 'electron-log';
-import type { DeviceInfo, TrackInfo } from './typings/data';
+import type { ContestInfo, DeviceInfo, TrackInfo } from './typings/data';
 
 import {
   UpdateConfigDTO,
@@ -20,6 +26,39 @@ import {
 
 function getRespErrorMessage(resp: { success: boolean; msg?: string }, fallback: string) {
   return resp.msg || fallback;
+}
+
+function getLocalContestInfo(): ContestInfo {
+  const config = configManager.getConfigData;
+
+  return {
+    alias: config.competitionConfig.alias || 'local-dev',
+    contest: {
+      title: {
+        'zh-CN': config.competitionConfig.competitionName || '本地开发演示赛',
+        fallback: config.competitionConfig.competitionName || 'Local Development Contest',
+      },
+      startAt: new Date().toISOString(),
+      duration: [5, 'h'],
+    },
+    user: {
+      id: config.userConfig.userId || 'local-dev-user',
+      name: {
+        'zh-CN': config.userConfig.userName || '本地调试用户',
+        fallback: config.userConfig.userName || 'Local Dev User',
+      },
+      location: {
+        'zh-CN': config.userConfig.placeName || 'Localhost',
+        fallback: config.userConfig.placeName || 'Localhost',
+      },
+      organization: {
+        'zh-CN': config.userConfig.organizationName || 'Kessoku Local',
+        fallback: config.userConfig.organizationName || 'Kessoku Local',
+      },
+      official: true,
+    },
+    serverTimestamp: Date.now(),
+  };
 }
 
 // 配置日志路径到用户目录
@@ -45,6 +84,7 @@ let settingsWindow: BrowserWindow;
 let webSocketService: WebSocketService;
 let videoRecordingService: VideoRecordingService;
 let configManager: ConfigManager = new ConfigManager();
+const localDevelopmentMode = isLocalDevelopment();
 
 app.setAboutPanelOptions({
   applicationName: app.getName(),
@@ -165,6 +205,18 @@ function setupIpcHandlers() {
     'login',
     async ({ alias, userId, token }: { alias: string; userId: string; token: string }) => {
       try {
+        if (localDevelopmentMode) {
+          configManager.updateUserConfig({ userId, broadcasterToken: token });
+          configManager.updateCompetitionConfig({ alias });
+          if (loginWindow) {
+            loginWindow.close();
+            loginWindow = null;
+          }
+          mainWindow = createMainWindow();
+          showWindow(mainWindow);
+          return { success: true };
+        }
+
         const config = configManager.getConfigData;
         webSocketService = new WebSocketService(
           config.serviceURL || 'https://rl-broadcast-hub.algoux.cn',
@@ -199,6 +251,12 @@ function setupIpcHandlers() {
 
   ipcMainHandle('logout', async () => {
     try {
+      if (localDevelopmentMode) {
+        app.quit();
+        log.info('本地开发模式退出');
+        return { success: true };
+      }
+
       if (configManager && webSocketService) {
         await webSocketService.cancelReady();
         configManager.clearUserConfig();
@@ -214,12 +272,23 @@ function setupIpcHandlers() {
 
   // 获取连接状态
   ipcMainHandle('getConnectionStatus', () => {
+    if (localDevelopmentMode) {
+      return 'disconnected';
+    }
+
     const status = webSocketService ? webSocketService.getConnectionStatus() : 'disconnected';
     return status as 'connected' | 'disconnected' | 'connecting';
   });
 
   // 获取比赛信息
   ipcMainHandle('getContestInfo', async () => {
+    if (localDevelopmentMode) {
+      return {
+        success: true,
+        data: getLocalContestInfo(),
+      };
+    }
+
     return await webSocketService.getContestInfo();
   });
 
@@ -229,6 +298,10 @@ function setupIpcHandlers() {
   ipcMainHandle(
     'connectProducerTransport',
     async ({ dtlsParameters }) => {
+      if (localDevelopmentMode) {
+        return;
+      }
+
       const resp = await webSocketService.completeConnectTransport({ dtlsParameters });
       if (!resp.success) {
         throw new Error(getRespErrorMessage(resp, '连接 transport 失败'));
@@ -237,6 +310,10 @@ function setupIpcHandlers() {
   );
 
   ipcMainHandle('createProducer', async ({ trackId, kind, rtpParameters }) => {
+    if (localDevelopmentMode) {
+      return { id: `local-${trackId}-${kind}` };
+    }
+
     const resp = await webSocketService.produce({ kind, rtpParameters, trackId });
     if (!resp.success) {
       throw new Error(getRespErrorMessage(resp, '推流失败'));
@@ -245,11 +322,19 @@ function setupIpcHandlers() {
   });
 
   ipcMainHandle('completeStopBroadcast', async ({ requestId }) => {
+    if (localDevelopmentMode) {
+      return { success: true };
+    }
+
     webSocketService.completeStopBroadcast(requestId);
     return { success: true };
   });
 
   ipcMainHandle('reportDeviceState', async ({ devices, isReady }) => {
+    if (localDevelopmentMode) {
+      return { success: true };
+    }
+
     if (isReady && devices && devices.length > 0) {
       const tracks: TrackInfo[] = devices.map((device: DeviceInfo) => {
         const track: TrackInfo = {
@@ -503,6 +588,13 @@ const handleCloseEvents = (mainWindow: BrowserWindow) => {
 app.whenReady().then(async () => {
   log.info('Electron 应用就绪');
   setupIpcHandlers();
+
+  if (localDevelopmentMode) {
+    log.info('本地开发模式启动，跳过配置自动登录和服务器连接');
+    mainWindow = createMainWindow();
+    showWindow(mainWindow);
+    return;
+  }
 
   const appConfig = configManager.getConfigData;
   const alias = appConfig?.competitionConfig?.alias;

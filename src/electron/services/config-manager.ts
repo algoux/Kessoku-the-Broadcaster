@@ -11,16 +11,55 @@ import path from 'path';
 import os from 'os';
 import { app } from 'electron';
 import { v4 as uuidv4 } from 'uuid';
+import { isLocalDevelopment } from '../utils';
 
 export class ConfigManager {
   protected configPath: string = os.homedir() + '/.Kessoku-the-Broadcaster/config.json';
   private configData: AppConfigInterface;
+  private readonly isLocalMode = isLocalDevelopment();
 
   constructor() {
     this.loadingConfig();
   }
 
+  private createDefaultConfig(): AppConfigInterface {
+    return {
+      version: app.getVersion(),
+      serviceURL: 'https://rl-broadcast-hub.algoux.cn',
+      servicePath: undefined,
+      clientId: this.isLocalMode ? 'local-dev-client' : uuidv4().substring(0, 18),
+      appConfig: {
+        autoOpenOnLogin: false,
+        autoReady: false,
+        videoCachePath: this.isLocalMode
+          ? path.join(os.tmpdir(), 'Kessoku-the-Broadcaster-local-cache')
+          : os.homedir() + '/.Kessoku-the-Broadcaster/cache',
+      },
+      userConfig: this.isLocalMode
+        ? {
+            userId: 'local-dev-user',
+            userName: '本地调试用户',
+            organizationName: 'Kessoku Local',
+            placeName: 'Localhost',
+          }
+        : {},
+      competitionConfig: this.isLocalMode
+        ? {
+            competitionId: 0,
+            competitionName: '本地开发演示赛',
+            alias: 'local-dev',
+          }
+        : {},
+      devicesConfig: {},
+    };
+  }
+
   private loadingConfig() {
+    if (this.isLocalMode) {
+      this.configData = this.createDefaultConfig();
+      return;
+    }
+
     if (fs.existsSync(this.configPath)) {
       const rawData = fs.readFileSync(this.configPath, 'utf-8');
       this.configData = JSON.parse(rawData) as AppConfigInterface;
@@ -64,34 +103,15 @@ export class ConfigManager {
         fs.mkdirSync(configDir, { recursive: true });
       }
 
-      const defaultCachePath = os.homedir() + '/.Kessoku-the-Broadcaster/cache';
+      const defaultConfig = this.createDefaultConfig();
+      const defaultCachePath = defaultConfig.appConfig.videoCachePath!;
 
       // 确保缓存目录存在
       if (!fs.existsSync(defaultCachePath)) {
         fs.mkdirSync(defaultCachePath, { recursive: true });
       }
 
-      fs.writeFileSync(
-        this.configPath,
-        JSON.stringify(
-          {
-            version: app.getVersion(),
-            serviceURL: 'https://rl-broadcast-hub.algoux.cn',
-            servicePath: undefined,
-            clientId: uuidv4().substring(0, 18),
-            appConfig: {
-              autoOpenOnLogin: false,
-              autoReady: false,
-              videoCachePath: defaultCachePath,
-            },
-            userConfig: {},
-            competitionConfig: {},
-            devicesConfig: {},
-          } as AppConfigInterface,
-          null,
-          2,
-        ),
-      );
+      fs.writeFileSync(this.configPath, JSON.stringify(defaultConfig, null, 2));
       this.configData = JSON.parse(fs.readFileSync(this.configPath, 'utf-8')) as AppConfigInterface;
     }
   }
@@ -122,6 +142,9 @@ export class ConfigManager {
   }
 
   private saveConfig() {
+    if (this.isLocalMode) {
+      return;
+    }
     fs.writeFileSync(this.configPath, JSON.stringify(this.configData, null, 2));
   }
 
@@ -154,7 +177,7 @@ export class ConfigManager {
       };
 
       // 如果更新了 videoCachePath，确保目录存在
-      if (data.videoCachePath && !fs.existsSync(data.videoCachePath)) {
+      if (!this.isLocalMode && data.videoCachePath && !fs.existsSync(data.videoCachePath)) {
         fs.mkdirSync(data.videoCachePath, { recursive: true });
       }
 
