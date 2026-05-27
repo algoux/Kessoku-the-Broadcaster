@@ -4,6 +4,10 @@ export function isDevelopment() {
   return process.env.NODE_ENV === 'development';
 }
 
+export function isLocalDevelopment() {
+  return process.env.KTBC_LOCAL_DEV === '1';
+}
+
 export function ipcMainHandle<Key extends keyof EventPayloadMapping>(
   key: Key,
   handler: (
