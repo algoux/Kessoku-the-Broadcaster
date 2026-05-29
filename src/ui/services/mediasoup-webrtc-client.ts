@@ -83,12 +83,16 @@ export class MediasoupClient {
   private buildVideoEncodings(simulcastConfigs?: SimulcastConfig[]) {
     if (!simulcastConfigs?.length) return undefined;
 
-    return simulcastConfigs.map((config) => ({
-      rid: config.rid,
-      scaleResolutionDownBy: config.scaleResolutionDownBy,
-      maxBitrate: config.maxBitRate,
-      ...(config.maxFramerate ? { maxFramerate: config.maxFramerate } : {}),
-    }));
+    const selectedConfig = simulcastConfigs[0];
+    return [
+      {
+        ...(selectedConfig.scaleResolutionDownBy > 1
+          ? { scaleResolutionDownBy: selectedConfig.scaleResolutionDownBy }
+          : {}),
+        maxBitrate: selectedConfig.maxBitRate,
+        ...(selectedConfig.maxFramerate ? { maxFramerate: selectedConfig.maxFramerate } : {}),
+      },
+    ];
   }
 
   private rememberProducer(classId: string, producer: Producer) {
