@@ -1236,10 +1236,10 @@ export class DeviceManager {
     const scaledWidth = width / scaleResolutionDownBy;
     const scaledHeight = height / scaleResolutionDownBy;
     const qualityFactorByRid: Record<string, number> = {
-      original: 0.105,
-      high: 0.105,
-      medium: 0.085,
-      low: 0.072,
+      original: 0.161,
+      high: 0.13,
+      medium: 0.1,
+      low: 0.078,
     };
     const bitsPerPixelFrame = qualityFactorByRid[rid] ?? 0.09;
 
