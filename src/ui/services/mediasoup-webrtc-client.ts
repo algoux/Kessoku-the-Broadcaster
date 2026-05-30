@@ -80,21 +80,6 @@ export class MediasoupClient {
     return !!this.producerTransport && !this.producerTransport.closed;
   }
 
-  private buildVideoEncodings(simulcastConfigs?: SimulcastConfig[]) {
-    if (!simulcastConfigs?.length) return undefined;
-
-    const selectedConfig = simulcastConfigs[0];
-    return [
-      {
-        ...(selectedConfig.scaleResolutionDownBy > 1
-          ? { scaleResolutionDownBy: selectedConfig.scaleResolutionDownBy }
-          : {}),
-        maxBitrate: selectedConfig.maxBitRate,
-        ...(selectedConfig.maxFramerate ? { maxFramerate: selectedConfig.maxFramerate } : {}),
-      },
-    ];
-  }
-
   private rememberProducer(classId: string, producer: Producer) {
     this.producers.set(producer.id, producer);
 
@@ -122,11 +107,7 @@ export class MediasoupClient {
   }
 
   // 推送视频流
-  async produceVideo(
-    track: MediaStreamTrack,
-    classId: string,
-    simulcastConfigs?: SimulcastConfig[],
-  ): Promise<void> {
+  async produceVideo(track: MediaStreamTrack, classId: string): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
 
     // 检查该 classId 是否已有活跃的视频 producer
@@ -138,10 +119,8 @@ export class MediasoupClient {
     }
 
     try {
-      const encodings = this.buildVideoEncodings(simulcastConfigs);
       const producer = await this.producerTransport.produce({
         track,
-        ...(encodings && encodings.length > 0 ? { encodings } : {}),
         appData: { classId }, // 传递 classId
       });
 
@@ -177,13 +156,13 @@ export class MediasoupClient {
   async produceStream(
     stream: MediaStream,
     classId: string,
-    simulcastConfigs?: SimulcastConfig[],
+    _simulcastConfigs?: SimulcastConfig[],
   ): Promise<void> {
     const videoTrack = stream.getVideoTracks()[0];
     const audioTrack = stream.getAudioTracks()[0];
     if (videoTrack) {
       const cloneVideoTrack = videoTrack.clone();
-      await this.produceVideo(cloneVideoTrack, classId, simulcastConfigs);
+      await this.produceVideo(cloneVideoTrack, classId);
     }
     if (audioTrack) {
       const cloneAudioTrack = audioTrack.clone();
