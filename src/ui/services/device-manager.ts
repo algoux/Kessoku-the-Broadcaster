@@ -569,27 +569,13 @@ export class DeviceManager {
           ? this.idealScreenFrameRate
           : rawSettings.frameRate ?? capabilityFrameRateMax;
 
-      // 创建默认的 simulcastConfigs（原画在前，低清在后）
-      const simulcastConfigs: SimulcastConfig[] = [
-        {
-          rid: 'original',
-          scaleResolutionDownBy: 1,
-          maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 1, 'original'),
-        },
-        {
-          rid: 'low',
-          scaleResolutionDownBy: 4,
-          maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 4, 'low'),
-        },
-      ];
-
       device.settings = {
         width,
         height,
         frameRate,
         aspectRatio: rawSettings.aspectRatio,
         facingMode: rawSettings.facingMode,
-        simulcastConfigs: simulcastConfigs,
+        simulcastConfigs: this.buildSimulcastConfigs(width, height, frameRate),
       };
     } else {
       // 补充预设配置中缺失的字段
@@ -599,48 +585,16 @@ export class DeviceManager {
         facingMode: device.settings.facingMode || rawSettings.facingMode,
       };
 
-      // 如果 simulcastConfigs 不存在或为空，创建默认配置
-      if (!device.settings.simulcastConfigs || device.settings.simulcastConfigs.length === 0) {
-        const width = device.settings.width ?? capabilities.width?.max ?? rawSettings.width ?? 1920;
-        const height = device.settings.height ?? capabilities.height?.max ?? rawSettings.height ?? 1080;
-        const frameRate =
-          device.settings.frameRate ??
-          (device.type === 'screen'
-            ? this.idealScreenFrameRate
-            : rawSettings.frameRate ?? capabilityFrameRateMax);
-
-        device.settings.simulcastConfigs = [
-          {
-            rid: 'original',
-            scaleResolutionDownBy: 1,
-            maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 1, 'original'),
-          },
-          {
-            rid: 'low',
-            scaleResolutionDownBy: 4,
-            maxBitRate: this.calculateSimulcastBitrate(width, height, frameRate, 4, 'low'),
-          },
-        ];
-      } else {
-        const width = device.settings.width ?? capabilities.width?.max ?? rawSettings.width ?? 1920;
-        const height = device.settings.height ?? capabilities.height?.max ?? rawSettings.height ?? 1080;
-        const frameRate =
-          device.settings.frameRate ??
-          (device.type === 'screen'
-            ? this.idealScreenFrameRate
-            : rawSettings.frameRate ?? capabilityFrameRateMax);
-
-        device.settings.simulcastConfigs = device.settings.simulcastConfigs.map((config) => ({
-          ...config,
-          maxBitRate: this.calculateSimulcastBitrate(
-            width,
-            height,
-            frameRate,
-            config.scaleResolutionDownBy || 1,
-            config.rid,
-          ),
-        }));
-      }
+      // 始终按当前分辨率和帧率重建 simulcastConfigs：
+      // 旧版本保存的配置是 [original, low]（顺序反了且缺少中间层），在这里统一规范化
+      const width = device.settings.width ?? capabilities.width?.max ?? rawSettings.width ?? 1920;
+      const height = device.settings.height ?? capabilities.height?.max ?? rawSettings.height ?? 1080;
+      const frameRate =
+        device.settings.frameRate ??
+        (device.type === 'screen'
+          ? this.idealScreenFrameRate
+          : rawSettings.frameRate ?? capabilityFrameRateMax);
+      device.settings.simulcastConfigs = this.buildSimulcastConfigs(width, height, frameRate);
     }
     device.formatSetting = this.getFormatSettings(device);
   }
@@ -789,33 +743,6 @@ export class DeviceManager {
       const scale = config.scaleResolutionDownBy || 1;
       config.maxBitRate = this.calculateSimulcastBitrate(width, height, frameRate, scale, config.rid);
     });
-  }
-
-  /**
-   * 选择 simulcast 通道（将选中的移到第一位）
-   */
-  selectSimulcastChannel(rid: string) {
-    if (!this.configForm || this.currentConfigDevice?.type === 'microphone') return;
-
-    const configForm = this.configForm;
-    const simulcastConfigs = configForm.simulcastConfigs || [];
-
-    const selectedIndex = simulcastConfigs.findIndex((cfg: SimulcastConfig) => cfg.rid === rid);
-    if (selectedIndex === -1 || selectedIndex === 0) return;
-
-    const selectedConfig = simulcastConfigs.splice(selectedIndex, 1)[0];
-    simulcastConfigs.unshift(selectedConfig);
-  }
-
-  /**
-   * 获取当前选中的 simulcast 通道
-   */
-  getSelectedSimulcastChannel(): SimulcastConfig | null {
-    if (!this.configForm || this.currentConfigDevice?.type === 'microphone') return null;
-
-    const configForm = this.configForm;
-    const simulcastConfigs = configForm.simulcastConfigs || [];
-    return simulcastConfigs[0] || null;
   }
 
   /**
@@ -1226,6 +1153,29 @@ export class DeviceManager {
     ];
   }
 
+  /**
+   * 生成 simulcast 通道配置
+   *
+   * mediasoup 按 encodings 的顺序编号空间层（第 0 个为最低层，最后一个为最高层），
+   * 导播端按层号选择清晰度，因此必须按分辨率从低到高排列
+   */
+  private buildSimulcastConfigs(width: number, height: number, frameRate: number): SimulcastConfig[] {
+    return [
+      { rid: 'low', scaleResolutionDownBy: 4 },
+      { rid: 'medium', scaleResolutionDownBy: 2 },
+      { rid: 'original', scaleResolutionDownBy: 1 },
+    ].map((config) => ({
+      ...config,
+      maxBitRate: this.calculateSimulcastBitrate(
+        width,
+        height,
+        frameRate,
+        config.scaleResolutionDownBy,
+        config.rid,
+      ),
+    }));
+  }
+
   private calculateSimulcastBitrate(
     width: number,
     height: number,
@@ -1236,7 +1186,7 @@ export class DeviceManager {
     const scaledWidth = width / scaleResolutionDownBy;
     const scaledHeight = height / scaleResolutionDownBy;
     const qualityFactorByRid: Record<string, number> = {
-      original: 0.161,
+      original: 0.08,
       high: 0.13,
       medium: 0.1,
       low: 0.078,
