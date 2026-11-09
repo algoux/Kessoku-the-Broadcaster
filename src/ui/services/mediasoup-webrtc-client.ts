@@ -10,6 +10,8 @@ import {
 import { SimulcastConfig } from 'common/config.interface';
 import type { TransportInfo } from 'common/typings/broadcaster.types';
 
+const VIDEO_START_BITRATE_KBPS = 3000;
+
 type ProducerAppData = AppData & {
   classId: string;
 };
@@ -80,6 +82,22 @@ export class MediasoupClient {
     return !!this.producerTransport && !this.producerTransport.closed;
   }
 
+  /**
+   * mediasoup 按 encodings 顺序编号空间层（最后一个为最高层），这里按分辨率从低到高排序兜底
+   */
+  private buildVideoEncodings(simulcastConfigs?: SimulcastConfig[]) {
+    if (!simulcastConfigs?.length) return undefined;
+
+    return [...simulcastConfigs]
+      .sort((a, b) => b.scaleResolutionDownBy - a.scaleResolutionDownBy)
+      .map((config) => ({
+        rid: config.rid,
+        scaleResolutionDownBy: config.scaleResolutionDownBy,
+        maxBitrate: config.maxBitRate,
+        ...(config.maxFramerate ? { maxFramerate: config.maxFramerate } : {}),
+      }));
+  }
+
   private rememberProducer(classId: string, producer: Producer) {
     this.producers.set(producer.id, producer);
 
@@ -107,7 +125,11 @@ export class MediasoupClient {
   }
 
   // 推送视频流
-  async produceVideo(track: MediaStreamTrack, classId: string): Promise<void> {
+  async produceVideo(
+    track: MediaStreamTrack,
+    classId: string,
+    simulcastConfigs?: SimulcastConfig[],
+  ): Promise<void> {
     if (!this.producerTransport) throw new Error('传输通道未创建');
 
     // 检查该 classId 是否已有活跃的视频 producer
@@ -119,8 +141,17 @@ export class MediasoupClient {
     }
 
     try {
+      const encodings = this.buildVideoEncodings(simulcastConfigs);
       const producer = await this.producerTransport.produce({
         track,
+        ...(encodings
+          ? {
+              encodings,
+              // 浏览器默认从约 300 kbps 起步，要先满足低层才开启高层，原画层需等二三十秒才出现；
+              // 提高起步码率让原画层尽快开启，带宽不足时拥塞控制会自动回落
+              codecOptions: { videoGoogleStartBitrate: VIDEO_START_BITRATE_KBPS },
+            }
+          : {}),
         appData: { classId }, // 传递 classId
       });
 
@@ -156,13 +187,13 @@ export class MediasoupClient {
   async produceStream(
     stream: MediaStream,
     classId: string,
-    _simulcastConfigs?: SimulcastConfig[],
+    simulcastConfigs?: SimulcastConfig[],
   ): Promise<void> {
     const videoTrack = stream.getVideoTracks()[0];
     const audioTrack = stream.getAudioTracks()[0];
     if (videoTrack) {
       const cloneVideoTrack = videoTrack.clone();
-      await this.produceVideo(cloneVideoTrack, classId);
+      await this.produceVideo(cloneVideoTrack, classId, simulcastConfigs);
     }
     if (audioTrack) {
       const cloneAudioTrack = audioTrack.clone();

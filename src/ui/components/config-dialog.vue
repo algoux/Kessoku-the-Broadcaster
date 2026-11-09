@@ -53,21 +53,6 @@ class ConfigDialog extends Vue {
   }
 
   /**
-   * 获取当前选中的通道 rid
-   */
-  get selectedChannelRid(): string {
-    const selected = this.deviceManager.getSelectedSimulcastChannel();
-    return selected?.rid || 'original';
-  }
-
-  /**
-   * 设置当前选中的通道 rid
-   */
-  set selectedChannelRid(rid: string) {
-    this.deviceManager.selectSimulcastChannel(rid);
-  }
-
-  /**
    * 获取帧率选项
    */
   get frameRateOptions() {
@@ -101,7 +86,7 @@ class ConfigDialog extends Vue {
     const nameMap: Record<string, string> = {
       original: '原画',
       low: '低清',
-      medium: '中清',
+      medium: '标清',
       high: '高清',
     };
     return nameMap[rid] || rid;
@@ -112,10 +97,6 @@ class ConfigDialog extends Vue {
     const bitrateMbps = config.maxBitRate / 1_000_000;
     const scale = config.scaleResolutionDownBy;
     return `${name} (${scale}x) @ ${bitrateMbps.toFixed(1)} Mbps`;
-  }
-
-  onSimulcastChange(rid: string) {
-    this.deviceManager.selectSimulcastChannel(rid);
   }
 
   onPresetChange(presetStr: string) {
@@ -227,17 +208,13 @@ export default ConfigDialog;
         </el-select>
       </el-form-item>
 
-      <el-form-item label="码率">
-        <el-select v-model="selectedChannelRid" placeholder="选择码率" @change="onSimulcastChange">
-          <el-option
-            v-for="config in simulcastConfigs"
-            :key="config.rid"
-            :value="config.rid"
-            :label="formatSimulcastConfig(config)"
-          >
-            <span>{{ formatSimulcastConfig(config) }}</span>
-          </el-option>
-        </el-select>
+      <!-- 同时推送全部层级，由导播端选择清晰度 -->
+      <el-form-item label="推流层级">
+        <div class="capabilities-info">
+          <p v-for="config in simulcastConfigs" :key="config.rid">
+            {{ formatSimulcastConfig(config) }}
+          </p>
+        </div>
       </el-form-item>
 
       <el-form-item label="支持范围">
