@@ -6,6 +6,7 @@ import { app, BrowserWindow, desktopCapturer } from 'electron';
 import {
   isDevelopment,
   isLocalDevelopment,
+  getLaunchOptions,
   ipcMainHandle,
   ipcMainOn,
   ipcWebContentsSend,
@@ -74,7 +75,7 @@ log.transports.file.resolvePathFn = () => path.join(logsDir, 'main.log');
 log.transports.file.level = 'info';
 log.transports.console.level = 'debug';
 
-log.info('应用启动', { version: app.getVersion(), platform: process.platform });
+log.info('应用启动', { version: app.getVersion(), platform: process.platform, argv: process.argv });
 
 app.setName('Kessoku the Broadcaster');
 
@@ -85,6 +86,7 @@ let webSocketService: WebSocketService;
 let videoRecordingService: VideoRecordingService;
 let configManager: ConfigManager = new ConfigManager();
 const localDevelopmentMode = isLocalDevelopment();
+const launchOptions = getLaunchOptions();
 
 app.setAboutPanelOptions({
   applicationName: app.getName(),
@@ -98,6 +100,20 @@ function showWindow(window: BrowserWindow) {
   window.on('ready-to-show', () => {
     window.show();
   });
+}
+
+/**
+ * 启动后显示主窗口；后台模式下保持隐藏，仅保留托盘
+ */
+function showMainWindowOnLaunch(window: BrowserWindow) {
+  if (launchOptions.daemon) {
+    log.info('后台模式启动，主窗口保持隐藏');
+    if (app.dock) {
+      app.dock.hide();
+    }
+    return;
+  }
+  showWindow(window);
 }
 
 function createLoginWindow() {
@@ -446,6 +462,10 @@ function setupIpcHandlers() {
     };
   });
 
+  ipcMainHandle('getLaunchOptions', async () => {
+    return launchOptions;
+  });
+
   /**
    * Windows 窗口控制
    */
@@ -592,7 +612,7 @@ app.whenReady().then(async () => {
   if (localDevelopmentMode) {
     log.info('本地开发模式启动，跳过配置自动登录和服务器连接');
     mainWindow = createMainWindow();
-    showWindow(mainWindow);
+    showMainWindowOnLaunch(mainWindow);
     return;
   }
 
@@ -618,7 +638,7 @@ app.whenReady().then(async () => {
         mainWindow = createMainWindow();
         log.info('自动登录成功');
         webSocketService.setMainWindow(mainWindow);
-        showWindow(mainWindow);
+        showMainWindowOnLaunch(mainWindow);
         return; // 自动登录成功，不显示登录窗口
       } else {
         log.info('自动登录失败，显示登录窗口');
@@ -629,6 +649,11 @@ app.whenReady().then(async () => {
     }
   }
   // 自动登录失败或没有配置，显示登录窗口
+  if (launchOptions.silent) {
+    log.error('静默模式下自动登录失败，不显示登录窗口，应用退出', { alias, userId });
+    app.exit(1);
+    return;
+  }
   log.info('显示登录窗口');
   createLoginWindow();
 });

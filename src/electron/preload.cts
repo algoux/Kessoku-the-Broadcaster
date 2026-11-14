@@ -156,6 +156,9 @@ electron.contextBridge.exposeInMainWorld('electron', {
   getPlatformInfo: () => {
     return ipcInvoke('getPlatformInfo');
   },
+  getLaunchOptions: () => {
+    return ipcInvoke('getLaunchOptions');
+  },
 } satisfies Window['electron']);
 
 function ipcInvoke<Key extends keyof EventPayloadMapping>(
