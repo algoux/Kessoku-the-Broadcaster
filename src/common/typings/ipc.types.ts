@@ -3,6 +3,7 @@ import type {
   AppConfigInterface,
   AudioConfig,
   GetPlatformInfoDTO,
+  LaunchOptions,
   UpdateAudioConfigDTO,
   UpdateConfigDTO,
   UpdateVideoConfigDTO,
@@ -140,6 +141,7 @@ export type EventPayloadMapping = {
   windowClose: void;
 
   getPlatformInfo: GetPlatformInfoDTO;
+  getLaunchOptions: LaunchOptions;
 };
 
 export type EventArgMapping = {
@@ -186,4 +188,5 @@ export type EventArgMapping = {
   windowClose: [];
 
   getPlatformInfo: [];
+  getLaunchOptions: [];
 };

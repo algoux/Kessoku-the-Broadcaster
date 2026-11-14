@@ -1,4 +1,5 @@
 import { ipcMain, WebContents, WebFrameMain } from 'electron';
+import type { LaunchOptions } from 'common/config.interface';
 
 export function isDevelopment() {
   return process.env.NODE_ENV === 'development';
@@ -6,6 +7,14 @@ export function isDevelopment() {
 
 export function isLocalDevelopment() {
   return process.env.KTBC_LOCAL_DEV === '1';
+}
+
+export function getLaunchOptions(argv: string[] = process.argv): LaunchOptions {
+  return {
+    // 兼容设计文档中的 --deamon 拼写
+    daemon: argv.some((arg) => ['-d', '--daemon', '--deamon'].includes(arg)),
+    silent: argv.includes('--silent'),
+  };
 }
 
 export function ipcMainHandle<Key extends keyof EventPayloadMapping>(

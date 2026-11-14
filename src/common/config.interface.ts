@@ -27,6 +27,12 @@ export interface GetPlatformInfoDTO {
   arch: string;
 }
 
+// 命令行启动参数
+export interface LaunchOptions {
+  daemon: boolean; // -d, --daemon：后台静默启动，不显示 UI，自动就绪
+  silent: boolean; // --silent：登录失败时不弹出 UI，仅记录日志
+}
+
 // 视频设备配置（用于保存到配置文件）
 export interface VideoConfig {
   id: string;

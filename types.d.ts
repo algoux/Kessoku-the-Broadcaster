@@ -6,6 +6,7 @@ import {
   VideoConfig,
   AudioConfig,
   GetPlatformInfoDTO,
+  LaunchOptions,
 } from 'common/config.interface';
 import {
   CompleteConnectTransportParams,
@@ -37,6 +38,7 @@ declare global {
   interface Window {
     electron: {
       getPlatformInfo: () => Promise<GetPlatformInfoDTO>;
+      getLaunchOptions: () => Promise<LaunchOptions>;
       getSources: () => Promise<Electron.DesktopCapturerSource[]>;
       hasReady: () => void;
       // WebSocket 相关方法

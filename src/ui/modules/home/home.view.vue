@@ -421,6 +421,16 @@ class HomeView extends Vue {
     });
 
     await this.refreshAllDevices();
+
+    const launchOptions = await window.electron.getLaunchOptions();
+    if (launchOptions.daemon && !this.isReady) {
+      if (this.deviceManager.userDevices.length === 0) {
+        console.warn('后台模式启动但没有可用设备，跳过自动就绪');
+        return;
+      }
+      console.log('后台模式启动，自动进入就绪状态');
+      await this.changeReadyState();
+    }
   }
 
   beforeUnmount() {
