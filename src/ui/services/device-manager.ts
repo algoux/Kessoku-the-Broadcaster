@@ -19,7 +19,10 @@ import {
   VideoConfig,
 } from 'common/config.interface';
 import type { DeviceConfigPayload } from 'common/typings/ipc.types';
-import { toRaw } from 'vue';
+import { markRaw, toRaw } from 'vue';
+
+type DeviceEvent = 'stream-started' | 'config-saved' | 'device-removed';
+type DeviceListener = (device: Device) => void;
 
 type ScreenConstraintKey =
   | 'minWidth'
@@ -55,6 +58,32 @@ export class DeviceManager {
   };
   configForm: DeviceSettings = {} as DeviceSettings;
   screenAvailableMaxFrameRate: number = 60;
+  // markRaw: DeviceManager 会被 reactive 包裹，监听表无需响应式
+  private listeners = markRaw(new Map<DeviceEvent, Set<DeviceListener>>());
+
+  /**
+   * 订阅设备事件
+   * @returns 取消订阅函数
+   */
+  on(event: DeviceEvent, listener: DeviceListener): () => void {
+    let set = this.listeners.get(event);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(event, set);
+    }
+    set.add(listener);
+    return () => set!.delete(listener);
+  }
+
+  private emit(event: DeviceEvent, device: Device) {
+    this.listeners.get(event)?.forEach((listener) => {
+      try {
+        listener(device);
+      } catch (error) {
+        console.error(`设备事件 ${event} 处理失败:`, error);
+      }
+    });
+  }
 
   set setScreenAvailableMaxFrameRate(fps: number) {
     this.screenAvailableMaxFrameRate = fps;
@@ -453,6 +482,7 @@ export class DeviceManager {
         this.processVideoTrack(device);
       }
 
+      this.emit('stream-started', device);
       return device;
     } catch (error) {
       console.error(`启动设备 ${device.name} 失败:`, error);
@@ -648,6 +678,8 @@ export class DeviceManager {
   async removeDevice(device: Device) {
     const index = this.userDevices.indexOf(device);
     if (index > -1) {
+      // 先于停流发出，订阅方可在 track 结束前收尾（如录制落盘最后一块）
+      this.emit('device-removed', device);
       this.stopDeviceStream(device);
       this.userDevices.splice(index, 1);
       this.updateCanAddState();
@@ -901,6 +933,7 @@ export class DeviceManager {
         } catch (saveError) {
           console.error('保存设备配置到文件失败:', saveError);
         }
+        this.emit('config-saved', target);
         return { updateIndex: idx, updateDevice: target };
       }
 

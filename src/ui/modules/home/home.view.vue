@@ -78,8 +78,8 @@ class HomeView extends Vue {
   @Provide({ reactive: true })
   deviceManager: DeviceManager = reactive(new DeviceManager()) as DeviceManager;
 
-  @Provide({ reactive: true })
-  recorderService: RecorderService = new RecorderService();
+  // 订阅 deviceManager 事件自动管理录制，视图无需直接调用
+  recorderService: RecorderService = new RecorderService(this.deviceManager);
 
   @Provide({ reactive: true })
   public isReady: boolean = false;
@@ -219,11 +219,9 @@ class HomeView extends Vue {
         const deviceRes = await this.deviceManager.refreshAllDevices();
         if (deviceRes) {
           console.log('已加载设备:', deviceRes);
-          // 更新视频元素并启动录制（仅视频设备）
           const videoDevices = deviceRes.filter((d) => this.deviceManager.isVideoDevice(d));
           for (const device of videoDevices) {
             await this.updateVideoElement(device);
-            await this.recorderService.startRollingRecord(device);
           }
         }
         return deviceRes;
@@ -309,10 +307,8 @@ class HomeView extends Vue {
         if (result.code && result.device) {
           this.showMessage(`已添加${this.deviceTypeName(deviceType)}`, 'primary');
 
-          // 视频设备需要更新视频元素和启动录制
           if (this.deviceManager.isVideoDevice(result.device)) {
             await this.updateVideoElement(result.device);
-            await this.recorderService.startRollingRecord(result.device);
           }
         } else {
           this.showMessage('添加设备失败', 'error');
@@ -337,7 +333,7 @@ class HomeView extends Vue {
         this.configDialogVisible = false;
       }
 
-      this.stopDeviceStream(device);
+      // deviceManager.removeDevice 内部会发出 device-removed 并停流，卡片随列表移除卸载
       this.deviceManager.removeDevice(device);
       this.showMessage(`已移除设备 ${device.name}`, 'primary');
     } catch (error) {
@@ -366,9 +362,6 @@ class HomeView extends Vue {
   // 保存设备配置
   @Provide()
   async saveDeviceConfig() {
-    const device = this.deviceManager.currentConfigDevice;
-    const isRecording = this.recorderService.rollingRecordsMap.has(device.classId);
-
     await this.executeWithLoading(
       '保存设备配置中',
       async () => {
@@ -377,13 +370,6 @@ class HomeView extends Vue {
         this.configDialogVisible = false;
         this.deviceCards[updateIndex].updateFormatSetting();
         await this.updateVideoElement(updateDevice);
-
-        // 如果设备之前正在录制，重新启动录制
-        if (isRecording) {
-          console.log(`设备 ${updateDevice.name} 配置已更新，重新启动录制`);
-          await this.recorderService.startRollingRecord(updateDevice);
-        }
-
         return updateDevice;
       },
       () => this.showMessage('设备配置已更新', 'primary'),
@@ -440,8 +426,10 @@ class HomeView extends Vue {
       this.rendererService = null;
     }
 
-    // 停止所有设备流
+    // 停止所有录制和设备流
+    // stopRollingRecord 会同步调用 recorder.stop()，因此先于停流执行，最后一块数据不丢
     this.deviceManager.userDevices.forEach((device) => {
+      void this.recorderService.stopRollingRecord(device.classId);
       this.stopDeviceStream(device);
     });
   }

@@ -17,6 +17,8 @@ export type {
   ConfirmReadyResponse,
   ReplayRequest,
   StopReplayRequest,
+  RequestCreateClip,
+  RequestCreateClipAck,
 } from 'common/typings/broadcaster.types';
 
 export interface RecordingData {
@@ -25,4 +27,13 @@ export interface RecordingData {
   writeStream: fs.WriteStream;
   startTime: number;
   chunks: Buffer[];
+}
+
+/**
+ * 已结束或正在进行的录制文件，时间为本地毫秒时间戳
+ */
+export interface RecordingFile {
+  filePath: string;
+  startTime: number;
+  endTime: number | null;
 }

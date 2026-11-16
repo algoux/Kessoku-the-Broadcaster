@@ -4,10 +4,27 @@ import os from 'os';
 import ffmpeg from 'fluent-ffmpeg';
 import { getFFmpegpath } from '../utils/path-resolver';
 import log from 'electron-log';
-import { RecordingData } from './../typings/data';
+import { RecordingData, RecordingFile } from './../typings/data';
+
+export interface ClipCutResult {
+  success: boolean;
+  filePath?: string;
+  /** 片段实际起止（本地毫秒时间戳），起点对齐到关键帧 */
+  actualStartTime?: number;
+  actualEndTime?: number;
+  durationMs?: number;
+  width?: number;
+  height?: number;
+  videoCodec?: string;
+  audioCodec?: string;
+  errorCode?: string;
+  error?: string;
+}
 
 export class VideoRecordingService {
   private recordingFiles: Map<string, RecordingData> = new Map();
+  /** 每个设备的录制文件历史，用于精彩回放按时间定位 */
+  private recordingHistory: Map<string, RecordingFile[]> = new Map();
   private cacheDir: string;
   private ffmpeg = ffmpeg;
 
@@ -43,13 +60,17 @@ export class VideoRecordingService {
       const filePath = path.join(this.cacheDir, `${classId}_${Date.now()}.webm`);
       const writeStream = fs.createWriteStream(filePath);
 
+      const startTime = Date.now();
       this.recordingFiles.set(classId, {
         classId,
         filePath,
         writeStream,
-        startTime: Date.now(),
+        startTime,
         chunks: [],
       });
+      const history = this.recordingHistory.get(classId) || [];
+      history.push({ filePath, startTime, endTime: null });
+      this.recordingHistory.set(classId, history);
 
       return { success: true };
     } catch (error) {
@@ -70,6 +91,12 @@ export class VideoRecordingService {
     try {
       recording.writeStream.end();
       this.recordingFiles.delete(classId);
+      const file = this.recordingHistory
+        .get(classId)
+        ?.find((f) => f.filePath === recording.filePath);
+      if (file) {
+        file.endTime = Date.now();
+      }
       return { success: true };
     } catch (error) {
       console.error(`停止录制失败:`, error);
@@ -245,6 +272,87 @@ export class VideoRecordingService {
         resolve({ success: false, error: err.message });
       })
       .run();
+  }
+
+  /**
+   * 按本地时间截取精彩回放片段
+   * @description 使用 stream copy，不重编码；起点对齐到前一个关键帧，因此实际起点可能早于请求起点
+   * @param startTime 请求起点（本地毫秒时间戳）
+   * @param endTime 请求终点（本地毫秒时间戳）
+   */
+  async cutClip(
+    classId: string,
+    startTime: number,
+    endTime: number,
+    outputPath: string,
+  ): Promise<ClipCutResult> {
+    const file = (this.recordingHistory.get(classId) || []).find(
+      (f) =>
+        f.startTime <= startTime &&
+        (f.endTime === null || f.endTime >= endTime) &&
+        fs.existsSync(f.filePath),
+    );
+    if (!file) {
+      return {
+        success: false,
+        errorCode: 'recording_range_missing',
+        error: '本地录像未覆盖请求时间窗',
+      };
+    }
+
+    const seekSeconds = (startTime - file.startTime) / 1000;
+    const durationSeconds = (endTime - startTime) / 1000;
+    const cut = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+      this.ffmpeg(file.filePath)
+        .seekInput(seekSeconds)
+        .setDuration(durationSeconds)
+        .output(outputPath)
+        .videoCodec('copy')
+        .audioCodec('copy')
+        .on('end', () => resolve({ success: true }))
+        .on('error', (err) => resolve({ success: false, error: err.message }))
+        .run();
+    });
+    if (!cut.success) {
+      return { success: false, errorCode: 'clip_cut_failed', error: cut.error };
+    }
+
+    const probe = await new Promise<ffmpeg.FfprobeData | null>((resolve) => {
+      this.ffmpeg.ffprobe(outputPath, (err, data) => resolve(err ? null : data));
+    });
+    const durationMs = Math.round(Number(probe?.format.duration) * 1000);
+    const video = probe?.streams.find((s) => s.codec_type === 'video');
+    const audio = probe?.streams.find((s) => s.codec_type === 'audio');
+    if (!video || !(durationMs > 0)) {
+      return { success: false, errorCode: 'media_validation_failed', error: '截取结果无有效视频' };
+    }
+    // 输入端定位 + stream copy 时，片段终点为 seek + duration，起点向前对齐到关键帧
+    return {
+      success: true,
+      filePath: outputPath,
+      actualStartTime: endTime - durationMs,
+      actualEndTime: endTime,
+      durationMs,
+      width: video.width,
+      height: video.height,
+      videoCodec: video.codec_name,
+      audioCodec: audio?.codec_name,
+    };
+  }
+
+  /**
+   * 截取片段首帧作为缩略图（JPEG）
+   */
+  extractThumbnail(videoPath: string, outputPath: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      this.ffmpeg(videoPath)
+        // 取首帧，保持与视频一致的原生分辨率（单帧 JPEG 远小于 Hub 的 5 MiB 缩略图上限）
+        .outputOptions(['-frames:v 1', '-q:v 3'])
+        .output(outputPath)
+        .on('end', () => resolve(true))
+        .on('error', () => resolve(false))
+        .run();
+    });
   }
 
   /**

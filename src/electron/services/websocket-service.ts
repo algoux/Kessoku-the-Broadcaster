@@ -14,6 +14,8 @@ import type {
   ConfirmReadyResponse,
   ReplayRequest,
   StopReplayRequest,
+  RequestCreateClip,
+  RequestCreateClipAck,
 } from '../typings/data';
 
 /**
@@ -43,6 +45,9 @@ export class WebSocketService {
     }
   > = new Map();
 
+  // 精彩回放切片请求处理器
+  private createClipHandler?: (data: RequestCreateClip) => RequestCreateClipAck;
+
   constructor(serviceURL: string, servicePath?: string, clientId?: string) {
     this.serviceURL = serviceURL;
     this.servicePath = servicePath;
@@ -61,6 +66,23 @@ export class WebSocketService {
     this.userId = userId;
     this.token = token;
     this.connectionState = 'connecting';
+
+    // 校验并规范化服务地址，避免非法 URL（如缺少 // 的 http:host）导致 socket.io 解析出 undefined 主机名
+    let parsedURL: URL;
+    try {
+      parsedURL = new URL(this.serviceURL);
+    } catch {
+      this.connectionState = 'disconnected';
+      console.error('服务地址非法，请检查设置中的服务地址（需形如 http://host:port）:', this.serviceURL);
+      return false;
+    }
+    if (parsedURL.protocol !== 'http:' && parsedURL.protocol !== 'https:') {
+      this.connectionState = 'disconnected';
+      console.error('服务地址协议非法，仅支持 http/https:', this.serviceURL);
+      return false;
+    }
+    // origin 会把 http:127.0.0.1:3001 规范化为 http://127.0.0.1:3001
+    this.serviceURL = parsedURL.origin;
 
     return new Promise((resolve) => {
       if (this.socket?.connected) {
@@ -229,6 +251,22 @@ export class WebSocketService {
       });
     });
 
+    // 精彩回放切片请求
+    this.socket.on(
+      'requestCreateClip',
+      (data: RequestCreateClip, callback?: (ack: RequestCreateClipAck) => void) => {
+        console.log(
+          '收到切片请求:',
+          data.taskId,
+          data.items.map((item) => item.trackId),
+        );
+        const ack = this.createClipHandler
+          ? this.createClipHandler(data)
+          : { accepted: false, errorCode: 'client_not_ready', errorMessage: '切片服务未初始化' };
+        callback?.(ack);
+      },
+    );
+
     // 停止回看推流请求
     this.socket.on('stopReplayRequest', ({ trackId }: StopReplayRequest) => {
       console.log('收到停止回看请求:', trackId);
@@ -253,6 +291,37 @@ export class WebSocketService {
         resolve(resp);
       });
     });
+  }
+
+  /**
+   * 设置精彩回放切片请求处理器
+   */
+  setCreateClipHandler(handler: (data: RequestCreateClip) => RequestCreateClipAck) {
+    this.createClipHandler = handler;
+  }
+
+  /**
+   * 测量服务端时间与本地时间的偏差（服务端时间 = 本地时间 + 偏差）
+   */
+  async getServerTimeOffset(): Promise<number> {
+    const sentAt = Date.now();
+    const resp = await this.getContestInfo();
+    const receivedAt = Date.now();
+    if (resp.success === false || !resp.data) {
+      throw new Error((resp.success === false && resp.msg) || '获取服务端时间失败');
+    }
+    return resp.data.serverTimestamp - Math.round((sentAt + receivedAt) / 2);
+  }
+
+  /**
+   * 获取 Hub HTTP 接口地址与选手身份
+   */
+  getHttpContext() {
+    return {
+      baseURL: this.serviceURL.replace(/\/+$/, ''),
+      alias: this.alias,
+      userId: this.userId,
+    };
   }
 
   /**
