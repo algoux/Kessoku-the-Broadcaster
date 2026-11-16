@@ -153,3 +153,34 @@ export interface ReplayRequest {
 export interface StopReplayRequest {
   trackId: string;
 }
+
+/**
+ * 精彩回放切片请求（Hub requestCreateClip）
+ * 每个任务项带短期上传凭证；Hub 重新下发同一任务项时会换发凭证，旧凭证随之失效
+ */
+export interface RequestCreateClip {
+  taskId: string;
+  uca: string;
+  userId: string;
+  startServerMs: number;
+  endServerMs: number;
+  items: {
+    itemId: string;
+    trackId: string;
+    uploadToken: string;
+    uploadTokenExpiresAt: number;
+  }[];
+  preferred: {
+    containers: ('mp4' | 'webm')[];
+    maxUploadBytes: number;
+  };
+}
+
+/**
+ * 切片请求 ACK，仅表示是否接收该批任务
+ */
+export interface RequestCreateClipAck {
+  accepted: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+}

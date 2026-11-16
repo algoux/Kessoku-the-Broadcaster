@@ -14,6 +14,7 @@ import {
 import { getPreloadPath, getUIPath } from './utils/path-resolver';
 import { WebSocketService } from './services/websocket-service';
 import { VideoRecordingService } from './services/video-recording-service';
+import { HighlightService } from './services/highlight-service';
 import { ConfigManager } from './services/config-manager';
 import { createTray } from './utils/tray';
 import log from 'electron-log';
@@ -84,6 +85,7 @@ let mainWindow: BrowserWindow;
 let settingsWindow: BrowserWindow;
 let webSocketService: WebSocketService;
 let videoRecordingService: VideoRecordingService;
+let highlightService: HighlightService;
 let configManager: ConfigManager = new ConfigManager();
 const localDevelopmentMode = isLocalDevelopment();
 const launchOptions = getLaunchOptions();
@@ -95,6 +97,14 @@ app.setAboutPanelOptions({
   authors: ['algoUX'],
   website: 'https://algoux.org',
 });
+
+/**
+ * 为当前 WebSocketService 挂载精彩回放切片请求处理
+ */
+function setupHighlightService() {
+  highlightService = new HighlightService(webSocketService, () => videoRecordingService);
+  webSocketService.setCreateClipHandler((data) => highlightService.handleRequest(data));
+}
 
 function showWindow(window: BrowserWindow) {
   window.on('ready-to-show', () => {
@@ -239,6 +249,7 @@ function setupIpcHandlers() {
           config.servicePath,
           config.clientId,
         );
+        setupHighlightService();
 
         const connected = await webSocketService.connect(alias, userId, token);
 
@@ -631,6 +642,7 @@ app.whenReady().then(async () => {
           configManager.getConfigData.servicePath,
           configManager.getConfigData.clientId,
         );
+        setupHighlightService();
       }
       const connected = await webSocketService.connect(alias, userId, token);
 

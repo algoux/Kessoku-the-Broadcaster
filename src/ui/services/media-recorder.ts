@@ -1,4 +1,5 @@
 import { Device } from '@/typings/data';
+import type { DeviceManager } from './device-manager';
 
 interface RollingRecord {
   recorder: MediaRecorder;
@@ -10,6 +11,40 @@ interface RollingRecord {
 
 export class RecorderService {
   rollingRecordsMap: Map<string, RollingRecord> = new Map();
+
+  // ponytail: 不保存取消订阅函数，两个服务都随 home view 一起创建和销毁
+  constructor(deviceManager: DeviceManager) {
+    deviceManager.on('stream-started', (device) => {
+      if (deviceManager.isVideoDevice(device)) void this.startRollingRecord(device);
+    });
+    // 配置变更后，仅对正在录制的设备重启录制
+    deviceManager.on('config-saved', (device) => {
+      if (this.rollingRecordsMap.has(device.classId)) void this.startRollingRecord(device);
+    });
+    deviceManager.on('device-removed', (device) => {
+      void this.stopRollingRecord(device.classId);
+    });
+  }
+
+  // 停止录制并通知主进程关闭录制文件
+  async stopRollingRecord(classId: string) {
+    const record = this.rollingRecordsMap.get(classId);
+    if (!record) return;
+    this.rollingRecordsMap.delete(classId);
+
+    try {
+      // 等 stop 事件，确保最后一块数据先于 stopContinuousRecording 发出
+      if (record.recorder.state !== 'inactive') {
+        await new Promise<void>((resolve) => {
+          record.recorder.addEventListener('stop', () => resolve(), { once: true });
+          record.recorder.stop();
+        });
+      }
+      await window.electron.stopContinuousRecording(classId);
+    } catch (error) {
+      console.error(`停止设备 ${record.deviceName} (${classId}) 录制失败:`, error);
+    }
+  }
 
   private getSupportedMimeType(): string {
     const mimeTypes = [
