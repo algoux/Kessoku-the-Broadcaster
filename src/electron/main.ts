@@ -87,6 +87,8 @@ let webSocketService: WebSocketService;
 let videoRecordingService: VideoRecordingService;
 let highlightService: HighlightService;
 let configManager: ConfigManager = new ConfigManager();
+/** 当前推流的目标码率之和（bps），精彩回放上传据此限速 */
+let streamBitrate = 0;
 const localDevelopmentMode = isLocalDevelopment();
 const launchOptions = getLaunchOptions();
 
@@ -102,7 +104,11 @@ app.setAboutPanelOptions({
  * 为当前 WebSocketService 挂载精彩回放切片请求处理
  */
 function setupHighlightService() {
-  highlightService = new HighlightService(webSocketService, () => videoRecordingService);
+  highlightService = new HighlightService(
+    webSocketService,
+    () => videoRecordingService,
+    () => ({ uplinkMbps: configManager.getConfigData.appConfig?.uplinkMbps, streamBitrate }),
+  );
   webSocketService.setCreateClipHandler((data) => highlightService.handleRequest(data));
 }
 
@@ -387,6 +393,12 @@ function setupIpcHandlers() {
         }
         return track;
       });
+      streamBitrate = tracks.reduce(
+        (sum, track) =>
+          sum +
+          (track.video?.simulcastConfigs || []).reduce((acc, config) => acc + config.maxBitRate, 0),
+        0,
+      );
 
       const resp = await webSocketService.confirmReady(tracks);
       if (resp.success && resp.data) {
@@ -401,6 +413,7 @@ function setupIpcHandlers() {
     } else {
       // 取消就绪前，先清理所有 producer 和 transport
       ipcWebContentsSend('cleanupMediaResources', mainWindow.webContents, {});
+      streamBitrate = 0;
       const resp = await webSocketService.cancelReady();
       return { success: resp.success };
     }

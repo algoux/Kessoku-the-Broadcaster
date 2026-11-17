@@ -63,6 +63,7 @@ export interface AppConfigInterface {
     autoOpenOnLogin?: boolean; // 开机自启动
     autoReady?: boolean; // 启动时自动准备
     videoCachePath?: string; // 视频缓存路径
+    uplinkMbps?: number; // 上行带宽（Mbps），用于精彩回放上传限速；未配置时按保守值限速
   };
   userConfig: {
     broadcasterToken?: string; // Broadcaster 推流 token
