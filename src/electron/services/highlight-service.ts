@@ -11,6 +11,13 @@ import type { RequestCreateClip, RequestCreateClipAck } from '../typings/data';
 type ClipItem = RequestCreateClip['items'][number] & { generation: number };
 
 const UPLOAD_CHUNK_SIZE = 1024 * 1024;
+/** 请求体按 16 KiB 片段匀速写出，避免整块突发挤占推流 */
+const UPLOAD_SLICE_SIZE = 16 * 1024;
+/** 未配置上行带宽时的上传限速 */
+const DEFAULT_UPLOAD_LIMIT_MBPS = 8;
+/** 上传限速下限：max(2 Mbps, 上行 − 2 × 推流码率)，系数依据精彩回放联合压测（浅缓冲路由器下 1.5 仍会丢包） */
+const MIN_UPLOAD_LIMIT_MBPS = 2;
+const STREAM_BITRATE_FACTOR = 2;
 /** 连续失败的重试次数上限，退避 2/4/6/8/10/10s，可覆盖约 40s 的断网 */
 const UPLOAD_MAX_RETRIES = 6;
 /** 截取终点向后多取的时长，抵消时钟同步误差 */
@@ -27,6 +34,24 @@ class ClipError extends Error {
   }
 }
 
+/** 令牌桶，允许欠账：取走后余额为负就等到补齐 */
+class TokenBucket {
+  private tokens = 4 * UPLOAD_SLICE_SIZE;
+  private last = Date.now();
+  /** bytes per ms */
+  rate = 1;
+
+  async take(n: number) {
+    const now = Date.now();
+    this.tokens = Math.min(4 * UPLOAD_SLICE_SIZE, this.tokens + (now - this.last) * this.rate);
+    this.last = now;
+    this.tokens -= n;
+    if (this.tokens < 0) {
+      await new Promise((resolve) => setTimeout(resolve, -this.tokens / this.rate));
+    }
+  }
+}
+
 /**
  * 精彩回放服务 - 处理 Hub 的切片请求：从本地录像截取片段并断点上传
  */
@@ -35,10 +60,13 @@ export class HighlightService {
   private queue: Promise<void> = Promise.resolve();
   /** 任务项最新代次，收到新的下发后旧代处理会被放弃 */
   private latestGenerations: Map<string, number> = new Map();
+  /** 所有上传共用，任务项串行处理，总速率不超过限速 */
+  private bucket = new TokenBucket();
 
   constructor(
     private webSocketService: WebSocketService,
     private getVideoRecordingService: () => VideoRecordingService | undefined,
+    private getBandwidth: () => { uplinkMbps?: number; streamBitrate: number },
   ) {
     this.cacheDir = path.join(os.homedir(), '.Kessoku-the-Broadcaster', 'cache');
   }
@@ -184,6 +212,9 @@ export class HighlightService {
   ) {
     const size = fs.statSync(filePath).size;
     const checksum = await sha256(filePath);
+    const limitMbps = this.getUploadLimitMbps();
+    this.bucket.rate = (limitMbps * 1e6) / 8 / 1000;
+    log.info('切片上传限速', { itemId: item.itemId, role, limitMbps });
     const created = await this.postJson<{ uploadId: string; uploadUrl: string; offset: number }>(
       item,
       `/api/clips/tasks/${data.taskId}/uploads`,
@@ -211,6 +242,9 @@ export class HighlightService {
         try {
           if (resync) {
             const head = await this.request(item, created.uploadUrl, { method: 'HEAD' });
+            if (head.status >= 500) {
+              throw new Error(`查询上传进度失败: HTTP ${head.status}`);
+            }
             if (head.status !== 204) {
               throw new ClipError('upload_rejected', `查询上传进度失败: HTTP ${head.status}`);
             }
@@ -220,20 +254,39 @@ export class HighlightService {
           }
           const chunk = Buffer.alloc(Math.min(UPLOAD_CHUNK_SIZE, size - offset));
           await handle.read(chunk, 0, chunk.length, offset);
+          let sent = 0;
+          const body = new ReadableStream<Uint8Array>({
+            pull: async (controller) => {
+              if (sent >= chunk.length) {
+                controller.close();
+                return;
+              }
+              const slice = chunk.subarray(sent, sent + UPLOAD_SLICE_SIZE);
+              await this.bucket.take(slice.length);
+              sent += slice.length;
+              controller.enqueue(slice);
+            },
+          });
           const resp = await this.request(item, created.uploadUrl, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/offset+octet-stream',
+              'Content-Length': String(chunk.length),
               'Upload-Offset': String(offset),
             },
-            body: chunk,
-          });
+            body,
+            duplex: 'half',
+          } as RequestInit);
           if (resp.status === 204 || resp.status === 409) {
             // 409 时以 Hub 已确认的 offset 为准
             offset = Number(resp.headers.get('Upload-Offset'));
             retries = 0;
             await onProgress?.(offset / size);
             continue;
+          }
+          if (resp.status >= 500) {
+            // Hub 重启期间网关返回 502 等，按网络错误退避后 HEAD 续传
+            throw new Error(`上传失败: HTTP ${resp.status}`);
           }
           throw new ClipError('upload_rejected', `上传被拒绝: HTTP ${resp.status}`);
         } catch (error) {
@@ -277,12 +330,36 @@ export class HighlightService {
     }
   }
 
+  /** 上传限速（Mbps）：未配置上行带宽时取保守值 */
+  private getUploadLimitMbps() {
+    const { uplinkMbps, streamBitrate } = this.getBandwidth();
+    if (!uplinkMbps) {
+      return DEFAULT_UPLOAD_LIMIT_MBPS;
+    }
+    return Math.max(
+      MIN_UPLOAD_LIMIT_MBPS,
+      uplinkMbps - (STREAM_BITRATE_FACTOR * streamBitrate) / 1e6,
+    );
+  }
+
+  /**
+   * 网络错误与 5xx 退避重试；Hub 的建会话、complete、progress 接口均可重复调用
+   */
   private async postJson<T = unknown>(item: ClipItem, route: string, body: unknown): Promise<T> {
-    const resp = await this.request(item, route, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let resp: Response;
+    for (let retries = 0; ; retries++) {
+      try {
+        resp = await this.request(item, route, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (resp.status < 500 || retries >= UPLOAD_MAX_RETRIES) break;
+      } catch (error) {
+        if (retries >= UPLOAD_MAX_RETRIES) throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.min((retries + 1) * 2000, 10000)));
+    }
     const result = await resp.json().catch(() => null);
     if (!result?.success) {
       throw new ClipError('hub_rejected', result?.msg || `Hub 请求失败: HTTP ${resp.status}`);
